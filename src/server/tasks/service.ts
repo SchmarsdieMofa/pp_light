@@ -11,7 +11,7 @@ import {
 import { recordActivity } from "@/server/activity/service";
 import type { DB, Executor } from "@/server/db/client";
 import { byPosition } from "@/server/db/order";
-import { projects, statuses, tasks } from "@/server/db/schema";
+import { phases, projects, statuses, tasks } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { assertCan, projectCtx, type Actor } from "@/server/permissions";
 import { requireProjectAccess } from "@/server/projects/service";
@@ -95,7 +95,7 @@ export async function createTask(db: DB, actor: Actor, raw: CreateTaskInput): Pr
   });
 }
 
-const EDITABLE_FIELDS = ["title", "description", "statusId", "priority", "startDate", "dueDate"] as const;
+const EDITABLE_FIELDS = ["title", "description", "statusId", "phaseId", "priority", "startDate", "dueDate"] as const;
 
 export async function updateTask(
   db: DB,
@@ -132,6 +132,11 @@ export async function updateTask(
     if (changes.statusId) {
       const status = await resolveStatus(tx, task.projectId, changes.statusId);
       changes.completedAt = status.isDone ? (task.completedAt ?? new Date()) : null;
+    }
+    if (changes.phaseId) {
+      const [phase] = await tx.select({ id: phases.id }).from(phases)
+        .where(and(eq(phases.id, changes.phaseId), eq(phases.projectId, task.projectId))).limit(1);
+      if (!phase) throw new DomainError("VALIDATION", "Unbekannte Phase.");
     }
 
     // Optimistic lock: a concurrent writer that committed first makes this match zero rows.

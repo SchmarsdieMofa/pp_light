@@ -19,6 +19,7 @@ export const updateTaskSchema = z
     title,
     description: z.string().max(20000, "Höchstens 20000 Zeichen"),
     statusId: z.uuid(),
+    phaseId: z.uuid().nullable(),
     priority: z.enum(TASK_PRIORITIES),
     startDate: isoDate.nullable(),
     dueDate: isoDate.nullable(),
