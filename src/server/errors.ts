@@ -5,7 +5,8 @@ export type ErrorCode =
   | "KEY_TAKEN"
   | "EMAIL_TAKEN"
   | "CONFLICT"
-  | "LABEL_TAKEN";
+  | "LABEL_TAKEN"
+  | "TOO_LARGE";
 
 export class DomainError extends Error {
   constructor(
