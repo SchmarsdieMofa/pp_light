@@ -6,7 +6,13 @@ import { toast } from "sonner";
 import { createTaskAction } from "@/app/(app)/tasks/actions";
 import { Input } from "@/components/ui/input";
 
-export function QuickAdd(props: { projectId: string; parentId?: string; label: string; placeholder: string }) {
+export function QuickAdd(props: {
+  projectId: string;
+  parentId?: string;
+  statusId?: string;
+  label: string;
+  placeholder: string;
+}) {
   const [title, setTitle] = useState("");
   const [pending, startTransition] = useTransition();
 
@@ -15,7 +21,12 @@ export function QuickAdd(props: { projectId: string; parentId?: string; label: s
     const value = title.trim();
     if (!value || pending) return;
     startTransition(async () => {
-      const res = await createTaskAction({ projectId: props.projectId, parentId: props.parentId, title: value });
+      const res = await createTaskAction({
+        projectId: props.projectId,
+        parentId: props.parentId,
+        statusId: props.statusId,
+        title: value,
+      });
       if (!res.ok) {
         toast.error(res.error.fieldErrors?.title?.[0] ?? res.error.message);
         return;
