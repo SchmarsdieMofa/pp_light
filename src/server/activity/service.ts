@@ -14,7 +14,10 @@ export type ActivityAction =
   | "schedule.undone"
   | "dependency.added"
   | "dependency.updated"
-  | "dependency.removed";
+  | "dependency.removed"
+  | "comment.added"
+  | "attachment.added"
+  | "attachment.removed";
 
 export type ActivityEntry = typeof activityLog.$inferSelect;
 
