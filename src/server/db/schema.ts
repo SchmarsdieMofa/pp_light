@@ -72,6 +72,25 @@ export const statuses = pgTable(
   (t) => [index("statuses_project_idx").on(t.projectId)],
 );
 
+export const phases = pgTable(
+  "phases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    startDate: date("start_date"),
+    endDate: date("end_date"),
+    isMilestone: boolean("is_milestone").notNull().default(false),
+    position: text("position").notNull(),
+  },
+  (t) => [
+    uniqueIndex("phases_project_name_uq").on(t.projectId, sql`lower(${t.name})`),
+    index("phases_project_idx").on(t.projectId),
+    check("phases_dates_ck", sql`${t.startDate} is null or ${t.endDate} is null or ${t.startDate} <= ${t.endDate}`),
+    check("phases_milestone_ck", sql`not ${t.isMilestone} or (${t.startDate} is not null and ${t.startDate} = ${t.endDate})`),
+  ],
+);
+
 export const userPreferences = pgTable("user_preferences", {
   userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
   theme: themePref("theme").notNull().default("system"),
@@ -83,6 +102,7 @@ export const tasks = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+    phaseId: uuid("phase_id").references(() => phases.id, { onDelete: "set null" }),
     parentId: uuid("parent_id").references((): AnyPgColumn => tasks.id, { onDelete: "cascade" }),
     number: integer("number").notNull(),
     title: text("title").notNull(),
@@ -101,8 +121,24 @@ export const tasks = pgTable(
     uniqueIndex("tasks_project_number_uq").on(t.projectId, t.number),
     index("tasks_project_idx").on(t.projectId),
     index("tasks_parent_idx").on(t.parentId),
+    index("tasks_phase_idx").on(t.phaseId),
     index("tasks_status_idx").on(t.statusId),
     check("tasks_dates_ck", sql`${t.startDate} is null or ${t.dueDate} is null or ${t.startDate} <= ${t.dueDate}`),
+  ],
+);
+
+export const taskDependencies = pgTable(
+  "task_dependencies",
+  {
+    blockerId: uuid("blocker_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+    blockedId: uuid("blocked_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+    lagDays: integer("lag_days").notNull().default(0),
+  },
+  (t) => [
+    primaryKey({ columns: [t.blockerId, t.blockedId] }),
+    index("task_dependencies_blocked_idx").on(t.blockedId),
+    check("task_dependencies_distinct_ck", sql`${t.blockerId} <> ${t.blockedId}`),
+    check("task_dependencies_lag_ck", sql`${t.lagDays} >= 0`),
   ],
 );
 
