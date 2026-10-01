@@ -198,3 +198,41 @@ export const activityLog = pgTable(
   },
   (t) => [index("activity_log_task_idx").on(t.taskId), index("activity_log_project_idx").on(t.projectId)],
 );
+
+export const comments = pgTable(
+  "comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id").notNull().references(() => users.id),
+    body: text("body").notNull(),
+    createdAt: createdAt(),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+  },
+  (t) => [index("comments_task_idx").on(t.taskId)],
+);
+
+export const commentMentions = pgTable(
+  "comment_mentions",
+  {
+    commentId: uuid("comment_id").notNull().references(() => comments.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.commentId, t.userId] }), index("comment_mentions_user_idx").on(t.userId)],
+);
+
+export const attachments = pgTable(
+  "attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    taskId: uuid("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+    commentId: uuid("comment_id").references(() => comments.id, { onDelete: "set null" }),
+    filename: text("filename").notNull(),
+    mime: text("mime").notNull(),
+    size: integer("size").notNull(),
+    storageKey: text("storage_key").notNull().unique(),
+    uploadedBy: uuid("uploaded_by").notNull().references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index("attachments_task_idx").on(t.taskId)],
+);

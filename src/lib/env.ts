@@ -8,6 +8,7 @@ const envSchema = z.object({
     .refine((v) => !v.startsWith("change-me"), "Platzhalter aus .env.example – bitte zufällig erzeugen"),
   APP_URL: z.string().min(1).default("http://localhost:3000"),
   UPLOAD_MAX_MB: z.coerce.number().int().positive().default(25),
+  UPLOAD_DIR: z.string().min(1).default("./data/uploads"),
 });
 
 export type Env = z.infer<typeof envSchema>;
