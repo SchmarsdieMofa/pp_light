@@ -42,3 +42,8 @@ export function assertCan(actor: Actor, action: Action, ctx: PermissionContext =
     throw new DomainError("FORBIDDEN", "Dafür fehlt die Berechtigung.");
   }
 }
+
+/** Permission context for a project role as returned by getProjectForUser ("admin" = admin without membership). */
+export function projectCtx(role: ProjectRole | "admin" | null): PermissionContext {
+  return { projectRole: role === "admin" ? null : role };
+}

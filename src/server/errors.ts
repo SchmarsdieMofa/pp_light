@@ -4,7 +4,8 @@ export type ErrorCode =
   | "NOT_FOUND"
   | "KEY_TAKEN"
   | "EMAIL_TAKEN"
-  | "CONFLICT";
+  | "CONFLICT"
+  | "LABEL_TAKEN";
 
 export class DomainError extends Error {
   constructor(

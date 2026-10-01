@@ -8,6 +8,13 @@
       "when": 1790819348048,
       "tag": "0000_sudden_cannonball",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790821996686,
+      "tag": "0001_crazy_vector",
+      "breakpoints": true
     }
   ]
 }
