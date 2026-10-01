@@ -36,7 +36,7 @@ export function QuickAdd(props: {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex items-center gap-2">
+    <form onSubmit={onSubmit} className="flex items-center gap-2" data-quick-add>
       <Plus className="size-4 text-muted-foreground" aria-hidden />
       <Input
         aria-label={props.label}

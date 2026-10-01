@@ -1,8 +1,9 @@
 "use client";
 
-import { Home, Users } from "lucide-react";
+import { Home, Search, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { OPEN_PALETTE_EVENT } from "@/components/shell/command-center";
 import { NewProjectDialog } from "@/components/projects/new-project-dialog";
 import { cn } from "@/lib/utils";
 import { NotificationLink } from "./notification-link";
@@ -22,6 +23,14 @@ export function Sidebar({ user, projects, initialUnread, isAdmin }: { user: { na
         <Link href="/" className={cn(navItem, pathname === "/" && navActive)}>
           <Home className="size-4" /> Start
         </Link>
+        <button
+          type="button"
+          className={cn(navItem, "text-left")}
+          onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}
+        >
+          <Search className="size-4" /> Suchen
+          <kbd className="ml-auto rounded border bg-background px-1 text-[10px] text-muted-foreground">Strg K</kbd>
+        </button>
         <NotificationLink initialUnread={initialUnread} />
         {isAdmin && <Link href="/admin" className={cn(navItem, pathname === "/admin" && navActive)}><Users className="size-4" /> Nutzerverwaltung</Link>}
         <div className="mt-4 px-2 text-xs font-medium uppercase text-muted-foreground">Projekte</div>

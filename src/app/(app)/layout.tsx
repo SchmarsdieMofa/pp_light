@@ -1,3 +1,4 @@
+import { CommandCenter } from "@/components/shell/command-center";
 import { Sidebar } from "@/components/shell/sidebar";
 import { ThemeSync } from "@/components/shell/theme-sync";
 import { requireActor } from "@/server/auth/session";
@@ -23,6 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         isAdmin={actor.role === "admin"}
       />
       <main className="min-w-0 flex-1">{children}</main>
+      <CommandCenter projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key }))} />
     </div>
   );
 }
