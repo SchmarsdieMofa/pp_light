@@ -5,7 +5,7 @@ import type { ProjectRole } from "@/lib/enums";
 import { createProjectSchema, type CreateProjectInput } from "@/lib/schemas/project";
 import type { DB } from "@/server/db/client";
 import { byPosition } from "@/server/db/order";
-import { projectMembers, projects, statuses } from "@/server/db/schema";
+import { projectMembers, projects, statuses, users } from "@/server/db/schema";
 import { DomainError, isUniqueViolation } from "@/server/errors";
 import { assertCan, type Actor } from "@/server/permissions";
 
@@ -81,4 +81,22 @@ export function listStatuses(db: DB, projectId: string): Promise<Status[]> {
     .from(statuses)
     .where(eq(statuses.projectId, projectId))
     .orderBy(byPosition(statuses.position));
+}
+
+/** Like getProjectForUser, but throws NOT_FOUND (for services/actions). */
+export async function requireProjectAccess(db: DB, actor: Actor, projectId: string): Promise<ProjectAccess> {
+  const access = await getProjectForUser(db, actor, projectId);
+  if (!access) throw new DomainError("NOT_FOUND", "Projekt nicht gefunden.");
+  return access;
+}
+
+export type Member = { id: string; name: string; email: string; role: ProjectRole };
+
+export function listMembers(db: DB, projectId: string): Promise<Member[]> {
+  return db
+    .select({ id: users.id, name: users.name, email: users.email, role: projectMembers.role })
+    .from(projectMembers)
+    .innerJoin(users, eq(users.id, projectMembers.userId))
+    .where(eq(projectMembers.projectId, projectId))
+    .orderBy(asc(users.name));
 }
