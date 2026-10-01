@@ -8,6 +8,7 @@ const COLUMNS: { field?: TaskSortField; label: string }[] = [
   { field: "number", label: "Nr." },
   { field: "title", label: "Titel" },
   { field: "status", label: "Status" },
+  { field: "phase", label: "Phase" },
   { field: "priority", label: "Priorität" },
   { label: "Zuständig" },
   { label: "Labels" },
@@ -54,6 +55,7 @@ export function TaskTable(props: { rows: TaskListRow[]; sort: TaskSort; basePath
                 {row.status.name}
               </span>
             </td>
+            <td className="px-2 py-2 text-xs">{row.phase?.name ?? "–"}</td>
             <td className="px-2 py-2">
               <PriorityBadge priority={row.priority} />
             </td>

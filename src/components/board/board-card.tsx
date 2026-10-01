@@ -36,6 +36,9 @@ export function BoardCard({
       {density === "full" && card.descriptionExcerpt && (
         <span className="line-clamp-2 block text-xs text-muted-foreground">{card.descriptionExcerpt}</span>
       )}
+      {density === "full" && card.phase && (
+        <span className="block text-xs text-muted-foreground">Phase: {card.phase.name}</span>
+      )}
       {showDetails && card.labels.length > 0 && <LabelChips labels={card.labels} />}
       <span className="flex items-center gap-2 text-xs text-muted-foreground">
         {card.dueDate && <DueDate date={card.dueDate} isDone={card.status.isDone} />}

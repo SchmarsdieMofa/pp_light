@@ -2,11 +2,13 @@ import { and, asc, desc, eq, exists, ilike, inArray, isNull, or, sql, type SQL }
 import type { TaskPriority } from "@/lib/enums";
 import type { TaskListFilters, TaskSort } from "@/lib/task-list-params";
 import { listChecklist } from "@/server/checklists/service";
+import { listTaskLinks, type TaskLink } from "@/server/dependencies/queries";
 import type { DB } from "@/server/db/client";
 import { byPosition } from "@/server/db/order";
 import {
   checklistItems,
   labels,
+  phases,
   projects,
   statuses,
   taskAssignees,
@@ -17,6 +19,7 @@ import {
 import { DomainError } from "@/server/errors";
 import { listLabels } from "@/server/labels/service";
 import { can, projectCtx, type Actor } from "@/server/permissions";
+import { listPhases } from "@/server/phases/queries";
 import { listMembers, listStatuses } from "@/server/projects/service";
 import { loadTaskAccess } from "./access";
 
@@ -29,6 +32,7 @@ export type TaskListRow = {
   priority: TaskPriority;
   startDate: string | null;
   dueDate: string | null;
+  phase: { id: string; name: string } | null;
   status: { id: string; name: string; color: string; isDone: boolean };
   assignees: { id: string; name: string }[];
   labels: { id: string; name: string; color: string }[];
@@ -53,6 +57,8 @@ function orderFor(sort: TaskSort): SQL[] {
       return [dir(sql`lower(${tasks.title})`), asc(tasks.number)];
     case "status":
       return [dir(byPosition(statuses.position)), asc(tasks.number)];
+    case "phase":
+      return [sql`lower(${phases.name}) ${sql.raw(sort.dir === "desc" ? "desc" : "asc")} nulls last`, asc(tasks.number)];
     case "priority":
       return [dir(tasks.priority), asc(tasks.number)];
     case "dueDate":
@@ -72,6 +78,7 @@ export async function listProjectTasks(
 ): Promise<TaskListRow[]> {
   const conditions: (SQL | undefined)[] = [eq(tasks.projectId, projectId), isNull(tasks.parentId)];
   if (filters.statusId) conditions.push(eq(tasks.statusId, filters.statusId));
+  if (filters.phaseId) conditions.push(eq(tasks.phaseId, filters.phaseId));
   if (filters.priority) conditions.push(eq(tasks.priority, filters.priority));
   if (filters.assigneeId) {
     conditions.push(
@@ -110,10 +117,13 @@ export async function listProjectTasks(
       priority: tasks.priority,
       startDate: tasks.startDate,
       dueDate: tasks.dueDate,
+      phaseId: phases.id,
+      phaseName: phases.name,
       status: { id: statuses.id, name: statuses.name, color: statuses.color, isDone: statuses.isDone },
     })
     .from(tasks)
     .innerJoin(statuses, eq(statuses.id, tasks.statusId))
+    .leftJoin(phases, eq(phases.id, tasks.phaseId))
     .innerJoin(projects, eq(projects.id, tasks.projectId))
     .where(and(...conditions))
     .orderBy(...orderFor(sort));
@@ -154,11 +164,12 @@ export async function listProjectTasks(
       .groupBy(checklistItems.taskId),
   ]);
 
-  return base.map((t) => {
+  return base.map(({ phaseId, phaseName, ...t }) => {
     const sub = subtaskRows.find((r) => r.parentId === t.id);
     const check = checklistRows.find((r) => r.taskId === t.id);
     return {
       ...t,
+      phase: phaseId && phaseName ? { id: phaseId, name: phaseName } : null,
       assignees: assigneeRows.filter((r) => r.taskId === t.id).map(({ id, name }) => ({ id, name })),
       labels: labelRows.filter((r) => r.taskId === t.id).map(({ id, name, color }) => ({ id, name, color })),
       subtasks: { done: sub?.done ?? 0, total: sub?.total ?? 0 },
@@ -179,12 +190,17 @@ export type TaskDetail = {
   startDate: string | null;
   dueDate: string | null;
   statusId: string;
+  phaseId: string | null;
   updatedAt: string;
   canEdit: boolean;
   parent: { id: string; number: number; title: string } | null;
   statuses: { id: string; name: string; color: string; isDone: boolean }[];
   members: { id: string; name: string }[];
   labels: { id: string; name: string; color: string }[];
+  phases: { id: string; name: string; isMilestone: boolean }[];
+  taskOptions: { id: string; number: number; title: string }[];
+  blockers: TaskLink[];
+  successors: TaskLink[];
   assigneeIds: string[];
   labelIds: string[];
   subtasks: { id: string; number: number; title: string; isDone: boolean }[];
@@ -202,12 +218,16 @@ export async function getTaskDetail(db: DB, actor: Actor, taskId: string): Promi
   }
   const { task, role } = access;
 
-  const [[project], statusList, members, projectLabels, assignees, taskLabelRows, subtasks, checklist, parentRows] =
+  const [[project], statusList, members, projectLabels, phaseList, taskOptions, links, assignees, taskLabelRows, subtasks, checklist, parentRows] =
     await Promise.all([
       db.select({ name: projects.name, key: projects.key }).from(projects).where(eq(projects.id, task.projectId)),
       listStatuses(db, task.projectId),
       listMembers(db, task.projectId),
       listLabels(db, task.projectId),
+      listPhases(db, task.projectId),
+      db.select({ id: tasks.id, number: tasks.number, title: tasks.title }).from(tasks)
+        .where(eq(tasks.projectId, task.projectId)).orderBy(asc(tasks.number)),
+      listTaskLinks(db, task.projectId, task.id),
       db.select({ userId: taskAssignees.userId }).from(taskAssignees).where(eq(taskAssignees.taskId, task.id)),
       db.select({ labelId: taskLabels.labelId }).from(taskLabels).where(eq(taskLabels.taskId, task.id)),
       db
@@ -235,12 +255,17 @@ export async function getTaskDetail(db: DB, actor: Actor, taskId: string): Promi
     startDate: task.startDate,
     dueDate: task.dueDate,
     statusId: task.statusId,
+    phaseId: task.phaseId,
     updatedAt: task.updatedAt.toISOString(),
     canEdit: can(actor, "task.update", projectCtx(role)),
     parent: parentRows[0] ?? null,
     statuses: statusList.map(({ id, name, color, isDone }) => ({ id, name, color, isDone })),
     members: members.map(({ id, name }) => ({ id, name })),
     labels: projectLabels.map(({ id, name, color }) => ({ id, name, color })),
+    phases: phaseList.map(({ id, name, isMilestone }) => ({ id, name, isMilestone })),
+    taskOptions: taskOptions.filter((option) => option.id !== task.id),
+    blockers: links.blockers,
+    successors: links.successors,
     assigneeIds: assignees.map((a) => a.userId),
     labelIds: taskLabelRows.map((l) => l.labelId),
     subtasks,

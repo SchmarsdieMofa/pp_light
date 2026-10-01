@@ -13,6 +13,7 @@ import type { TaskPatch } from "@/lib/schemas/task";
 import type { TaskDetail } from "@/server/tasks/queries";
 import { MultiSelect } from "./multi-select";
 import { TaskChecklist } from "./task-checklist";
+import { TaskDependencies } from "./task-dependencies";
 import { TaskSubtasks } from "./task-subtasks";
 import { useTaskHref } from "./use-task-href";
 
@@ -104,6 +105,14 @@ export function TaskEditor({ detail }: { detail: TaskDetail }) {
           options={TASK_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))}
           save={(priority) => save({ priority: priority as TaskPriority })}
         />
+        <SelectField
+          id="task-phase"
+          label="Phase"
+          initial={detail.phaseId ?? ""}
+          disabled={disabled}
+          options={[{ value: "", label: "Keine Phase" }, ...detail.phases.map((phase) => ({ value: phase.id, label: phase.name }))]}
+          save={(phaseId) => save({ phaseId: phaseId || null })}
+        />
         <DateField id="task-start" label="Start" initial={detail.startDate} disabled={disabled} save={(startDate) => save({ startDate })} />
         <DateField id="task-due" label="Fällig" initial={detail.dueDate} disabled={disabled} save={(dueDate) => save({ dueDate })} />
         <span className="text-muted-foreground">Zuständige</span>
@@ -134,6 +143,7 @@ export function TaskEditor({ detail }: { detail: TaskDetail }) {
 
       {!detail.parent && <TaskSubtasks detail={detail} />}
       <TaskChecklist detail={detail} />
+      <TaskDependencies detail={detail} />
     </div>
   );
 }

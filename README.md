@@ -54,8 +54,24 @@ Dann unter <http://localhost:3000> als `demo@pp-light.local` anmelden und links 
 | Befehl | Zweck |
 |---|---|
 | `npm test` | Unit- und Integrationstests (Vitest, gegen DB `pp_light_test`) |
-| `npm run test:e2e` | Browser-Tests (Playwright, Port 3100, DB `pp_light_e2e`). Vorher einen laufenden `npm run dev` beenden |
+| `npm run test:e2e` | Browser-Tests (Playwright, Port 3100, DB `pp_light_e2e`). Die Vorschau auf Port 3000 kann weiterlaufen. |
 | `npm run typecheck` / `npm run lint` | Statische Prüfung |
 | `npm run db:generate` | Migration aus `src/server/db/schema.ts` erzeugen |
 
 Aufbau: UI (`src/app`, `src/components`) → Server Actions → Prüfung (zod) → Rechte (`src/server/permissions`) → Services (`src/server/<modul>`).
+
+Falls Playwright unter Windows nach dem Test beim Beenden seines Dev-Servers hängt, kann der Testserver separat laufen. In PowerShell:
+
+```powershell
+# Terminal 1
+$env:PP_LIGHT_E2E = '1'
+$env:DATABASE_URL = 'postgres://pp:pp@localhost:5432/pp_light_e2e'
+$env:AUTH_SECRET = 'e2e-secret-e2e-secret-e2e-secret-e2e'
+$env:AUTH_TRUST_HOST = 'true'
+$env:APP_URL = 'http://localhost:3100'
+node node_modules/next/dist/bin/next dev --port 3100
+
+# Terminal 2
+$env:PP_LIGHT_REUSE_E2E_SERVER = '1'
+npm run test:e2e
+```

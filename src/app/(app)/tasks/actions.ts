@@ -6,6 +6,7 @@ import { runAction, type ActionResult } from "@/server/action-result";
 import { requireActor } from "@/server/auth/session";
 import { addChecklistItem, deleteChecklistItem, setChecklistItemDone } from "@/server/checklists/service";
 import { db } from "@/server/db/client";
+import { addDependency, removeDependency, updateDependencyLag } from "@/server/dependencies/service";
 import { undoScheduleGroup } from "@/server/dependencies/undo";
 import { setTaskAssignees, setTaskLabels } from "@/server/tasks/relations";
 import { createTask, moveTask, updateTask } from "@/server/tasks/service";
@@ -93,6 +94,32 @@ export async function undoScheduleAction(groupId: string): Promise<ActionResult<
   const actor = await requireActor();
   return runAction(async () => {
     await undoScheduleGroup(db(), actor, groupId);
+    refresh();
+  });
+}
+
+export async function addDependencyAction(blockerId: string, blockedId: string, lagDays: number): Promise<ActionResult<{ movedCount: number }>> {
+  const actor = await requireActor();
+  return runAction(async () => {
+    const result = await addDependency(db(), actor, blockerId, blockedId, lagDays);
+    refresh();
+    return { movedCount: result.movedCount };
+  });
+}
+
+export async function updateDependencyLagAction(blockerId: string, blockedId: string, lagDays: number): Promise<ActionResult<{ movedCount: number }>> {
+  const actor = await requireActor();
+  return runAction(async () => {
+    const result = await updateDependencyLag(db(), actor, blockerId, blockedId, lagDays);
+    refresh();
+    return { movedCount: result.movedCount };
+  });
+}
+
+export async function removeDependencyAction(blockerId: string, blockedId: string): Promise<ActionResult<void>> {
+  const actor = await requireActor();
+  return runAction(async () => {
+    await removeDependency(db(), actor, blockerId, blockedId);
     refresh();
   });
 }

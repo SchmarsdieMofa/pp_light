@@ -4,12 +4,13 @@ import type { SearchParams } from "./urls";
 
 export type TaskListFilters = {
   statusId?: string;
+  phaseId?: string;
   assigneeId?: string;
   labelId?: string;
   priority?: TaskPriority;
   q?: string;
 };
-export const TASK_SORT_FIELDS = ["number", "title", "status", "priority", "dueDate"] as const;
+export const TASK_SORT_FIELDS = ["number", "title", "status", "phase", "priority", "dueDate"] as const;
 export type TaskSortField = (typeof TASK_SORT_FIELDS)[number];
 /** "position" is internal (board order) and deliberately not accepted from URL params. */
 export type TaskSort = { field: TaskSortField | "position"; dir: "asc" | "desc" };
@@ -25,11 +26,13 @@ function valid<T>(schema: z.ZodType<T>, value: string | undefined): T | undefine
 export function parseTaskListParams(params: SearchParams): { filters: TaskListFilters; sort: TaskSort } {
   const filters: TaskListFilters = {};
   const statusId = valid(uuid, params.status);
+  const phaseId = valid(uuid, params.phase);
   const assigneeId = valid(uuid, params.assignee);
   const labelId = valid(uuid, params.label);
   const priority = valid(z.enum(TASK_PRIORITIES), params.priority);
   const q = params.q?.trim();
   if (statusId) filters.statusId = statusId;
+  if (phaseId) filters.phaseId = phaseId;
   if (assigneeId) filters.assigneeId = assigneeId;
   if (labelId) filters.labelId = labelId;
   if (priority) filters.priority = priority;

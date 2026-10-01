@@ -8,6 +8,7 @@ import { normalizeSearchParams } from "@/lib/urls";
 import { db } from "@/server/db/client";
 import { listLabels } from "@/server/labels/service";
 import { can, projectCtx } from "@/server/permissions";
+import { listPhases } from "@/server/phases/queries";
 import { loadProject } from "@/server/projects/loaders";
 import { listMembers, listStatuses } from "@/server/projects/service";
 import { listProjectTasks } from "@/server/tasks/queries";
@@ -20,11 +21,12 @@ export default async function ListPage(props: {
   const params = normalizeSearchParams(await props.searchParams);
   const { actor, project, role } = await loadProject(id);
   const { filters, sort } = parseTaskListParams(params);
-  const [rows, statuses, members, labels] = await Promise.all([
+  const [rows, statuses, members, labels, phases] = await Promise.all([
     listProjectTasks(db(), project.id, filters, sort),
     listStatuses(db(), project.id),
     listMembers(db(), project.id),
     listLabels(db(), project.id),
+    listPhases(db(), project.id),
   ]);
   const hasFilters = Object.keys(filters).length > 0;
 
@@ -34,7 +36,7 @@ export default async function ListPage(props: {
         {can(actor, "task.create", projectCtx(role)) && (
           <QuickAdd projectId={project.id} label="Neue Aufgabe" placeholder="Neue Aufgabe… (Enter)" />
         )}
-        <TaskFilters statuses={statuses} members={members} labels={labels} filters={filters} />
+        <TaskFilters statuses={statuses} members={members} labels={labels} phases={phases} filters={filters} />
         {rows.length === 0 ? (
           <EmptyState
             title={hasFilters ? "Keine Treffer" : "Noch keine Aufgaben"}

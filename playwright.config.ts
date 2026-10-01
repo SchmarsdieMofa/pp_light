@@ -13,11 +13,12 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: `npm run dev -- --port ${PORT}`,
+    command: `node node_modules/next/dist/bin/next dev --port ${PORT}`,
     url: `http://localhost:${PORT}/login`,
-    reuseExistingServer: false,
+    reuseExistingServer: process.env.PP_LIGHT_REUSE_E2E_SERVER === "1",
     timeout: 180_000,
     env: {
+      PP_LIGHT_E2E: "1",
       DATABASE_URL: E2E_DATABASE_URL,
       AUTH_SECRET: "e2e-secret-e2e-secret-e2e-secret-e2e",
       AUTH_TRUST_HOST: "true",

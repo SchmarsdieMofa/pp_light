@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { ProjectRole } from "@/lib/enums";
+import type { PhaseInput } from "@/lib/schemas/phase";
 import type { CreateProjectInput } from "@/lib/schemas/project";
 import type { LabelInput, StatusInput } from "@/lib/schemas/task";
 import { runAction, type ActionResult } from "@/server/action-result";
@@ -9,6 +10,7 @@ import { requireActor } from "@/server/auth/session";
 import { db } from "@/server/db/client";
 import { createLabel, deleteLabel } from "@/server/labels/service";
 import { addMemberByEmail, changeMemberRole, removeMember } from "@/server/members/service";
+import { createPhase, deletePhase, movePhase, updatePhase } from "@/server/phases/service";
 import { createProject } from "@/server/projects/service";
 import { createStatus, deleteStatus, moveStatus, updateStatus } from "@/server/statuses/service";
 
@@ -71,4 +73,20 @@ export async function changeMemberRoleAction(projectId: string, userId: string, 
 
 export async function removeMemberAction(projectId: string, userId: string) {
   return mutate((actor) => removeMember(db(), actor, projectId, userId));
+}
+
+export async function createPhaseAction(projectId: string, input: PhaseInput) {
+  return mutate((actor) => createPhase(db(), actor, projectId, input));
+}
+
+export async function updatePhaseAction(phaseId: string, input: PhaseInput) {
+  return mutate((actor) => updatePhase(db(), actor, phaseId, input));
+}
+
+export async function movePhaseAction(phaseId: string, direction: "left" | "right") {
+  return mutate((actor) => movePhase(db(), actor, phaseId, direction));
+}
+
+export async function deletePhaseAction(phaseId: string) {
+  return mutate((actor) => deletePhase(db(), actor, phaseId));
 }

@@ -1,19 +1,22 @@
 import { LabelManager } from "@/components/projects/label-manager";
 import { MemberManager } from "@/components/projects/member-manager";
+import { PhaseManager } from "@/components/projects/phase-manager";
 import { StatusManager } from "@/components/projects/status-manager";
 import { db } from "@/server/db/client";
 import { listLabels } from "@/server/labels/service";
 import { can, projectCtx } from "@/server/permissions";
+import { listPhases } from "@/server/phases/queries";
 import { loadProject } from "@/server/projects/loaders";
 import { listMembers, listStatuses } from "@/server/projects/service";
 
 export default async function SettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { actor, project, role } = await loadProject(id);
-  const [columns, labels, members] = await Promise.all([
+  const [columns, labels, members, phases] = await Promise.all([
     listStatuses(db(), project.id),
     listLabels(db(), project.id),
     listMembers(db(), project.id),
+    listPhases(db(), project.id),
   ]);
   return (
     <div className="max-w-4xl space-y-8">
@@ -34,6 +37,10 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
           statuses={columns.map(({ id, name, color, isDone }) => ({ id, name, color, isDone }))}
           canManage={can(actor, "project.update", projectCtx(role))}
         />
+      </section>
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium">Phasen und Meilensteine</h2>
+        <PhaseManager projectId={project.id} phases={phases} canManage={can(actor, "project.update", projectCtx(role))} />
       </section>
       <section className="space-y-2">
         <h2 className="text-sm font-medium">Labels</h2>

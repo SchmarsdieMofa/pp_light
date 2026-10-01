@@ -14,6 +14,7 @@ const selectClass = "h-8 rounded-md border bg-background px-2 text-sm";
 
 export function TaskFilters(props: {
   statuses: Option[];
+  phases: Option[];
   members: Option[];
   labels: Option[];
   filters: TaskListFilters;
@@ -31,6 +32,7 @@ export function TaskFilters(props: {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <FilterSelect id="f-status" label="Status" value={props.filters.statusId} options={props.statuses} onChange={(v) => apply("status", v)} />
+      <FilterSelect id="f-phase" label="Phase" value={props.filters.phaseId} options={props.phases} onChange={(v) => apply("phase", v)} />
       <FilterSelect id="f-assignee" label="Zuständig" value={props.filters.assigneeId} options={props.members} onChange={(v) => apply("assignee", v)} />
       <FilterSelect id="f-label" label="Label" value={props.filters.labelId} options={props.labels} onChange={(v) => apply("label", v)} />
       <FilterSelect

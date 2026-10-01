@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { addChecklistItem, setChecklistItemDone } from "@/server/checklists/service";
 import { createLabel } from "@/server/labels/service";
+import { createPhase } from "@/server/phases/service";
 import { getTaskDetail, listProjectTasks } from "@/server/tasks/queries";
 import { setTaskAssignees, setTaskLabels } from "@/server/tasks/relations";
 import { createTask, updateTask } from "@/server/tasks/service";
@@ -82,6 +83,20 @@ describe("listProjectTasks", () => {
     expect(await titles("priority", "desc")).toEqual(["Header_bauen", "Footer", "Logo 100% fertig"]);
     expect(await titles("dueDate", "asc")).toEqual(["Footer", "Header_bauen", "Logo 100% fertig"]);
     expect(await titles("dueDate", "desc")).toEqual(["Header_bauen", "Footer", "Logo 100% fertig"]);
+  });
+
+  it("shows, filters and sorts by phase", async () => {
+    const { ada, project, logo, header } = await setup();
+    const planning = await createPhase(testDb, ada, project.id, { name: "Planung", startDate: null, endDate: null, isMilestone: false });
+    const delivery = await createPhase(testDb, ada, project.id, { name: "Lieferung", startDate: null, endDate: null, isMilestone: false });
+    await updateTask(testDb, ada, logo.id, logo.updatedAt.toISOString(), { phaseId: delivery.id });
+    await updateTask(testDb, ada, header.id, header.updatedAt.toISOString(), { phaseId: planning.id });
+    expect((await listProjectTasks(testDb, project.id, { phaseId: planning.id })).map((row) => row.title)).toEqual(["Header_bauen"]);
+    const sorted = await listProjectTasks(testDb, project.id, {}, { field: "phase", dir: "asc" });
+    expect(sorted.map((row) => [row.title, row.phase?.name])).toEqual([
+      ["Logo 100% fertig", "Lieferung"], ["Header_bauen", "Planung"], ["Footer", undefined],
+    ]);
+    expect((await getTaskDetail(testDb, ada, logo.id))?.phases.map((phase) => phase.name)).toEqual(["Planung", "Lieferung"]);
   });
 });
 
