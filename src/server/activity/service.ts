@@ -8,7 +8,13 @@ export type ActivityAction =
   | "task.updated"
   | "task.assigneesChanged"
   | "task.labelsChanged"
-  | "task.moved";
+  | "task.moved"
+  | "task.autoMoved"
+  | "schedule.changed"
+  | "schedule.undone"
+  | "dependency.added"
+  | "dependency.updated"
+  | "dependency.removed";
 
 export type ActivityEntry = typeof activityLog.$inferSelect;
 
