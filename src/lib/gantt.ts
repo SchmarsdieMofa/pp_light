@@ -61,7 +61,7 @@ export function earlierStartIds(data: GanttData): Set<string> {
 
 export type ChartData = { tasks: ITask[]; links: ILink[]; unscheduled: GanttTask[] };
 
-export function toChartData(data: GanttData, key: string): ChartData {
+export function toChartData(data: GanttData, key: string, collapsed: ReadonlySet<string> = new Set()): ChartData {
   const scheduled = data.tasks.filter(isScheduled);
   const earlier = earlierStartIds(data);
   const scheduledIds = new Set(scheduled.map((task) => task.id));
@@ -98,7 +98,7 @@ export function toChartData(data: GanttData, key: string): ChartData {
     }
     const interval = bounds(members, phase.startDate, phase.endDate);
     if (!interval) continue;
-    result.push({ id: `phase:${phase.id}`, text: phase.name, type: "summary", open: true, ...interval });
+    result.push({ id: `phase:${phase.id}`, text: phase.name, type: "summary", open: !collapsed.has(`phase:${phase.id}`), ...interval });
     if (phase.isMilestone && phase.startDate) {
       result.push({ id: `milestone:${phase.id}`, parent: `phase:${phase.id}`, text: phase.name,
         type: "milestone", start: chartDate(phase.startDate) });
@@ -108,7 +108,7 @@ export function toChartData(data: GanttData, key: string): ChartData {
   const unassigned = scheduled.filter((task) => !effectivePhase.get(task.id));
   if (unassigned.length > 0) {
     const interval = bounds(unassigned, null, null)!;
-    result.push({ id: "phase:unassigned", text: "Ohne Phase", type: "summary", open: true, ...interval });
+    result.push({ id: "phase:unassigned", text: "Ohne Phase", type: "summary", open: !collapsed.has("phase:unassigned"), ...interval });
     addTasks(null, "phase:unassigned");
   }
   return {

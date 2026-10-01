@@ -6,6 +6,8 @@
   background-color: color-mix(in oklab, var(--muted) 65%, transparent);
 }
 
-.pp-gantt [class*="wx-gantt"] {
-  font-family: var(--font-inter), Arial, sans-serif;
+/* SVAR's themes default to Open Sans/Roboto from cdn.svar.dev; use the app font so no third-party font is fetched. */
+.pp-gantt .wx-willow-theme,
+.pp-gantt .wx-willow-dark-theme {
+  --wx-font-family: var(--font-inter), Arial, sans-serif;
 }

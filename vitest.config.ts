@@ -14,6 +14,8 @@ export default defineConfig({
     env: {
       DATABASE_URL: "postgres://pp:pp@localhost:5432/pp_light_test",
       AUTH_SECRET: "test-secret-test-secret-test-secret-123",
+      // Date logic must hold across the German DST switch.
+      TZ: "Europe/Berlin",
     },
   },
 });

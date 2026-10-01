@@ -32,6 +32,8 @@ async function setDate(page: Page, label: "Start" | "Fällig", value: string, ve
   await response;
   if (verifyPersisted) {
     await page.reload();
+    // The server-rendered value is visible before hydration; wait so the next fill reaches React.
+    await page.waitForLoadState("networkidle");
     await expect(page.getByRole("complementary", { name: "Aufgabe" }).getByLabel(label)).toHaveValue(value);
   }
 }
@@ -92,6 +94,7 @@ test("manages phases and cascades a dependency with undo", async ({ page }) => {
   await page.getByRole("button", { name: "Mitglied hinzufügen" }).click();
   await expect(page.getByRole("list", { name: "Mitglieder" })).toContainText(E2E_MEMBER.name);
   await page.getByRole("button", { name: "Abmelden" }).click();
+  await expect(page).toHaveURL(/\/login$/);
   await login(page, E2E_MEMBER.email, E2E_MEMBER.password);
   await page.goto(board.replace(/\/board$/, "/settings"));
   await expect(page.getByText("Planung", { exact: true })).toBeVisible();

@@ -4,7 +4,7 @@ import { Gantt, Willow, WillowDark, type IApi, type IColumnConfig, type IScaleCo
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { undoScheduleAction, updateTaskAction } from "@/app/(app)/tasks/actions";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,17 @@ function scalesFor(zoom: Zoom): { scales: IScaleConfig[]; cellWidth: number } {
   ], cellWidth: 10 };
 }
 
+/** sessionStorage can be blocked (privacy mode, policies) – the chart must still work without it. */
+function readStorage(key: string): string | null {
+  try { return typeof window === "undefined" ? null : sessionStorage.getItem(key); } catch { return null; }
+}
+function writeStorage(key: string, value: string) {
+  try { sessionStorage.setItem(key, value); } catch { /* ignore */ }
+}
+function removeStorage(key: string) {
+  try { sessionStorage.removeItem(key); } catch { /* ignore */ }
+}
+
 function showNotice(notice: Notice) {
   if (notice.kind === "error") return toast.error(notice.message);
   if (notice.kind === "undone") return toast.success("Termine wiederhergestellt");
@@ -67,7 +78,7 @@ function showNotice(notice: Notice) {
     action: { label: "Rückgängig", onClick: async () => {
       const result = await undoScheduleAction(notice.groupId!);
       if (!result.ok) return toast.error(result.error.message);
-      sessionStorage.setItem(noticeKey, JSON.stringify({ kind: "undone" } satisfies Notice));
+      writeStorage(noticeKey, JSON.stringify({ kind: "undone" } satisfies Notice));
       window.location.reload();
     } },
   });
@@ -76,8 +87,7 @@ function showNotice(notice: Notice) {
 export function GanttView({ data, projectKey, canEdit }: { data: GanttData; projectKey: string; canEdit: boolean }) {
   const mounted = useSyncExternalStore(subscribe, clientSnapshot, serverSnapshot);
   const [zoom, setZoom] = useState<Zoom>(() => {
-    if (typeof window === "undefined") return "Woche";
-    const stored = sessionStorage.getItem(zoomKey);
+    const stored = readStorage(zoomKey);
     return stored === "Tag" || stored === "Monat" ? stored : "Woche";
   });
   const [saving, setSaving] = useState(false);
@@ -85,15 +95,30 @@ export function GanttView({ data, projectKey, canEdit }: { data: GanttData; proj
   const { resolvedTheme } = useTheme();
   const router = useRouter();
   const taskHref = useTaskHref();
-  const chart = useMemo(() => toChartData(data, projectKey), [data, projectKey]);
-  const taskById = useMemo(() => new Map(data.tasks.map((task) => [task.id, task])), [data.tasks]);
+  // Every RSC render delivers a new `data` object. SVAR rebuilds its store (re-expanding collapsed phases)
+  // whenever its config changes, so the chart input only changes when the content does.
+  const dataKey = JSON.stringify(data);
+  const stableData = useMemo(() => JSON.parse(dataKey) as GanttData, [dataKey]);
+  // Collapse state is ours, not SVAR's: SVAR may rebuild its store (resize, panel, data) and would reopen everything.
+  const collapseKey = `pp-light:gantt-collapsed:${projectKey}`;
+  const [collapsed, setCollapsed] = useState<string[]>(() => {
+    try { return JSON.parse(readStorage(collapseKey) ?? "[]") as string[]; } catch { return []; }
+  });
+  const chart = useMemo(() => toChartData(stableData, projectKey, new Set(collapsed)), [stableData, projectKey, collapsed]);
+  const taskById = useMemo(() => new Map(stableData.tasks.map((task) => [task.id, task])), [stableData]);
   const scale = useMemo(() => scalesFor(zoom), [zoom]);
-  const today = isoDate(new Date());
+  const [today] = useState(() => isoDate(new Date()));
   const Theme = resolvedTheme === "dark" ? WillowDark : Willow;
 
+  // SVAR calls `init` once; its handlers read the latest server data and rights through these refs.
+  const live = useRef({ taskById, canEdit, taskHref, router, collapseKey });
   useEffect(() => {
-    const raw = sessionStorage.getItem(noticeKey);
-    sessionStorage.removeItem(noticeKey);
+    live.current = { taskById, canEdit, taskHref, router, collapseKey };
+  });
+
+  useEffect(() => {
+    const raw = readStorage(noticeKey);
+    removeStorage(noticeKey);
     if (raw) {
       try { showNotice(JSON.parse(raw) as Notice); } catch { /* old tab data */ }
     }
@@ -101,44 +126,70 @@ export function GanttView({ data, projectKey, canEdit }: { data: GanttData; proj
 
   function changeZoom(value: Zoom) {
     setZoom(value);
-    sessionStorage.setItem(zoomKey, value);
+    writeStorage(zoomKey, value);
   }
 
-  async function saveDates(id: string, start: Date, end: Date) {
-    const original = taskById.get(id);
+  const saveDates = useCallback(async (id: string, start: Date, end: Date) => {
+    const original = live.current.taskById.get(id);
     if (!original || busy.current) return;
     const startDate = isoDate(start);
     const dueDate = inclusiveDue(end);
     if (startDate === original.startDate && dueDate === original.dueDate) return;
     busy.current = true;
     setSaving(true);
-    const result = await updateTaskAction(id, original.updatedAt, { startDate, dueDate });
-    const notice: Notice = result.ok
-      ? { kind: "saved", movedCount: result.data.movedCount, groupId: result.data.groupId }
-      : { kind: "error", message: result.error.message };
-    sessionStorage.setItem(noticeKey, JSON.stringify(notice));
+    let notice: Notice;
+    try {
+      const result = await updateTaskAction(id, original.updatedAt, { startDate, dueDate });
+      notice = result.ok
+        ? { kind: "saved", movedCount: result.data.movedCount, groupId: result.data.groupId }
+        : { kind: "error", message: result.error.message };
+    } catch {
+      notice = { kind: "error", message: "Speichern fehlgeschlagen – bitte erneut versuchen." };
+    }
+    writeStorage(noticeKey, JSON.stringify(notice));
     window.location.reload();
-  }
+  }, []);
 
-  function init(ganttApi: IApi) {
+  const init = useCallback((ganttApi: IApi) => {
     for (const action of ["add-task", "delete-task", "move-task", "add-link", "delete-link", "copy-task", "indent-task", "reorder-task"]) {
       ganttApi.intercept(action, () => false);
     }
     ganttApi.intercept("drag-task", (event) => {
-      if (!canEdit || busy.current || String(event.id).startsWith("phase:") || String(event.id).startsWith("milestone:")) return false;
+      if (!live.current.canEdit || busy.current || String(event.id).startsWith("phase:") || String(event.id).startsWith("milestone:")) return false;
       if (event.top !== undefined) return false;
     });
     ganttApi.intercept("update-task", (event) => {
-      if (!taskById.has(String(event.id))) return event.eventSource === "update-task" ? undefined : false;
-      if (!canEdit || busy.current) return false;
+      if (!live.current.taskById.has(String(event.id))) return event.eventSource === "update-task" ? undefined : false;
+      if (!live.current.canEdit || busy.current) return false;
       if (!event.task.start && !event.task.end) return false;
     });
+    ganttApi.on("open-task", (event) => {
+      const id = String(event.id);
+      setCollapsed((previous) => {
+        const next = event.mode ? previous.filter((item) => item !== id) : [...new Set([...previous, id])];
+        writeStorage(live.current.collapseKey, JSON.stringify(next));
+        return next;
+      });
+    });
     ganttApi.on("update-task", (event) => {
-      if (event.inProgress || !taskById.has(String(event.id))) return;
+      if (event.inProgress || !live.current.taskById.has(String(event.id))) return;
       const task = ganttApi.getTask(event.id);
       if (task.start instanceof Date && task.end instanceof Date) void saveDates(String(event.id), task.start, task.end);
     });
-  }
+  }, [saveDates]);
+
+  const highlightTime = useCallback(
+    (date: Date, unit: string) =>
+      unit === "day"
+        ? [[0, 6].includes(date.getDay()) ? "wx-weekend" : "", isoDate(date) === today ? "pp-gantt-today" : ""].filter(Boolean).join(" ")
+        : "",
+    [today],
+  );
+
+  const onSelectTask = useCallback((event: { id: string | number }) => {
+    const id = String(event.id);
+    if (live.current.taskById.has(id)) live.current.router.push(live.current.taskHref(id));
+  }, []);
 
   if (!mounted) return <div className="rounded-md border p-6 text-sm text-muted-foreground">Zeitplan wird geladen…</div>;
 
@@ -166,12 +217,9 @@ export function GanttView({ data, projectKey, canEdit }: { data: GanttData; proj
             <Theme fonts={false}>
               <Gantt key={zoom} tasks={chart.tasks} links={chart.links} columns={columns} scales={scale.scales}
                 cellWidth={scale.cellWidth} gridWidth={610} zoom={false} readonly={!canEdit}
-                highlightTime={(date, unit) => unit === "day" ? [
-                  [0, 6].includes(date.getDay()) ? "wx-weekend" : "",
-                  isoDate(date) === today ? "pp-gantt-today" : "",
-                ].filter(Boolean).join(" ") : ""}
+                highlightTime={highlightTime}
                 init={init}
-                onselecttask={(event) => { if (taskById.has(String(event.id))) router.push(taskHref(String(event.id))); }} />
+                onSelectTask={onSelectTask} />
             </Theme>
           </div>
         ) : <div className="rounded-md border p-6 text-sm text-muted-foreground">Noch keine Aufgaben mit Start und Fälligkeit.</div>}
