@@ -13,3 +13,12 @@ export async function login(page: Page, email = E2E_ADMIN.email, password = E2E_
   await page.getByRole("button", { name: "Anmelden" }).click();
   await expect(page.getByRole("heading", { name: "Meine Arbeit" })).toBeVisible();
 }
+
+export async function createProjectViaUi(page: Page, name: string, key: string): Promise<string> {
+  await page.getByRole("button", { name: "Neues Projekt" }).click();
+  await page.getByLabel("Name").fill(name);
+  await page.getByLabel("Kürzel").fill(key);
+  await page.getByRole("button", { name: "Anlegen" }).click();
+  await expect(page).toHaveURL(/\/board$/);
+  return page.url();
+}
