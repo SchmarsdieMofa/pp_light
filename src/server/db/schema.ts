@@ -125,6 +125,8 @@ export const tasks = pgTable(
     index("tasks_parent_idx").on(t.parentId),
     index("tasks_phase_idx").on(t.phaseId),
     index("tasks_status_idx").on(t.statusId),
+    // Full-text search (Strg+K): expression index instead of a stored column keeps `select *` lean.
+    index("tasks_search_idx").using("gin", sql`to_tsvector('german', ${t.title} || ' ' || ${t.description})`),
     check("tasks_dates_ck", sql`${t.startDate} is null or ${t.dueDate} is null or ${t.startDate} <= ${t.dueDate}`),
   ],
 );

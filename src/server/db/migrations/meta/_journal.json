@@ -43,6 +43,13 @@
       "when": 1790874778700,
       "tag": "0005_sleepy_freak",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790877049327,
+      "tag": "0006_tough_lady_deathstrike",
+      "breakpoints": true
     }
   ]
 }

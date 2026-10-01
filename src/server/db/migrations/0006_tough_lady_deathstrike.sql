@@ -1,0 +1,1 @@
+CREATE INDEX "tasks_search_idx" ON "tasks" USING gin (to_tsvector('german', "title" || ' ' || "description"));
