@@ -13,7 +13,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: `node node_modules/next/dist/bin/next dev --port ${PORT}`,
+    command: `node node_modules/next/dist/bin/next ${process.env.CI === "true" ? "start" : "dev"} --port ${PORT}`,
     url: `http://localhost:${PORT}/login`,
     reuseExistingServer: process.env.PP_LIGHT_REUSE_E2E_SERVER === "1",
     timeout: 180_000,

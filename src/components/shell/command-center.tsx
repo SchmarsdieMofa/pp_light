@@ -28,6 +28,7 @@ export function CommandCenter({ projects }: { projects: { id: string; key: strin
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
+      if (event.defaultPrevented) return;
       const shortcut = resolveShortcut(event, isTypingTarget(document.activeElement as HTMLElement | null), pathname);
       if (!shortcut) return;
       if (shortcut.kind === "closePanel") {

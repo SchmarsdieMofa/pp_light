@@ -30,6 +30,7 @@ test("finds assigned work, uses shortcuts and completes a task", async ({ page }
   await expect(page.getByLabel("Titel")).toHaveValue("Freigabe vorbereiten");
 
   await page.goto(board);
+  await page.waitForLoadState("networkidle");
   await page.keyboard.press("?");
   await expect(page.getByRole("dialog", { name: "Tastenkürzel" })).toBeVisible();
   await page.keyboard.press("Escape");

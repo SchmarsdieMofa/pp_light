@@ -41,11 +41,15 @@ jobs:
       - name: Unit tests
         run: npm test
 
-      - name: Browser tests
-        run: npm run test:e2e
-
       - name: Production build
         run: npm run build
+        env:
+          PP_LIGHT_E2E: "1"
+          DATABASE_URL: postgres://pp:pp@localhost:5432/pp_light_e2e
+          APP_URL: http://localhost:3100
+
+      - name: Browser tests
+        run: npm run test:e2e
 
       - name: Save browser failure details
         if: failure()
