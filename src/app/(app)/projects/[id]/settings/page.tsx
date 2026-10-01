@@ -1,11 +1,14 @@
+import { LabelManager } from "@/components/projects/label-manager";
 import { db } from "@/server/db/client";
+import { listLabels } from "@/server/labels/service";
+import { can, projectCtx } from "@/server/permissions";
 import { loadProject } from "@/server/projects/loaders";
 import { listStatuses } from "@/server/projects/service";
 
 export default async function SettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { project } = await loadProject(id);
-  const columns = await listStatuses(db(), project.id);
+  const { actor, project, role } = await loadProject(id);
+  const [columns, labels] = await Promise.all([listStatuses(db(), project.id), listLabels(db(), project.id)]);
   return (
     <div className="max-w-xl space-y-8">
       <section className="space-y-1">
@@ -29,6 +32,10 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
             </li>
           ))}
         </ul>
+      </section>
+      <section className="space-y-2">
+        <h2 className="text-sm font-medium">Labels</h2>
+        <LabelManager projectId={project.id} labels={labels} canManage={can(actor, "project.update", projectCtx(role))} />
       </section>
     </div>
   );
