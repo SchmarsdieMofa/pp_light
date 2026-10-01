@@ -9,3 +9,6 @@ export type Theme = (typeof THEMES)[number];
 
 export const CARD_DENSITIES = ["compact", "medium", "full"] as const;
 export type CardDensity = (typeof CARD_DENSITIES)[number];
+
+export const TASK_PRIORITIES = ["none", "low", "med", "high", "urgent"] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
