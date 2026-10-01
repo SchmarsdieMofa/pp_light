@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, isOverdue, todayIso } from "@/lib/dates";
+import { formatDate, isOverdue, isPlausibleDate, todayIso } from "@/lib/dates";
+import { updateTaskSchema } from "@/lib/schemas/task";
 import { parseTaskListParams } from "@/lib/task-list-params";
 import { buildHref, normalizeSearchParams } from "@/lib/urls";
 
@@ -18,6 +19,17 @@ describe("dates", () => {
     expect(isOverdue("2026-10-02", false, "2026-10-02")).toBe(false);
     expect(isOverdue("2026-10-01", true, "2026-10-02")).toBe(false);
     expect(isOverdue(null, false, "2026-10-02")).toBe(false);
+  });
+});
+
+describe("plausible dates", () => {
+  it("rejects half-typed years from the browser date input", () => {
+    expect(isPlausibleDate("0002-10-14")).toBe(false);
+    expect(isPlausibleDate("0202-10-14")).toBe(false);
+    expect(isPlausibleDate("2026-10-14")).toBe(true);
+    expect(isPlausibleDate("3000-01-01")).toBe(false);
+    expect(updateTaskSchema.safeParse({ dueDate: "0020-10-14" }).success).toBe(false);
+    expect(updateTaskSchema.safeParse({ dueDate: "2026-10-14" }).success).toBe(true);
   });
 });
 

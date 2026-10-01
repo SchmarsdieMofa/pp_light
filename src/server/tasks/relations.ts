@@ -25,7 +25,7 @@ function diffSets(before: string[], after: string[]) {
 export async function setTaskAssignees(db: DB, actor: Actor, taskId: string, userIds: string[]): Promise<void> {
   const ids = parseIds(userIds, "Ungültige Zuständige.");
   await db.transaction(async (tx) => {
-    const { task, role } = await loadTaskAccess(tx, actor, taskId);
+    const { task, role } = await loadTaskAccess(tx, actor, taskId, { forUpdate: true });
     assertCan(actor, "task.update", projectCtx(role));
     if (ids.length > 0) {
       const members = await tx
@@ -46,7 +46,7 @@ export async function setTaskAssignees(db: DB, actor: Actor, taskId: string, use
 export async function setTaskLabels(db: DB, actor: Actor, taskId: string, labelIds: string[]): Promise<void> {
   const ids = parseIds(labelIds, "Ungültige Labels.");
   await db.transaction(async (tx) => {
-    const { task, role } = await loadTaskAccess(tx, actor, taskId);
+    const { task, role } = await loadTaskAccess(tx, actor, taskId, { forUpdate: true });
     assertCan(actor, "task.update", projectCtx(role));
     if (ids.length > 0) {
       const found = await tx

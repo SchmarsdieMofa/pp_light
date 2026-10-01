@@ -94,6 +94,22 @@ describe("task relations", () => {
     await expect(setTaskLabels(testDb, ada, task.id, [foreignLabel.id])).rejects.toMatchObject({ code: "VALIDATION" });
   });
 
+  it("serializes concurrent assignee changes instead of failing", async () => {
+    const ada = await makeActor("ada@example.com");
+    const mia = await makeActor("mia@example.com");
+    const { project } = await makeProject(ada, "RAC");
+    await addMember(project.id, mia, "member");
+    const task = await createTask(testDb, ada, { projectId: project.id, title: "T" });
+    const results = await Promise.allSettled([
+      setTaskAssignees(testDb, ada, task.id, [ada.id, mia.id]),
+      setTaskAssignees(testDb, ada, task.id, [mia.id, ada.id]),
+    ]);
+    expect(results.map((r) => r.status)).toEqual(["fulfilled", "fulfilled"]);
+    expect((await getTaskDetail(testDb, ada, task.id))?.assigneeIds.sort()).toEqual([ada.id, mia.id].sort());
+    const diffs = (await listActivity(testDb, task.id)).filter((e) => e.action === "task.assigneesChanged");
+    expect(diffs).toHaveLength(1);
+  });
+
   it("forbids guests", async () => {
     const ada = await makeActor("ada@example.com");
     const gast = await makeActor("gast@example.com");

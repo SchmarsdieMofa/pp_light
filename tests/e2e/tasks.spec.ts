@@ -77,7 +77,10 @@ test("manages subtasks, checklist, labels and filters", async ({ page }) => {
   await expect(table.getByRole("link", { name: "Logo" })).toBeVisible();
   await expect(table.getByRole("link", { name: "Impressum" })).toHaveCount(0);
 
-  await panel.getByRole("region", { name: "Unteraufgaben" }).getByRole("link", { name: /Entwurf/ }).click();
+  await panel
+    .getByRole("region", { name: "Unteraufgaben" })
+    .getByRole("link", { name: /Entwurf/ })
+    .click();
   await expect(panel).toContainText("Teil von STR-1");
   await panel.getByRole("link", { name: "Als Seite öffnen" }).click();
   await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]{36}$/);
@@ -120,4 +123,36 @@ test("returns 404 for unknown task pages and tolerates bad panel ids", async ({ 
   const board = await createProjectViaUi(page, "Fehler-Test", "err");
   await page.goto(`${board.replace(/\/board$/, "/list")}?task=kaputt&status=abc`);
   await expect(page.getByRole("complementary", { name: "Aufgabe" })).toContainText("Aufgabe nicht gefunden.");
+});
+
+test.describe("German locale", () => {
+  // The segment order of <input type="date"> follows the browser locale (de: TT.MM.JJJJ).
+  test.use({ locale: "de-DE" });
+
+  test("multi-select keeps focus and closes with Escape; half-typed dates are not saved", async ({ page }) => {
+    await login(page);
+    const board = await createProjectViaUi(page, "A11y-Test", "acc");
+    await openList(page, board);
+    await quickAdd(page, "Fokus");
+    await page.getByRole("table", { name: "Aufgaben" }).getByRole("link", { name: "Fokus" }).click();
+    const panel = page.getByRole("complementary", { name: "Aufgabe" });
+
+    await panel.getByLabel("Zuständige").first().click();
+    const box = panel.getByRole("group", { name: "Zuständige" }).getByRole("checkbox").first();
+    await box.focus();
+    await page.keyboard.press("Space");
+    await expect(box).toBeChecked();
+    await expect(box).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(panel.getByRole("group", { name: "Zuständige" })).toBeHidden();
+    await expect(panel.locator("summary").first()).toHaveAccessibleName(/Zuständige: Ada Admin/);
+
+    // Chromium's date input reports every half-typed year (0002, 0020, 0203) as a value change.
+    await panel.getByLabel("Fällig").focus();
+    await page.keyboard.type("14102030");
+    await expect(page.getByRole("table", { name: "Aufgaben" }).getByRole("row", { name: /Fokus/ })).toContainText(
+      "14.10.2030",
+    );
+    await expect(page.getByText("Bitte ein Jahr zwischen 1900 und 2999 angeben.")).toHaveCount(0);
+  });
 });

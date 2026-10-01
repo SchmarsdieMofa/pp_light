@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { isPlausibleDate } from "@/lib/dates";
 import { TASK_PRIORITIES } from "@/lib/enums";
 import { LABEL_COLORS } from "@/lib/labels";
 
 const title = z.string().trim().min(1, "Titel fehlt").max(200, "Höchstens 200 Zeichen");
-const isoDate = z.iso.date("Ungültiges Datum");
+const isoDate = z.iso.date("Ungültiges Datum").refine(isPlausibleDate, "Bitte ein Jahr zwischen 1900 und 2999 angeben.");
 
 export const createTaskSchema = z.object({
   projectId: z.uuid(),

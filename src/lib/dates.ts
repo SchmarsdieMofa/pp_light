@@ -15,3 +15,9 @@ export function formatDate(iso: string | null): string {
 export function isOverdue(dueDate: string | null, isDone: boolean, today: string = todayIso()): boolean {
   return !!dueDate && !isDone && dueDate < today;
 }
+
+/** Browser date inputs report half-typed years (0002-…, 0202-…) as valid dates – ignore those. */
+export function isPlausibleDate(iso: string): boolean {
+  const year = Number(iso.slice(0, 4));
+  return year >= 1900 && year <= 2999;
+}

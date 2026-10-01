@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { setAssigneesAction, setLabelsAction, updateTaskAction } from "@/app/(app)/tasks/actions";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { isPlausibleDate } from "@/lib/dates";
 import { TASK_PRIORITIES, type TaskPriority } from "@/lib/enums";
 import { PRIORITY_LABELS } from "@/lib/priority";
 import type { TaskPatch } from "@/lib/schemas/task";
@@ -189,6 +190,7 @@ function SelectField(props: {
   save: (value: string) => Promise<boolean>;
 }) {
   const [value, setValue] = useState(props.initial);
+  const commit = useLatestCommit(props.initial, setValue, props.save);
   return (
     <>
       <label htmlFor={props.id} className="text-muted-foreground">
@@ -199,10 +201,9 @@ function SelectField(props: {
         className={fieldClass}
         value={value}
         disabled={props.disabled}
-        onChange={async (e) => {
-          const previous = value;
+        onChange={(e) => {
           setValue(e.target.value);
-          if (!(await props.save(e.target.value))) setValue(previous);
+          void commit(e.target.value);
         }}
       >
         {props.options.map((o) => (
@@ -223,6 +224,7 @@ function DateField(props: {
   save: (value: string | null) => Promise<boolean>;
 }) {
   const [value, setValue] = useState(props.initial ?? "");
+  const commit = useLatestCommit(props.initial ?? "", setValue, (v) => props.save(v || null));
   return (
     <>
       <label htmlFor={props.id} className="text-muted-foreground">
@@ -234,12 +236,31 @@ function DateField(props: {
         className={fieldClass}
         value={value}
         disabled={props.disabled}
-        onChange={async (e) => {
-          const previous = value;
+        onChange={(e) => {
           setValue(e.target.value);
-          if (!(await props.save(e.target.value || null))) setValue(previous);
+          // Typing a year digit by digit yields 0002-…, 0020-…: only save complete, plausible dates (or clearing).
+          if (e.target.value === "" || isPlausibleDate(e.target.value)) void commit(e.target.value);
         }}
       />
     </>
   );
+}
+
+/**
+ * Saves the newest value; on failure reverts to the last saved value – but only if no newer value was
+ * entered meanwhile (an older failing request must not overwrite what the user is typing now).
+ */
+function useLatestCommit(
+  initial: string,
+  setValue: (value: string) => void,
+  save: (value: string) => Promise<boolean>,
+) {
+  const latest = useRef(0);
+  const saved = useRef(initial);
+  return async (value: string) => {
+    const request = ++latest.current;
+    const ok = await save(value);
+    if (ok) saved.current = value;
+    else if (request === latest.current) setValue(saved.current);
+  };
 }
