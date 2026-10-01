@@ -1,0 +1,24 @@
+name: pp_light_dev
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: pp
+      POSTGRES_PASSWORD: pp
+      POSTGRES_DB: pp_light
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pp -d pp_light"]
+      interval: 2s
+      retries: 30
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+volumes:
+  pgdata_dev:
