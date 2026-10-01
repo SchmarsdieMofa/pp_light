@@ -87,7 +87,10 @@ export async function deletePhase(db: DB, actor: Actor, phaseId: string): Promis
   await db.transaction(async (tx) => {
     await lockProject(tx, phase.projectId);
     await loadPhase(tx, phaseId);
-    await tx.update(tasks).set({ phaseId: null, updatedAt: sql`now()` }).where(and(eq(tasks.projectId, phase.projectId), eq(tasks.phaseId, phaseId)));
+    await tx.update(tasks).set({
+      phaseId: null,
+      updatedAt: sql`greatest(now(), ${tasks.updatedAt} + interval '1 millisecond')`,
+    }).where(and(eq(tasks.projectId, phase.projectId), eq(tasks.phaseId, phaseId)));
     await tx.delete(phases).where(eq(phases.id, phaseId));
   });
 }
