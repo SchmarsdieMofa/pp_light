@@ -65,6 +65,8 @@ Dann unter <http://localhost:3000> als `demo@pp-light.local` anmelden. Das Demo-
 | `npm run typecheck` / `npm run lint` | Statische Prüfung |
 | `npm run db:generate` | Migration aus `src/server/db/schema.ts` erzeugen |
 
+Bei jedem Push und Pull Request führt [GitHub Actions](.github/workflows/checks.yml) Typecheck, Lint, Unit- und Browser-Tests sowie den Produktions-Build mit frischem Postgres und Mailpit aus.
+
 Aufbau: UI (`src/app`, `src/components`) → Server Actions → Prüfung (zod) → Rechte (`src/server/permissions`) → Services (`src/server/<modul>`).
 
 Falls Playwright unter Windows nach dem Test beim Beenden seines Dev-Servers hängt, kann der Testserver separat laufen. In PowerShell:
