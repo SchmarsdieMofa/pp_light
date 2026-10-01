@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { setAssigneesAction, setLabelsAction, updateTaskAction } from "@/app/(app)/tasks/actions";
+import { setAssigneesAction, setLabelsAction, undoScheduleAction, updateTaskAction } from "@/app/(app)/tasks/actions";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { isPlausibleDate } from "@/lib/dates";
@@ -41,6 +41,21 @@ export function TaskEditor({ detail }: { detail: TaskDetail }) {
     const res = await updateTaskAction(detail.id, latestUpdatedAt.current, patch);
     if (res.ok) {
       latestUpdatedAt.current = res.data.updatedAt;
+      if (res.data.movedCount > 0 && res.data.groupId) {
+        const count = res.data.movedCount;
+        const groupId = res.data.groupId;
+        toast.success(`${count} ${count === 1 ? "Aufgabe" : "Aufgaben"} verschoben`, {
+          duration: 15_000,
+          action: {
+            label: "Rückgängig",
+            onClick: async () => {
+              const undone = await undoScheduleAction(groupId);
+              if (undone.ok) window.location.reload();
+              else toast.error(undone.error.message);
+            },
+          },
+        });
+      }
       return true;
     }
     if (res.error.code === "CONFLICT") {

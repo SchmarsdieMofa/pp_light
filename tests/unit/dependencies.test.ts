@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { taskDependencies, tasks } from "@/server/db/schema";
 import { addDependency, removeDependency, updateDependencyLag } from "@/server/dependencies/service";
+import { undoScheduleGroup } from "@/server/dependencies/undo";
 import { createTask, updateTask } from "@/server/tasks/service";
 import { resetDb, testDb } from "../helpers/db";
 import { addMember, makeActor, makeProject } from "../helpers/fixtures";
@@ -66,5 +67,49 @@ describe("task dependencies", () => {
     expect((await addDependency(testDb, actor, a.id, complete.id, 0)).movedCount).toBe(0);
     expect((await addDependency(testDb, actor, a.id, undated.id, 0)).movedCount).toBe(0);
     expect(await dates(complete.id)).toEqual({ startDate: "2026-10-01", dueDate: "2026-10-02" });
+  });
+
+  it("cascades a changed due date through a diamond and never pulls tasks forward", async () => {
+    const actor = await makeActor("reschedule@example.com");
+    const { project } = await makeProject(actor, "DIA");
+    const a = await datedTask(actor, project.id, "A", "2026-10-01", "2026-10-02");
+    const b = await datedTask(actor, project.id, "B", "2026-10-05", "2026-10-05");
+    const c = await datedTask(actor, project.id, "C", "2026-10-05", "2026-10-06");
+    const d = await datedTask(actor, project.id, "D", "2026-10-07", "2026-10-08");
+    await addDependency(testDb, actor, a.id, b.id, 0);
+    await addDependency(testDb, actor, a.id, c.id, 0);
+    await addDependency(testDb, actor, b.id, d.id, 0);
+    await addDependency(testDb, actor, c.id, d.id, 0);
+
+    const later = await updateTask(testDb, actor, a.id, a.updatedAt.toISOString(), { dueDate: "2026-10-06" });
+    expect(later.schedule?.movedCount).toBe(3);
+    expect(await dates(b.id)).toEqual({ startDate: "2026-10-07", dueDate: "2026-10-07" });
+    expect(await dates(c.id)).toEqual({ startDate: "2026-10-07", dueDate: "2026-10-08" });
+    expect(await dates(d.id)).toEqual({ startDate: "2026-10-09", dueDate: "2026-10-12" });
+
+    const earlier = await updateTask(testDb, actor, a.id, later.updatedAt.toISOString(), { dueDate: "2026-10-02" });
+    expect(earlier.schedule?.movedCount).toBe(0);
+    expect(await dates(d.id)).toEqual({ startDate: "2026-10-09", dueDate: "2026-10-12" });
+  });
+
+  it("undoes the whole date group once and rejects a later conflicting edit", async () => {
+    const actor = await makeActor("undo@example.com");
+    const { project } = await makeProject(actor, "UND");
+    const a = await datedTask(actor, project.id, "A", "2026-10-01", "2026-10-02");
+    const b = await datedTask(actor, project.id, "B", "2026-10-05", "2026-10-06");
+    await addDependency(testDb, actor, a.id, b.id, 0);
+    const first = await updateTask(testDb, actor, a.id, a.updatedAt.toISOString(), { dueDate: "2026-10-06" });
+    expect(first.schedule?.movedCount).toBe(1);
+    await undoScheduleGroup(testDb, actor, first.schedule!.groupId);
+    expect(await dates(a.id)).toEqual({ startDate: "2026-10-01", dueDate: "2026-10-02" });
+    expect(await dates(b.id)).toEqual({ startDate: "2026-10-05", dueDate: "2026-10-06" });
+    await expect(undoScheduleGroup(testDb, actor, first.schedule!.groupId)).rejects.toMatchObject({ code: "CONFLICT" });
+
+    const [freshA] = await testDb.select({ updatedAt: tasks.updatedAt }).from(tasks).where(eq(tasks.id, a.id));
+    const second = await updateTask(testDb, actor, a.id, freshA.updatedAt.toISOString(), { dueDate: "2026-10-07" });
+    const [freshB] = await testDb.select({ updatedAt: tasks.updatedAt }).from(tasks).where(eq(tasks.id, b.id));
+    await updateTask(testDb, actor, b.id, freshB.updatedAt.toISOString(), { dueDate: "2026-10-12" });
+    await expect(undoScheduleGroup(testDb, actor, second.schedule!.groupId)).rejects.toMatchObject({ code: "CONFLICT" });
+    expect((await dates(a.id)).dueDate).toBe("2026-10-07");
   });
 });

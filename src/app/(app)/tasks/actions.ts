@@ -6,6 +6,7 @@ import { runAction, type ActionResult } from "@/server/action-result";
 import { requireActor } from "@/server/auth/session";
 import { addChecklistItem, deleteChecklistItem, setChecklistItemDone } from "@/server/checklists/service";
 import { db } from "@/server/db/client";
+import { undoScheduleGroup } from "@/server/dependencies/undo";
 import { setTaskAssignees, setTaskLabels } from "@/server/tasks/relations";
 import { createTask, moveTask, updateTask } from "@/server/tasks/service";
 
@@ -27,12 +28,16 @@ export async function updateTaskAction(
   taskId: string,
   expectedUpdatedAt: string,
   patch: TaskPatch,
-): Promise<ActionResult<{ updatedAt: string }>> {
+): Promise<ActionResult<{ updatedAt: string; movedCount: number; groupId: string | null }>> {
   const actor = await requireActor();
   return runAction(async () => {
     const task = await updateTask(db(), actor, taskId, expectedUpdatedAt, patch);
     refresh();
-    return { updatedAt: task.updatedAt.toISOString() };
+    return {
+      updatedAt: task.updatedAt.toISOString(),
+      movedCount: task.schedule?.movedCount ?? 0,
+      groupId: task.schedule?.groupId ?? null,
+    };
   });
 }
 
@@ -80,6 +85,14 @@ export async function moveTaskAction(taskId: string, input: MoveTaskInput): Prom
   const actor = await requireActor();
   return runAction(async () => {
     await moveTask(db(), actor, taskId, input);
+    refresh();
+  });
+}
+
+export async function undoScheduleAction(groupId: string): Promise<ActionResult<void>> {
+  const actor = await requireActor();
+  return runAction(async () => {
+    await undoScheduleGroup(db(), actor, groupId);
     refresh();
   });
 }

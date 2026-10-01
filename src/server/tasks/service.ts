@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
 import {
@@ -9,6 +10,7 @@ import {
   type TaskPatch,
 } from "@/lib/schemas/task";
 import { recordActivity } from "@/server/activity/service";
+import { propagateDates } from "@/server/dependencies/scheduling";
 import type { DB, Executor } from "@/server/db/client";
 import { byPosition } from "@/server/db/order";
 import { phases, projects, statuses, tasks } from "@/server/db/schema";
@@ -103,12 +105,13 @@ export async function updateTask(
   taskId: string,
   expectedUpdatedAt: string,
   rawPatch: TaskPatch,
-): Promise<Task> {
+): Promise<Task & { schedule?: { movedCount: number; groupId: string } }> {
   const patch = updateTaskSchema.parse(rawPatch);
 
   return db.transaction(async (tx) => {
     const { task, role } = await loadTaskAccess(tx, actor, taskId);
     assertCan(actor, "task.update", projectCtx(role));
+    await tx.select({ id: projects.id }).from(projects).where(eq(projects.id, task.projectId)).for("update");
     if (task.updatedAt.getTime() !== new Date(expectedUpdatedAt).getTime()) {
       throw new DomainError("CONFLICT", "Die Aufgabe wurde zwischenzeitlich geändert.");
     }
@@ -142,19 +145,34 @@ export async function updateTask(
     // Optimistic lock: a concurrent writer that committed first makes this match zero rows.
     const [updated] = await tx
       .update(tasks)
-      .set({ ...changes, updatedAt: sql`now()` })
+      .set({ ...changes, updatedAt: sql`greatest(now(), ${tasks.updatedAt} + interval '1 millisecond')` })
       .where(and(eq(tasks.id, taskId), eq(tasks.updatedAt, task.updatedAt)))
       .returning();
     if (!updated) throw new DomainError("CONFLICT", "Die Aufgabe wurde zwischenzeitlich geändert.");
 
+    const datesChanged = changes.startDate !== undefined || changes.dueDate !== undefined;
+    const groupId = datesChanged ? randomUUID() : null;
+    if (groupId) {
+      await recordActivity(tx, {
+        projectId: task.projectId, taskId: task.id, actorId: actor.id,
+        action: "schedule.changed", groupId,
+        diff: {
+          before: { startDate: task.startDate, dueDate: task.dueDate },
+          after: { startDate: updated.startDate, dueDate: updated.dueDate },
+        },
+      });
+    }
     await recordActivity(tx, {
       projectId: task.projectId,
       taskId: task.id,
       actorId: actor.id,
       action: "task.updated",
       diff,
+      groupId,
     });
-    return updated;
+    if (!groupId) return updated;
+    const movedCount = await propagateDates(tx, task.projectId, [task.id], false, actor.id, groupId);
+    return { ...updated, schedule: { movedCount, groupId } };
   });
 }
 
