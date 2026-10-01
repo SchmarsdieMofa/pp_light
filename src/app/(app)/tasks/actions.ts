@@ -1,13 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { CreateTaskInput, TaskPatch } from "@/lib/schemas/task";
+import type { CreateTaskInput, MoveTaskInput, TaskPatch } from "@/lib/schemas/task";
 import { runAction, type ActionResult } from "@/server/action-result";
 import { requireActor } from "@/server/auth/session";
 import { addChecklistItem, deleteChecklistItem, setChecklistItemDone } from "@/server/checklists/service";
 import { db } from "@/server/db/client";
 import { setTaskAssignees, setTaskLabels } from "@/server/tasks/relations";
-import { createTask, updateTask } from "@/server/tasks/service";
+import { createTask, moveTask, updateTask } from "@/server/tasks/service";
 
 /** Every task mutation re-renders board, list, panel and task page in the same round trip. */
 function refresh() {
@@ -72,6 +72,14 @@ export async function deleteChecklistItemAction(itemId: string): Promise<ActionR
   const actor = await requireActor();
   return runAction(async () => {
     await deleteChecklistItem(db(), actor, itemId);
+    refresh();
+  });
+}
+
+export async function moveTaskAction(taskId: string, input: MoveTaskInput): Promise<ActionResult<void>> {
+  const actor = await requireActor();
+  return runAction(async () => {
+    await moveTask(db(), actor, taskId, input);
     refresh();
   });
 }
