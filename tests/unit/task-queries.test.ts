@@ -65,6 +65,16 @@ describe("listProjectTasks", () => {
     expect(await titles("3")).toEqual(["Footer"]);
   });
 
+  it("returns a short description excerpt and supports board order", async () => {
+    const { ada, project, logo } = await setup();
+    await updateTask(testDb, ada, logo.id, (await getTaskDetail(testDb, ada, logo.id))!.updatedAt, {
+      description: "x".repeat(300),
+    });
+    const rows = await listProjectTasks(testDb, project.id, {}, { field: "position", dir: "asc" });
+    expect(rows.find((r) => r.id === logo.id)?.descriptionExcerpt).toHaveLength(140);
+    expect(rows.map((r) => r.title)).toEqual(["Logo 100% fertig", "Header_bauen", "Footer"]);
+  });
+
   it("sorts by priority and due date (empty dates last)", async () => {
     const { project } = await setup();
     const titles = async (field: "priority" | "dueDate", dir: "asc" | "desc") =>

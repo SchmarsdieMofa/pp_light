@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { THEMES, type CardDensity, type Theme } from "@/lib/enums";
+import { CARD_DENSITIES, THEMES, type CardDensity, type Theme } from "@/lib/enums";
 import type { DB } from "@/server/db/client";
 import { userPreferences } from "@/server/db/schema";
 
@@ -19,4 +19,12 @@ export async function setTheme(db: DB, userId: string, theme: Theme): Promise<vo
     .insert(userPreferences)
     .values({ userId, theme: value })
     .onConflictDoUpdate({ target: userPreferences.userId, set: { theme: value } });
+}
+
+export async function setCardDensity(db: DB, userId: string, density: CardDensity): Promise<void> {
+  const value = z.enum(CARD_DENSITIES).parse(density);
+  await db
+    .insert(userPreferences)
+    .values({ userId, cardDensity: value })
+    .onConflictDoUpdate({ target: userPreferences.userId, set: { cardDensity: value } });
 }

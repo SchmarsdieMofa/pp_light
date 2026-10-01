@@ -25,6 +25,7 @@ export type TaskListRow = {
   number: number;
   key: string;
   title: string;
+  descriptionExcerpt: string;
   priority: TaskPriority;
   startDate: string | null;
   dueDate: string | null;
@@ -105,6 +106,7 @@ export async function listProjectTasks(
       number: tasks.number,
       key: projects.key,
       title: tasks.title,
+      descriptionExcerpt: sql<string>`left(${tasks.description}, 140)`,
       priority: tasks.priority,
       startDate: tasks.startDate,
       dueDate: tasks.dueDate,
