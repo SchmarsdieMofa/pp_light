@@ -24,7 +24,9 @@ docker compose up -d --build
 docker compose exec app node scripts/create-admin.mjs --email admin@firma.de --name "Vorname Nachname" --password "<mind. 10 Zeichen>"
 ```
 
-Danach läuft die App auf <http://localhost:3000>. Die Inbox ist unter `/inbox`, die Nutzerverwaltung für Admins unter `/admin`. Der separate `worker`-Container versendet Einladungen, Passwort-Reset-Links und Benachrichtigungs-Digests über den SMTP-Server aus `.env`. Eine Mail, die fünfmal nicht zugestellt werden kann, wird aufgegeben (`mail_outbox.failed_at`, Fehler in `last_error`), ohne andere Mails aufzuhalten.
+Danach läuft die App auf <http://localhost:3000>. Die Startseite „Meine Arbeit“ zeigt zugewiesene Aufgaben nach Fälligkeit und lässt sie mit einem Klick abschließen. `Strg+K` (Mac: `⌘+K`) öffnet die Suche nach Aufgaben und Projekten. `?` zeigt alle Tastenkürzel; `C` fokussiert die Schnell-Eingabe und `1`/`2`/`3` wechseln im Projekt zwischen Board, Gantt und Liste. Auf dem Handy öffnet der Menü-Button die Navigation; Board und Aufgaben-Panel sind ebenfalls mobil bedienbar. Die Inbox ist unter `/inbox`, die Nutzerverwaltung für Admins unter `/admin`.
+
+Der separate `worker`-Container versendet Einladungen, Passwort-Reset-Links und Benachrichtigungs-Digests über den SMTP-Server aus `.env`. Eine Mail, die fünfmal nicht zugestellt werden kann, wird aufgegeben (`mail_outbox.failed_at`, Fehler in `last_error`), ohne andere Mails aufzuhalten.
 
 SMTP-Zugang in `.env` setzen: `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` und bei Bedarf `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`. Mailpit gehört nur in die Entwicklung (`docker-compose.dev.yml`): Es zeigt Reset- und Einladungslinks ohne Anmeldung an und darf nie öffentlich erreichbar sein. Optionales SSO benötigt `OIDC_ISSUER`, `OIDC_CLIENT_ID` und `OIDC_CLIENT_SECRET`. Die Redirect-URI beim Provider lautet `<APP_URL>/api/auth/callback/oidc`. Mit `OIDC_ALLOWED_DOMAINS=firma.de,partner.de` dürfen verifizierte Adressen dieser Domains ein neues Konto erhalten; sonst braucht ein neues Konto eine Einladung. Konten werden nur über eine vom Provider bestätigte E-Mail-Adresse verknüpft (`email_verified`). Microsoft Entra ID sendet dieses Feld nicht; dort `OIDC_TRUST_EMAIL=true` setzen, aber nur für einen eigenen Tenant als Issuer (nicht `common`), denn dann vertraut pp_light jeder Adresse, die dieser Issuer meldet.
 
@@ -54,12 +56,12 @@ Für eine lokale Vorschau mit vier Beispielaufgaben:
 npm run seed:demo -- --password '<eigenes Demo-Passwort mit mindestens 10 Zeichen>'
 ```
 
-Dann unter <http://localhost:3000> als `demo@pp-light.local` anmelden und links „Demo-Projekt“, „Benachrichtigungen“ oder „Nutzerverwaltung“ öffnen. Das Demo-Konto hat Admin-Rechte. Der Seed ergänzt fehlende Beispieldaten, ohne vorhandene Aufgaben zu löschen. Er akzeptiert nur die lokale Datenbank `pp_light`.
+Dann unter <http://localhost:3000> als `demo@pp-light.local` anmelden. Das Demo-Konto hat Admin-Rechte. Die Startseite zeigt zugewiesene Aufgaben; über die Navigation erreichst du „Demo-Projekt“, „Benachrichtigungen“ und „Nutzerverwaltung“. Der Seed ergänzt fehlende Beispieldaten, ohne vorhandene Aufgaben zu löschen. Er akzeptiert nur die lokale Datenbank `pp_light`.
 
 | Befehl | Zweck |
 |---|---|
 | `npm test` | Unit- und Integrationstests (Vitest, gegen DB `pp_light_test`) |
-| `npm run test:e2e` | Browser-Tests (Playwright, Port 3100, DB `pp_light_e2e`). Die Vorschau auf Port 3000 kann weiterlaufen. |
+| `npm run test:e2e` | Browser-Tests (Playwright, Port 3100, DB `pp_light_e2e`, Mailpit auf Port 8025). Die Vorschau auf Port 3000 kann weiterlaufen. |
 | `npm run typecheck` / `npm run lint` | Statische Prüfung |
 | `npm run db:generate` | Migration aus `src/server/db/schema.ts` erzeugen |
 
