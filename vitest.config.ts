@@ -9,5 +9,11 @@ export default defineConfig({
     environment: "node",
     include: ["tests/unit/**/*.test.ts"],
     fileParallelism: false,
+    globalSetup: ["tests/global-setup.ts"],
+    setupFiles: ["tests/setup.ts"],
+    env: {
+      DATABASE_URL: "postgres://pp:pp@localhost:5432/pp_light_test",
+      AUTH_SECRET: "test-secret-test-secret-test-secret-123",
+    },
   },
 });
