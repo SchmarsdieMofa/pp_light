@@ -43,6 +43,14 @@ npm run seed:admin -- --email admin@example.com --name "Ada Admin" --password ad
 npm run dev                                       # http://localhost:3000
 ```
 
+Für eine lokale Vorschau mit vier Beispielaufgaben:
+
+```bash
+npm run seed:demo -- --password '<eigenes Demo-Passwort mit mindestens 10 Zeichen>'
+```
+
+Dann unter <http://localhost:3000> als `demo@pp-light.local` anmelden und links „Demo-Projekt“ öffnen. Der Seed ergänzt fehlende Beispieldaten, ohne vorhandene Aufgaben zu löschen. Er akzeptiert nur die lokale Datenbank `pp_light`.
+
 | Befehl | Zweck |
 |---|---|
 | `npm test` | Unit- und Integrationstests (Vitest, gegen DB `pp_light_test`) |

@@ -13,6 +13,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
     "seed:admin": "tsx --env-file=.env.local scripts/create-admin.ts",
+    "seed:demo": "tsx --env-file=.env.local scripts/seed-demo.ts",
     "build:scripts": "esbuild scripts/migrate.ts scripts/create-admin.ts --bundle --platform=node --target=node24 --format=esm --outdir=dist/scripts --out-extension:.js=.mjs --external:@node-rs/argon2 --external:pg-native --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\""
   },
   "dependencies": {
