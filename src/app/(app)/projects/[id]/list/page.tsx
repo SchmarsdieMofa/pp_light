@@ -1,4 +1,5 @@
 import { EmptyState } from "@/components/shell/empty-state";
+import { WithTaskPanel } from "@/components/tasks/task-panel";
 import { QuickAdd } from "@/components/tasks/quick-add";
 import { TaskFilters } from "@/components/tasks/task-filters";
 import { TaskTable } from "@/components/tasks/task-table";
@@ -28,19 +29,21 @@ export default async function ListPage(props: {
   const hasFilters = Object.keys(filters).length > 0;
 
   return (
-    <div className="space-y-4">
-      {can(actor, "task.create", projectCtx(role)) && (
-        <QuickAdd projectId={project.id} label="Neue Aufgabe" placeholder="Neue Aufgabe… (Enter)" />
-      )}
-      <TaskFilters statuses={statuses} members={members} labels={labels} filters={filters} />
-      {rows.length === 0 ? (
-        <EmptyState
-          title={hasFilters ? "Keine Treffer" : "Noch keine Aufgaben"}
-          text={hasFilters ? "Kein Eintrag passt zu den Filtern." : "Lege oben die erste Aufgabe an."}
-        />
-      ) : (
-        <TaskTable rows={rows} sort={sort} basePath={`/projects/${project.id}/list`} params={params} />
-      )}
-    </div>
+    <WithTaskPanel taskId={params.task}>
+      <div className="space-y-4">
+        {can(actor, "task.create", projectCtx(role)) && (
+          <QuickAdd projectId={project.id} label="Neue Aufgabe" placeholder="Neue Aufgabe… (Enter)" />
+        )}
+        <TaskFilters statuses={statuses} members={members} labels={labels} filters={filters} />
+        {rows.length === 0 ? (
+          <EmptyState
+            title={hasFilters ? "Keine Treffer" : "Noch keine Aufgaben"}
+            text={hasFilters ? "Kein Eintrag passt zu den Filtern." : "Lege oben die erste Aufgabe an."}
+          />
+        ) : (
+          <TaskTable rows={rows} sort={sort} basePath={`/projects/${project.id}/list`} params={params} />
+        )}
+      </div>
+    </WithTaskPanel>
   );
 }
