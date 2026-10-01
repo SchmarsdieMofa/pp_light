@@ -43,7 +43,9 @@ export default async function ListPage(props: {
             text={hasFilters ? "Kein Eintrag passt zu den Filtern." : "Lege oben die erste Aufgabe an."}
           />
         ) : (
-          <TaskTable rows={rows} sort={sort} basePath={`/projects/${project.id}/list`} params={params} />
+          <div className="overflow-x-auto">
+            <TaskTable rows={rows} sort={sort} basePath={`/projects/${project.id}/list`} params={params} />
+          </div>
         )}
       </div>
     </WithTaskPanel>

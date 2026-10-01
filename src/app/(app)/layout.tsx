@@ -1,3 +1,4 @@
+import { AppShell } from "@/components/shell/app-shell";
 import { CommandCenter } from "@/components/shell/command-center";
 import { Sidebar } from "@/components/shell/sidebar";
 import { ThemeSync } from "@/components/shell/theme-sync";
@@ -15,16 +16,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     unreadCount(db(), actor),
   ]);
   return (
-    <div className="flex min-h-svh">
+    <>
       <ThemeSync theme={prefs.theme} />
-      <Sidebar
-        user={{ name: actor.name, email: actor.email }}
-        projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key }))}
-        initialUnread={initialUnread}
-        isAdmin={actor.role === "admin"}
-      />
-      <main className="min-w-0 flex-1">{children}</main>
+      <AppShell
+        sidebar={
+          <Sidebar
+            user={{ name: actor.name, email: actor.email }}
+            projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key }))}
+            initialUnread={initialUnread}
+            isAdmin={actor.role === "admin"}
+          />
+        }
+      >
+        {children}
+      </AppShell>
       <CommandCenter projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key }))} />
-    </div>
+    </>
   );
 }
