@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { generateKeyBetween } from "fractional-indexing";
-import { createTaskSchema, type CreateTaskInput } from "@/lib/schemas/task";
+import { createTaskSchema, updateTaskSchema, type CreateTaskInput, type TaskPatch } from "@/lib/schemas/task";
 import { recordActivity } from "@/server/activity/service";
 import type { DB, Executor } from "@/server/db/client";
 import { byPosition } from "@/server/db/order";
@@ -8,7 +8,7 @@ import { projects, statuses, tasks } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { assertCan, projectCtx, type Actor } from "@/server/permissions";
 import { requireProjectAccess } from "@/server/projects/service";
-import type { Task } from "./access";
+import { loadTaskAccess, type Task } from "./access";
 
 async function resolveStatus(ex: Executor, projectId: string, statusId?: string) {
   if (statusId) {
@@ -85,5 +85,63 @@ export async function createTask(db: DB, actor: Actor, raw: CreateTaskInput): Pr
       diff: { title: task.title, parentId: task.parentId },
     });
     return task;
+  });
+}
+
+const EDITABLE_FIELDS = ["title", "description", "statusId", "priority", "startDate", "dueDate"] as const;
+
+export async function updateTask(
+  db: DB,
+  actor: Actor,
+  taskId: string,
+  expectedUpdatedAt: string,
+  rawPatch: TaskPatch,
+): Promise<Task> {
+  const patch = updateTaskSchema.parse(rawPatch);
+
+  return db.transaction(async (tx) => {
+    const { task, role } = await loadTaskAccess(tx, actor, taskId);
+    assertCan(actor, "task.update", projectCtx(role));
+    if (task.updatedAt.getTime() !== new Date(expectedUpdatedAt).getTime()) {
+      throw new DomainError("CONFLICT", "Die Aufgabe wurde zwischenzeitlich geändert.");
+    }
+
+    const changes: Partial<typeof tasks.$inferInsert> = {};
+    const diff: Record<string, [unknown, unknown]> = {};
+    for (const field of EDITABLE_FIELDS) {
+      const next = patch[field];
+      if (next !== undefined && next !== task[field]) {
+        Object.assign(changes, { [field]: next });
+        diff[field] = [task[field], next];
+      }
+    }
+    if (Object.keys(diff).length === 0) return task;
+
+    const startDate = changes.startDate !== undefined ? changes.startDate : task.startDate;
+    const dueDate = changes.dueDate !== undefined ? changes.dueDate : task.dueDate;
+    if (startDate && dueDate && startDate > dueDate) {
+      throw new DomainError("VALIDATION", "Der Start liegt nach dem Fälligkeitsdatum.");
+    }
+    if (changes.statusId) {
+      const status = await resolveStatus(tx, task.projectId, changes.statusId);
+      changes.completedAt = status.isDone ? (task.completedAt ?? new Date()) : null;
+    }
+
+    // Optimistic lock: a concurrent writer that committed first makes this match zero rows.
+    const [updated] = await tx
+      .update(tasks)
+      .set({ ...changes, updatedAt: sql`now()` })
+      .where(and(eq(tasks.id, taskId), eq(tasks.updatedAt, task.updatedAt)))
+      .returning();
+    if (!updated) throw new DomainError("CONFLICT", "Die Aufgabe wurde zwischenzeitlich geändert.");
+
+    await recordActivity(tx, {
+      projectId: task.projectId,
+      taskId: task.id,
+      actorId: actor.id,
+      action: "task.updated",
+      diff,
+    });
+    return updated;
   });
 }
