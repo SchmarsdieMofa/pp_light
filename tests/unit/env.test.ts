@@ -24,4 +24,10 @@ describe("parseEnv", () => {
   it("rejects a short AUTH_SECRET", () => {
     expect(() => parseEnv({ ...valid, AUTH_SECRET: "kurz" })).toThrow(/AUTH_SECRET/);
   });
+
+  it("rejects the placeholder AUTH_SECRET from .env.example", () => {
+    expect(() =>
+      parseEnv({ ...valid, AUTH_SECRET: "change-me-to-a-random-string-with-at-least-32-chars" }),
+    ).toThrow(/AUTH_SECRET/);
+  });
 });

@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# pp_light
 
-## Getting Started
+Schlanker, selbst gehosteter Projektplaner für kleine Teams: Aufgaben im Zentrum, Kanban und Gantt als Sichten darauf.
 
-First, run the development server:
+- Design: [`docs/superpowers/specs/2026-09-30-pp-light-design.md`](docs/superpowers/specs/2026-09-30-pp-light-design.md)
+- Roadmap: [`docs/superpowers/plans/2026-10-01-roadmap.md`](docs/superpowers/plans/2026-10-01-roadmap.md)
+
+Stack: Next.js 16 · TypeScript · PostgreSQL 17 + Drizzle · Auth.js · Tailwind/shadcn · Docker Compose
+
+## Betrieb (Produktion)
+
+Voraussetzung: Docker mit Compose.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env
+# AUTH_SECRET setzen (Pflicht, zufällig, mind. 32 Zeichen):
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+# POSTGRES_PASSWORD setzen (nur Buchstaben/Ziffern):
+node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"
+
+docker compose up -d --build
+
+# Ersten Admin anlegen:
+docker compose exec app node scripts/create-admin.mjs --email admin@firma.de --name "Vorname Nachname" --password "<mind. 10 Zeichen>"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Danach läuft die App auf <http://localhost:3000>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Migrationen laufen bei jedem Start automatisch.
+- Bei ungültiger Konfiguration, etwa einem fehlenden oder Platzhalter-`AUTH_SECRET`, bricht der Container ab und nennt die Variable: `docker compose logs app`.
+- Daten liegen in den Volumes `pgdata` (Datenbank) und `uploads` (Anhänge). `docker compose down` lässt sie stehen.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Entwicklung
 
-## Learn More
+Voraussetzung: Node 24, Docker.
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm install
+docker compose -f docker-compose.dev.yml up -d   # Postgres (inkl. Test-DBs) + Mailpit (http://localhost:8025)
+cp .env.example .env.local                        # AUTH_SECRET wie oben setzen
+npm run db:migrate
+npm run seed:admin -- --email admin@example.com --name "Ada Admin" --password admin-passwort-123
+npm run dev                                       # http://localhost:3000
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Befehl | Zweck |
+|---|---|
+| `npm test` | Unit- und Integrationstests (Vitest, gegen DB `pp_light_test`) |
+| `npm run test:e2e` | Browser-Tests (Playwright, Port 3100, DB `pp_light_e2e`). Vorher einen laufenden `npm run dev` beenden |
+| `npm run typecheck` / `npm run lint` | Statische Prüfung |
+| `npm run db:generate` | Migration aus `src/server/db/schema.ts` erzeugen |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Aufbau: UI (`src/app`, `src/components`) → Server Actions → Prüfung (zod) → Rechte (`src/server/permissions`) → Services (`src/server/<modul>`).

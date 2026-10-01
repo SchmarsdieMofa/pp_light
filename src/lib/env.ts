@@ -2,7 +2,10 @@ import { z } from "zod";
 
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
-  AUTH_SECRET: z.string().min(32, "mindestens 32 Zeichen"),
+  AUTH_SECRET: z
+    .string()
+    .min(32, "mindestens 32 Zeichen")
+    .refine((v) => !v.startsWith("change-me"), "Platzhalter aus .env.example – bitte zufällig erzeugen"),
   APP_URL: z.string().min(1).default("http://localhost:3000"),
   UPLOAD_MAX_MB: z.coerce.number().int().positive().default(25),
 });
