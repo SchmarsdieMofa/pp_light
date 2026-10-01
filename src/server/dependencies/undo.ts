@@ -46,9 +46,11 @@ export async function undoScheduleGroup(db: DB, actor: Actor, rawGroupId: string
         updatedAt: sql`greatest(now(), ${tasks.updatedAt} + interval '1 millisecond')`,
       }).where(eq(tasks.id, change.taskId));
     }
-    await recordActivity(tx, {
-      projectId: first.projectId, actorId: actor.id, action: "schedule.undone", groupId,
-      diff: { taskIds: verified.map((change) => change.taskId) },
-    });
+    for (const change of verified) {
+      await recordActivity(tx, {
+        projectId: first.projectId, taskId: change.taskId, actorId: actor.id, action: "schedule.undone", groupId,
+        diff: { taskIds: verified.map((item) => item.taskId) },
+      });
+    }
   });
 }

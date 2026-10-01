@@ -7,7 +7,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["tests/unit/**/*.test.ts"],
+    include: ["tests/unit/**/*.test.{ts,tsx}"],
     fileParallelism: false,
     globalSetup: ["tests/global-setup.ts"],
     setupFiles: ["tests/setup.ts"],

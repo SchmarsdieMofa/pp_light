@@ -5,7 +5,10 @@ import type { CreateTaskInput, MoveTaskInput, TaskPatch } from "@/lib/schemas/ta
 import { runAction, type ActionResult } from "@/server/action-result";
 import { requireActor } from "@/server/auth/session";
 import { addChecklistItem, deleteChecklistItem, setChecklistItemDone } from "@/server/checklists/service";
+import { deleteAttachment } from "@/server/attachments/service";
+import { createComment, deleteComment, updateComment } from "@/server/comments/service";
 import { db } from "@/server/db/client";
+import { getEnv } from "@/lib/env";
 import { addDependency, removeDependency, updateDependencyLag } from "@/server/dependencies/service";
 import { undoScheduleGroup } from "@/server/dependencies/undo";
 import { setTaskAssignees, setTaskLabels } from "@/server/tasks/relations";
@@ -120,6 +123,38 @@ export async function removeDependencyAction(blockerId: string, blockedId: strin
   const actor = await requireActor();
   return runAction(async () => {
     await removeDependency(db(), actor, blockerId, blockedId);
+    refresh();
+  });
+}
+
+export async function createCommentAction(taskId: string, body: string): Promise<ActionResult<void>> {
+  const actor = await requireActor();
+  return runAction(async () => {
+    await createComment(db(), actor, taskId, body);
+    refresh();
+  });
+}
+
+export async function updateCommentAction(commentId: string, body: string): Promise<ActionResult<void>> {
+  const actor = await requireActor();
+  return runAction(async () => {
+    await updateComment(db(), actor, commentId, body);
+    refresh();
+  });
+}
+
+export async function deleteCommentAction(commentId: string): Promise<ActionResult<void>> {
+  const actor = await requireActor();
+  return runAction(async () => {
+    await deleteComment(db(), actor, commentId);
+    refresh();
+  });
+}
+
+export async function deleteAttachmentAction(attachmentId: string): Promise<ActionResult<void>> {
+  const actor = await requireActor();
+  return runAction(async () => {
+    await deleteAttachment(db(), actor, attachmentId, getEnv().UPLOAD_DIR);
     refresh();
   });
 }

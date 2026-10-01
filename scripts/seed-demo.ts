@@ -1,8 +1,10 @@
 import { parseArgs } from "node:util";
 import { and, eq } from "drizzle-orm";
 import { addChecklistItem } from "../src/server/checklists/service";
+import { saveAttachment } from "../src/server/attachments/service";
+import { createComment } from "../src/server/comments/service";
 import { createDb } from "../src/server/db/client";
-import { checklistItems, projects, tasks, users } from "../src/server/db/schema";
+import { attachments, checklistItems, comments, projects, tasks, users } from "../src/server/db/schema";
 import { createLabel, listLabels } from "../src/server/labels/service";
 import { createProject, listStatuses } from "../src/server/projects/service";
 import { setTaskAssignees, setTaskLabels } from "../src/server/tasks/relations";
@@ -89,6 +91,20 @@ async function main() {
     await setTaskLabels(db, actor, conceptId, [focus.id]);
     const [check] = await db.select({ id: checklistItems.id }).from(checklistItems).where(and(eq(checklistItems.taskId, conceptId), eq(checklistItems.text, "Offene Fragen sammeln"))).limit(1);
     if (!check) await addChecklistItem(db, actor, conceptId, "Offene Fragen sammeln");
+
+    const demoComment = "**M6-Demo:** Hier kannst du Kommentare mit Markdown und @Erwähnungen ausprobieren.";
+    const [comment] = await db.select({ id: comments.id }).from(comments)
+      .where(and(eq(comments.taskId, conceptId), eq(comments.body, demoComment))).limit(1);
+    if (!comment) await createComment(db, actor, conceptId, demoComment);
+
+    const demoFile = "demo-notiz.txt";
+    const [attachment] = await db.select({ id: attachments.id }).from(attachments)
+      .where(and(eq(attachments.taskId, conceptId), eq(attachments.filename, demoFile))).limit(1);
+    if (!attachment) await saveAttachment(db, actor, conceptId, {
+      name: demoFile,
+      type: "text/plain",
+      data: new TextEncoder().encode("Demo-Anhang zum Ausprobieren des Downloads.\n"),
+    }, { uploadDir: process.env.UPLOAD_DIR ?? "./data/uploads", maxBytes: 1024 * 1024 });
 
     console.log(`Demo bereit: ${email} · Projekt: /projects/${project.id}/board`);
   } finally {

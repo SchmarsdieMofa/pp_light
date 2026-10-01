@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
+import { listActivity } from "@/server/activity/service";
 import { taskDependencies, tasks } from "@/server/db/schema";
 import { addDependency, removeDependency, updateDependencyLag } from "@/server/dependencies/service";
 import { undoScheduleGroup } from "@/server/dependencies/undo";
@@ -103,6 +104,8 @@ describe("task dependencies", () => {
     await undoScheduleGroup(testDb, actor, first.schedule!.groupId);
     expect(await dates(a.id)).toEqual({ startDate: "2026-10-01", dueDate: "2026-10-02" });
     expect(await dates(b.id)).toEqual({ startDate: "2026-10-05", dueDate: "2026-10-06" });
+    expect((await listActivity(testDb, a.id)).at(-1)?.action).toBe("schedule.undone");
+    expect((await listActivity(testDb, b.id)).at(-1)?.action).toBe("schedule.undone");
     await expect(undoScheduleGroup(testDb, actor, first.schedule!.groupId)).rejects.toMatchObject({ code: "CONFLICT" });
 
     const [freshA] = await testDb.select({ updatedAt: tasks.updatedAt }).from(tasks).where(eq(tasks.id, a.id));

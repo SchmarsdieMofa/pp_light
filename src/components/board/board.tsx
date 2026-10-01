@@ -164,9 +164,9 @@ function SortableCard(props: { card: Card; density: CardDensity; href: string; d
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      {...attributes}
-      {...listeners}
-      aria-roledescription="verschiebbare Karte"
+      {...(props.disabled ? {} : attributes)}
+      {...(props.disabled ? {} : listeners)}
+      aria-roledescription={props.disabled ? undefined : "verschiebbare Karte"}
     >
       <BoardCard card={props.card} density={props.density} href={props.href} dragging={props.dragging} />
     </li>

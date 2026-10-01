@@ -1,12 +1,17 @@
 import { and, asc, desc, eq, exists, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { TaskPriority } from "@/lib/enums";
+import { describeActivity, type ActivityLookup } from "@/lib/activity-text";
 import type { TaskListFilters, TaskSort } from "@/lib/task-list-params";
+import { listActivity } from "@/server/activity/service";
+import { listAttachments } from "@/server/attachments/service";
 import { listChecklist } from "@/server/checklists/service";
+import { listComments } from "@/server/comments/service";
 import { listTaskLinks, type TaskLink } from "@/server/dependencies/queries";
 import type { DB } from "@/server/db/client";
 import { byPosition } from "@/server/db/order";
 import {
   checklistItems,
+  comments,
   labels,
   phases,
   projects,
@@ -38,6 +43,7 @@ export type TaskListRow = {
   labels: { id: string; name: string; color: string }[];
   subtasks: { done: number; total: number };
   checklist: { done: number; total: number };
+  commentCount: number;
 };
 
 function escapeLike(value: string): string {
@@ -130,7 +136,7 @@ export async function listProjectTasks(
   if (base.length === 0) return [];
 
   const ids = base.map((t) => t.id);
-  const [assigneeRows, labelRows, subtaskRows, checklistRows] = await Promise.all([
+  const [assigneeRows, labelRows, subtaskRows, checklistRows, commentRows] = await Promise.all([
     db
       .select({ taskId: taskAssignees.taskId, id: users.id, name: users.name })
       .from(taskAssignees)
@@ -162,6 +168,8 @@ export async function listProjectTasks(
       .from(checklistItems)
       .where(inArray(checklistItems.taskId, ids))
       .groupBy(checklistItems.taskId),
+    db.select({ taskId: comments.taskId, total: sql<number>`count(*)`.mapWith(Number) })
+      .from(comments).where(inArray(comments.taskId, ids)).groupBy(comments.taskId),
   ]);
 
   return base.map(({ phaseId, phaseName, ...t }) => {
@@ -174,12 +182,14 @@ export async function listProjectTasks(
       labels: labelRows.filter((r) => r.taskId === t.id).map(({ id, name, color }) => ({ id, name, color })),
       subtasks: { done: sub?.done ?? 0, total: sub?.total ?? 0 },
       checklist: { done: check?.done ?? 0, total: check?.total ?? 0 },
+      commentCount: commentRows.find((r) => r.taskId === t.id)?.total ?? 0,
     };
   });
 }
 
 export type TaskDetail = {
   id: string;
+  viewerId: string;
   projectId: string;
   projectName: string;
   key: string;
@@ -206,6 +216,12 @@ export type TaskDetail = {
   subtasks: { id: string; number: number; title: string; isDone: boolean }[];
   checklist: { id: string; text: string; done: boolean }[];
   hintAllSubtasksDone: boolean;
+  canComment: boolean;
+  canUpload: boolean;
+  canManageProject: boolean;
+  comments: { id: string; authorId: string; authorName: string; body: string; createdAt: string; editedAt: string | null; mentionIds: string[] }[];
+  attachments: { id: string; filename: string; mime: string; size: number; uploadedBy: string; uploaderName: string; createdAt: string }[];
+  activity: { id: string; actorName: string; text: string; createdAt: string }[];
 };
 
 export async function getTaskDetail(db: DB, actor: Actor, taskId: string): Promise<TaskDetail | null> {
@@ -218,7 +234,7 @@ export async function getTaskDetail(db: DB, actor: Actor, taskId: string): Promi
   }
   const { task, role } = access;
 
-  const [[project], statusList, members, projectLabels, phaseList, taskOptions, links, assignees, taskLabelRows, subtasks, checklist, parentRows] =
+  const [[project], statusList, members, projectLabels, phaseList, taskOptions, links, assignees, taskLabelRows, subtasks, checklist, parentRows, taskComments, taskAttachments, activityRows] =
     await Promise.all([
       db.select({ name: projects.name, key: projects.key }).from(projects).where(eq(projects.id, task.projectId)),
       listStatuses(db, task.projectId),
@@ -240,11 +256,26 @@ export async function getTaskDetail(db: DB, actor: Actor, taskId: string): Promi
       task.parentId
         ? db.select({ id: tasks.id, number: tasks.number, title: tasks.title }).from(tasks).where(eq(tasks.id, task.parentId))
         : Promise.resolve([]),
+      listComments(db, task.id),
+      listAttachments(db, task.id),
+      listActivity(db, task.id),
     ]);
 
   const currentStatus = statusList.find((s) => s.id === task.statusId);
+  const actorIds = [...new Set(activityRows.map((entry) => entry.actorId))];
+  const actors = actorIds.length
+    ? await db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, actorIds))
+    : [];
+  const lookup: ActivityLookup = {
+    users: new Map([...members.map((member) => [member.id, member.name] as const), ...actors.map((user) => [user.id, user.name] as const)]),
+    statuses: new Map(statusList.map((status) => [status.id, status.name])),
+    phases: new Map(phaseList.map((phase) => [phase.id, phase.name])),
+    labels: new Map(projectLabels.map((label) => [label.id, label.name])),
+    tasks: new Map(taskOptions.map((option) => [option.id, `${project.key}-${option.number} ${option.title}`])),
+  };
   return {
     id: task.id,
+    viewerId: actor.id,
     projectId: task.projectId,
     projectName: project.name,
     key: project.key,
@@ -271,5 +302,22 @@ export async function getTaskDetail(db: DB, actor: Actor, taskId: string): Promi
     subtasks,
     checklist: checklist.map(({ id, text, done }) => ({ id, text, done })),
     hintAllSubtasksDone: subtasks.length > 0 && subtasks.every((s) => s.isDone) && !currentStatus?.isDone,
+    canComment: can(actor, "comment.create", projectCtx(role)),
+    canUpload: can(actor, "attachment.upload", projectCtx(role)),
+    canManageProject: can(actor, "project.update", projectCtx(role)),
+    comments: taskComments.map((comment) => ({
+      id: comment.id, authorId: comment.authorId, authorName: comment.authorName, body: comment.body,
+      createdAt: comment.createdAt.toISOString(), editedAt: comment.editedAt?.toISOString() ?? null,
+      mentionIds: comment.mentionIds,
+    })),
+    attachments: taskAttachments.map((attachment) => ({
+      id: attachment.id, filename: attachment.filename, mime: attachment.mime, size: attachment.size,
+      uploadedBy: attachment.uploadedBy, uploaderName: attachment.uploaderName,
+      createdAt: attachment.createdAt.toISOString(),
+    })),
+    activity: activityRows.flatMap((entry) => {
+      const text = describeActivity(entry.action, entry.diff ?? {}, lookup);
+      return text ? [{ id: entry.id, actorName: lookup.users.get(entry.actorId) ?? "Unbekannt", text, createdAt: entry.createdAt.toISOString() }] : [];
+    }).reverse(),
   };
 }

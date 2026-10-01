@@ -52,6 +52,7 @@ export function BoardCard({
             ☑ {card.checklist.done}/{card.checklist.total}
           </span>
         )}
+        {showDetails && card.commentCount > 0 && <span title="Kommentare">◌ {card.commentCount}</span>}
         <span className="ml-auto flex -space-x-1">
           {card.assignees.map((a) => (
             <span

@@ -1,5 +1,10 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
+import { saveAttachment } from "@/server/attachments/service";
 import { addChecklistItem, setChecklistItemDone } from "@/server/checklists/service";
+import { createComment } from "@/server/comments/service";
 import { createLabel } from "@/server/labels/service";
 import { createPhase } from "@/server/phases/service";
 import { getTaskDetail, listProjectTasks } from "@/server/tasks/queries";
@@ -142,7 +147,28 @@ describe("getTaskDetail", () => {
     const fremd = await makeActor("fremd@example.com");
     await addMember(project.id, gast, "guest");
     expect((await getTaskDetail(testDb, gast, logo.id))?.canEdit).toBe(false);
+    expect((await getTaskDetail(testDb, gast, logo.id))?.canComment).toBe(true);
+    expect((await getTaskDetail(testDb, gast, logo.id))?.canUpload).toBe(false);
     expect(await getTaskDetail(testDb, fremd, logo.id)).toBeNull();
     expect(await getTaskDetail(testDb, gast, "kaputt")).toBeNull();
+  });
+
+  it("includes comments, attachments, counts and newest-first readable activity", async () => {
+    const { ada, project, logo } = await setup();
+    const uploadDir = mkdtempSync(join(tmpdir(), "pp-query-"));
+    try {
+      await createComment(testDb, ada, logo.id, "Bitte prüfen");
+      await saveAttachment(testDb, ada, logo.id, {
+        name: "plan.pdf", type: "application/pdf", data: new TextEncoder().encode("PDF"),
+      }, { uploadDir, maxBytes: 100 });
+      const detail = (await getTaskDetail(testDb, ada, logo.id))!;
+      expect(detail.comments).toMatchObject([{ body: "Bitte prüfen", authorName: "ada" }]);
+      expect(detail.attachments).toMatchObject([{ filename: "plan.pdf", uploaderName: "ada" }]);
+      expect(detail.activity[0]).toMatchObject({ actorName: "ada", text: "hat „plan.pdf“ angehängt" });
+      expect(detail.activity[1]).toMatchObject({ actorName: "ada", text: "hat kommentiert" });
+      expect((await listProjectTasks(testDb, project.id)).find((row) => row.id === logo.id)?.commentCount).toBe(1);
+    } finally {
+      rmSync(uploadDir, { recursive: true, force: true });
+    }
   });
 });

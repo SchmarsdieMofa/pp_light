@@ -5,14 +5,17 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { setAssigneesAction, setLabelsAction, undoScheduleAction, updateTaskAction } from "@/app/(app)/tasks/actions";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { isPlausibleDate } from "@/lib/dates";
 import { TASK_PRIORITIES, type TaskPriority } from "@/lib/enums";
 import { PRIORITY_LABELS } from "@/lib/priority";
 import type { TaskPatch } from "@/lib/schemas/task";
 import type { TaskDetail } from "@/server/tasks/queries";
 import { MultiSelect } from "./multi-select";
+import { TaskActivity } from "./task-activity";
+import { TaskAttachments } from "./task-attachments";
 import { TaskChecklist } from "./task-checklist";
+import { TaskComments } from "./task-comments";
+import { TaskDescription } from "./task-description";
 import { TaskDependencies } from "./task-dependencies";
 import { TaskSubtasks } from "./task-subtasks";
 import { useTaskHref } from "./use-task-href";
@@ -139,11 +142,14 @@ export function TaskEditor({ detail }: { detail: TaskDetail }) {
         />
       </div>
 
-      <TextField label="Beschreibung" initial={detail.description} disabled={disabled} save={(description) => save({ description })} multiline />
+      <TaskDescription initial={detail.description} canEdit={!disabled} save={(description) => save({ description })} />
 
       {!detail.parent && <TaskSubtasks detail={detail} />}
       <TaskChecklist detail={detail} />
       <TaskDependencies detail={detail} />
+      <TaskAttachments detail={detail} />
+      <TaskComments detail={detail} />
+      <TaskActivity entries={detail.activity} />
     </div>
   );
 }
@@ -154,14 +160,13 @@ function TextField(props: {
   disabled: boolean;
   save: (value: string) => Promise<boolean>;
   large?: boolean;
-  multiline?: boolean;
 }) {
   const [value, setValue] = useState(props.initial);
   const [saved, setSaved] = useState(props.initial);
 
   async function commit() {
-    const next = props.multiline ? value : value.trim();
-    if (!props.multiline && !next) {
+    const next = value.trim();
+    if (!next) {
       setValue(saved);
       return;
     }
@@ -169,24 +174,6 @@ function TextField(props: {
     if (await props.save(next)) setSaved(next);
   }
 
-  if (props.multiline) {
-    return (
-      <div className="space-y-1">
-        <label htmlFor="task-description" className="text-sm font-medium">
-          {props.label}
-        </label>
-        <Textarea
-          id="task-description"
-          value={value}
-          disabled={props.disabled}
-          rows={6}
-          placeholder="Details, Links, Notizen…"
-          onChange={(e) => setValue(e.target.value)}
-          onBlur={commit}
-        />
-      </div>
-    );
-  }
   return (
     <Input
       aria-label={props.label}
