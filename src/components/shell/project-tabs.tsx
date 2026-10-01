@@ -14,7 +14,7 @@ const TABS = [
 export function ProjectTabs({ projectId }: { projectId: string }) {
   const pathname = usePathname();
   return (
-    <nav aria-label="Projektansichten" className="mt-2 flex gap-4">
+    <nav aria-label="Projektansichten" className="mt-2 flex gap-4 overflow-x-auto whitespace-nowrap">
       {TABS.map((tab) => {
         const href = `/projects/${projectId}/${tab.slug}`;
         const active = pathname === href;
@@ -25,6 +25,7 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
             aria-current={active ? "page" : undefined}
             className={cn(
               "border-b-2 pb-2 text-sm",
+              tab.slug === "gantt" && "hidden md:block",
               active ? "border-primary font-medium" : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >

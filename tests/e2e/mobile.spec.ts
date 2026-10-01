@@ -13,7 +13,9 @@ test("works on a phone: drawer navigation, board and full-screen task panel", as
   await page.getByLabel("Kürzel").fill("mob");
   await page.getByRole("button", { name: "Anlegen" }).click();
   await expect(page).toHaveURL(/\/board$/);
+  const board = page.url();
   await expect(nav).toBeHidden();
+  await expect(page.getByRole("navigation", { name: "Projektansichten" }).locator('a[href$="/gantt"]')).toBeHidden();
 
   const input = page.getByLabel("Neue Aufgabe in Offen");
   await input.fill("Unterwegs prüfen");
@@ -30,4 +32,6 @@ test("works on a phone: drawer navigation, board and full-screen task panel", as
   expect(bodyWidth).toBeLessThanOrEqual(viewport.width + 1);
   await panel.getByRole("link", { name: "Schließen" }).click();
   await expect(panel).toBeHidden();
+  await page.goto(board.replace(/\/board$/, "/gantt"));
+  await expect(page.getByText("Der Gantt-Zeitplan ist ab Tablet-Breite verfügbar.")).toBeVisible();
 });

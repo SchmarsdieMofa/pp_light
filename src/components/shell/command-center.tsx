@@ -113,6 +113,7 @@ function Palette(props: {
 
   function search(value: string) {
     setQuery(value);
+    setResult(null);
     setActive(0);
     const request = ++latest.current;
     if (!value.trim()) {

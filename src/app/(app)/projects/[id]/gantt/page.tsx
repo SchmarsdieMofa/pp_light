@@ -16,7 +16,10 @@ export default async function GanttPage(props: {
   const data = await getGanttData(db(), project.id);
   return (
     <WithTaskPanel taskId={params.task}>
-      <GanttView data={data} projectKey={project.key} canEdit={can(actor, "task.update", projectCtx(role))} />
+      <p className="rounded-md border p-4 text-sm md:hidden">Der Gantt-Zeitplan ist ab Tablet-Breite verfügbar.</p>
+      <div className="hidden md:block">
+        <GanttView data={data} projectKey={project.key} canEdit={can(actor, "task.update", projectCtx(role))} />
+      </div>
     </WithTaskPanel>
   );
 }

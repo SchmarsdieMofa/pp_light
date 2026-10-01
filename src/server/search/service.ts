@@ -70,5 +70,5 @@ export async function searchEverything(db: DB, actor: Actor, rawQuery: string): 
       .orderBy(asc(projects.name))
       .limit(5),
   ]);
-  return { tasks: taskRows, projects: projectRows };
+  return { tasks: taskRows, projects: projectRows.slice(0, 20 - taskRows.length) };
 }
