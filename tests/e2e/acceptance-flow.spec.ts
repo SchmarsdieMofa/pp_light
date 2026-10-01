@@ -60,13 +60,17 @@ test("invitation through Mailpit to project planning and an inbox mention", asyn
     expect(token).toBeTruthy();
 
     await page.getByRole("button", { name: "Abmelden" }).click();
+    await expect(page).toHaveURL(/\/login$/);
     await page.goto(`/invite/${token}`);
     await page.getByLabel("Neues Passwort").fill(password);
     await page.getByLabel("Passwort wiederholen").fill(password);
     await page.getByRole("button", { name: "Passwort speichern" }).click();
+    await expect(page).toHaveURL(/\/login\?password=ready/);
     await login(page, email, password);
     await page.getByRole("button", { name: "Abmelden" }).click();
+    await expect(page).toHaveURL(/\/login$/);
     await login(page);
+    await page.waitForLoadState("networkidle");
 
     const board = await createProjectViaUi(page, "Abnahme-Fluss", "abf");
     await page.goto(board.replace(/\/board$/, "/settings"));

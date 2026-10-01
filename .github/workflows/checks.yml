@@ -25,7 +25,9 @@ jobs:
         run: npm ci
 
       - name: Start Postgres and Mailpit
-        run: docker compose -f docker-compose.dev.yml up -d --wait postgres mailpit
+        run: |
+          touch .env.local
+          docker compose -f docker-compose.dev.yml up -d --wait postgres mailpit
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
@@ -47,7 +49,7 @@ jobs:
 
       - name: Save browser failure details
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-test-results
           path: test-results/

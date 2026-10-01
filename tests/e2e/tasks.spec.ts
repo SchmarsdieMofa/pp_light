@@ -129,7 +129,7 @@ test.describe("German locale", () => {
   // The segment order of <input type="date"> follows the browser locale (de: TT.MM.JJJJ).
   test.use({ locale: "de-DE" });
 
-  test("multi-select keeps focus and closes with Escape; half-typed dates are not saved", async ({ page }) => {
+  test("multi-select keeps focus and closes with Escape; implausible dates are not saved", async ({ page }) => {
     await login(page);
     const board = await createProjectViaUi(page, "A11y-Test", "acc");
     await openList(page, board);
@@ -147,10 +147,15 @@ test.describe("German locale", () => {
     await expect(panel.getByRole("group", { name: "Zuständige" })).toBeHidden();
     await expect(panel.locator("summary").first()).toHaveAccessibleName(/Zuständige: Ada Admin/);
 
-    // Chromium's date input reports every half-typed year (0002, 0020, 0203) as a value change.
-    await panel.getByLabel("Fällig").focus();
-    await page.keyboard.type("14102030");
-    await expect(page.getByRole("table", { name: "Aufgaben" }).getByRole("row", { name: /Fokus/ })).toContainText(
+    // Enter an implausible year directly: native date segment typing differs across operating systems.
+    await panel.getByLabel("Fällig").fill("0202-10-14");
+    await page.waitForLoadState("networkidle");
+    await page.reload();
+    const row = page.getByRole("table", { name: "Aufgaben" }).getByRole("row", { name: /Fokus/ });
+    await expect(row.getByRole("cell").nth(7)).toHaveText("–");
+    await row.getByRole("link", { name: "Fokus" }).click();
+    await panel.getByLabel("Fällig").fill("2030-10-14");
+    await expect(row).toContainText(
       "14.10.2030",
     );
     await expect(page.getByText("Bitte ein Jahr zwischen 1900 und 2999 angeben.")).toHaveCount(0);
