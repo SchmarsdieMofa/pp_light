@@ -1,7 +1,22 @@
-import { EmptyState } from "@/components/shell/empty-state";
+import { GanttView } from "@/components/gantt/gantt-view";
+import { WithTaskPanel } from "@/components/tasks/task-panel";
+import { normalizeSearchParams } from "@/lib/urls";
+import { db } from "@/server/db/client";
+import { getGanttData } from "@/server/gantt/queries";
+import { can, projectCtx } from "@/server/permissions";
 import { loadProject } from "@/server/projects/loaders";
 
-export default async function GanttPage({ params }: { params: Promise<{ id: string }> }) {
-  await loadProject((await params).id);
-  return <EmptyState title="Noch keine Aufgaben" text="Sobald Aufgaben Termine haben, erscheinen sie hier im Zeitplan." />;
+export default async function GanttPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { id } = await props.params;
+  const params = normalizeSearchParams(await props.searchParams);
+  const { actor, project, role } = await loadProject(id);
+  const data = await getGanttData(db(), project.id);
+  return (
+    <WithTaskPanel taskId={params.task}>
+      <GanttView data={data} projectKey={project.key} canEdit={can(actor, "task.update", projectCtx(role))} />
+    </WithTaskPanel>
+  );
 }
