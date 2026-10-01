@@ -20,5 +20,20 @@ services:
     ports:
       - "8025:8025"
       - "1025:1025"
+  worker:
+    build: .
+    image: pp-light-dev-worker
+    restart: unless-stopped
+    command: ["worker"]
+    env_file: .env.local
+    environment:
+      DATABASE_URL: postgres://pp:pp@postgres:5432/pp_light
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
 volumes:
   pgdata_dev:

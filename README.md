@@ -24,7 +24,9 @@ docker compose up -d --build
 docker compose exec app node scripts/create-admin.mjs --email admin@firma.de --name "Vorname Nachname" --password "<mind. 10 Zeichen>"
 ```
 
-Danach läuft die App auf <http://localhost:3000>.
+Danach läuft die App auf <http://localhost:3000>. Die Inbox ist unter `/inbox`, die Nutzerverwaltung für Admins unter `/admin`. Der separate `worker`-Container versendet Einladungen, Passwort-Reset-Links und Benachrichtigungs-Digests über Mailpit; die Mail-Vorschau ist unter <http://localhost:8025> erreichbar.
+
+Für einen echten SMTP-Server `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` und bei Bedarf `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE` im Worker setzen und die `SMTP_HOST`/`SMTP_PORT`-Overrides in `docker-compose.yml` entfernen. Optionales SSO benötigt `OIDC_ISSUER`, `OIDC_CLIENT_ID` und `OIDC_CLIENT_SECRET`. Die Redirect-URI beim Provider lautet `<APP_URL>/api/auth/callback/oidc`. Mit `OIDC_ALLOWED_DOMAINS=firma.de,partner.de` dürfen verifizierte Adressen dieser Domains ein neues Konto erhalten; sonst braucht ein neues Konto eine Einladung.
 
 - Migrationen laufen bei jedem Start automatisch.
 - Bei ungültiger Konfiguration, etwa einem fehlenden oder Platzhalter-`AUTH_SECRET`, bricht der Container ab und nennt die Variable: `docker compose logs app`.
@@ -36,11 +38,12 @@ Voraussetzung: Node 24, Docker.
 
 ```bash
 npm install
-docker compose -f docker-compose.dev.yml up -d   # Postgres (inkl. Test-DBs) + Mailpit (http://localhost:8025)
+docker compose -f docker-compose.dev.yml up -d postgres mailpit  # Postgres (inkl. Test-DBs) + Mailpit (http://localhost:8025)
 cp .env.example .env.local                        # AUTH_SECRET wie oben setzen
 npm run db:migrate
 npm run seed:admin -- --email admin@example.com --name "Ada Admin" --password admin-passwort-123
 npm run dev                                       # http://localhost:3000
+docker compose -f docker-compose.dev.yml up -d --build worker  # Mail- und Reminder-Worker
 ```
 
 Für eine lokale Vorschau mit vier Beispielaufgaben:
@@ -49,7 +52,7 @@ Für eine lokale Vorschau mit vier Beispielaufgaben:
 npm run seed:demo -- --password '<eigenes Demo-Passwort mit mindestens 10 Zeichen>'
 ```
 
-Dann unter <http://localhost:3000> als `demo@pp-light.local` anmelden und links „Demo-Projekt“ öffnen. Der Seed ergänzt fehlende Beispieldaten, ohne vorhandene Aufgaben zu löschen. Er akzeptiert nur die lokale Datenbank `pp_light`.
+Dann unter <http://localhost:3000> als `demo@pp-light.local` anmelden und links „Demo-Projekt“, „Benachrichtigungen“ oder „Nutzerverwaltung“ öffnen. Das Demo-Konto hat Admin-Rechte. Der Seed ergänzt fehlende Beispieldaten, ohne vorhandene Aufgaben zu löschen. Er akzeptiert nur die lokale Datenbank `pp_light`.
 
 | Befehl | Zweck |
 |---|---|

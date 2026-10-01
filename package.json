@@ -14,7 +14,8 @@
     "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
     "seed:admin": "tsx --env-file=.env.local scripts/create-admin.ts",
     "seed:demo": "tsx --env-file=.env.local scripts/seed-demo.ts",
-    "build:scripts": "esbuild scripts/migrate.ts scripts/create-admin.ts --bundle --platform=node --target=node24 --format=esm --outdir=dist/scripts --out-extension:.js=.mjs --external:@node-rs/argon2 --external:pg-native --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\""
+    "worker": "tsx --env-file=.env.local scripts/worker.ts",
+    "build:scripts": "esbuild scripts/migrate.ts scripts/create-admin.ts scripts/worker.ts --bundle --platform=node --target=node24 --format=esm --outdir=dist/scripts --out-extension:.js=.mjs --external:@node-rs/argon2 --external:pg-native --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\""
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -31,7 +32,9 @@
     "next": "16.3.8",
     "next-auth": "^5.0.0-beta.32",
     "next-themes": "^0.4.6",
+    "nodemailer10": "npm:nodemailer@^10.0.13",
     "pg": "^8.23.1",
+    "pg-boss": "^12.35.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-markdown": "^10.1.0",

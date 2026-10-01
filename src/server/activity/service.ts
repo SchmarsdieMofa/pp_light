@@ -1,6 +1,7 @@
 import { asc, eq } from "drizzle-orm";
 import type { DB, Executor } from "@/server/db/client";
 import { activityLog } from "@/server/db/schema";
+import { notifyActivity } from "@/server/notifications/service";
 
 export type ActivityAction =
   | "task.created"
@@ -32,13 +33,21 @@ export async function recordActivity(
     groupId?: string | null;
   },
 ): Promise<void> {
-  await ex.insert(activityLog).values({
+  const [recorded] = await ex.insert(activityLog).values({
     projectId: entry.projectId,
     taskId: entry.taskId ?? null,
     actorId: entry.actorId,
     action: entry.action,
     diff: entry.diff ?? {},
     groupId: entry.groupId ?? null,
+  }).returning({ id: activityLog.id });
+  await notifyActivity(ex, {
+    id: recorded.id,
+    projectId: entry.projectId,
+    taskId: entry.taskId ?? null,
+    actorId: entry.actorId,
+    action: entry.action,
+    diff: entry.diff ?? {},
   });
 }
 

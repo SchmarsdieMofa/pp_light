@@ -26,6 +26,30 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      start_period: 30s
+      retries: 24
+  worker:
+    build: .
+    restart: unless-stopped
+    command: ["worker"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+    depends_on:
+      app:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
 volumes:
   pgdata:
   uploads:

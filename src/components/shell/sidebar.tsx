@@ -1,10 +1,11 @@
 "use client";
 
-import { Home } from "lucide-react";
+import { Home, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NewProjectDialog } from "@/components/projects/new-project-dialog";
 import { cn } from "@/lib/utils";
+import { NotificationLink } from "./notification-link";
 import { UserMenu } from "./user-menu";
 
 export type SidebarProject = { id: string; name: string; key: string };
@@ -12,7 +13,7 @@ export type SidebarProject = { id: string; name: string; key: string };
 const navItem = "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent";
 const navActive = "bg-accent font-medium";
 
-export function Sidebar({ user, projects }: { user: { name: string; email: string }; projects: SidebarProject[] }) {
+export function Sidebar({ user, projects, initialUnread, isAdmin }: { user: { name: string; email: string }; projects: SidebarProject[]; initialUnread: number; isAdmin: boolean }) {
   const pathname = usePathname();
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r bg-muted/30">
@@ -21,6 +22,8 @@ export function Sidebar({ user, projects }: { user: { name: string; email: strin
         <Link href="/" className={cn(navItem, pathname === "/" && navActive)}>
           <Home className="size-4" /> Start
         </Link>
+        <NotificationLink initialUnread={initialUnread} />
+        {isAdmin && <Link href="/admin" className={cn(navItem, pathname === "/admin" && navActive)}><Users className="size-4" /> Nutzerverwaltung</Link>}
         <div className="mt-4 px-2 text-xs font-medium uppercase text-muted-foreground">Projekte</div>
         {projects.map((p) => (
           <Link

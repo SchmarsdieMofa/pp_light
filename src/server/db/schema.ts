@@ -236,3 +236,60 @@ export const attachments = pgTable(
   },
   (t) => [index("attachments_task_idx").on(t.taskId)],
 );
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    type: text("type").notNull(),
+    message: text("message").notNull(),
+    eventKey: text("event_key").notNull().unique(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    emailedAt: timestamp("emailed_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("notifications_user_created_idx").on(t.userId, t.createdAt)],
+);
+
+export const notificationPreferences = pgTable("notification_preferences", {
+  userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  disabledEmailTypes: jsonb("disabled_email_types").$type<string[]>().notNull().default([]),
+  lastDigestAt: timestamp("last_digest_at", { withTimezone: true }),
+});
+
+export const mailOutbox = pgTable("mail_outbox", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  toEmail: text("to_email").notNull(),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  createdAt: createdAt(),
+});
+
+export const authTokens = pgTable(
+  "auth_tokens",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("auth_tokens_user_idx").on(t.userId)],
+);
+
+export const oidcAccounts = pgTable(
+  "oidc_accounts",
+  {
+    provider: text("provider").notNull(),
+    subject: text("subject").notNull(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.provider, t.subject] }), index("oidc_accounts_user_idx").on(t.userId)],
+);

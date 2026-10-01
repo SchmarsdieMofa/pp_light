@@ -4,7 +4,7 @@ import { addChecklistItem } from "../src/server/checklists/service";
 import { saveAttachment } from "../src/server/attachments/service";
 import { createComment } from "../src/server/comments/service";
 import { createDb } from "../src/server/db/client";
-import { attachments, checklistItems, comments, projects, tasks, users } from "../src/server/db/schema";
+import { attachments, checklistItems, comments, notifications, projects, tasks, users } from "../src/server/db/schema";
 import { createLabel, listLabels } from "../src/server/labels/service";
 import { createProject, listStatuses } from "../src/server/projects/service";
 import { setTaskAssignees, setTaskLabels } from "../src/server/tasks/relations";
@@ -33,9 +33,12 @@ async function main() {
   const db = createDb(url);
   try {
     let [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    if (!user) user = await createUser(db, { email, name: "Demo User", password: values.password });
+    if (!user) user = await createUser(db, { email, name: "Demo User", password: values.password, role: "admin" });
     else if (!(await verifyCredentials(db, email, values.password))) {
       throw new Error("Der Demo-Zugang existiert bereits mit einem anderen Passwort.");
+    }
+    if (user.role !== "admin") {
+      [user] = await db.update(users).set({ role: "admin" }).where(eq(users.id, user.id)).returning();
     }
     const actor = { id: user.id, name: user.name, email: user.email, role: user.role };
 
@@ -85,6 +88,13 @@ async function main() {
       description: "Beispiel einer abgeschlossenen Aufgabe.",
       dueDate: day(-3),
     });
+
+    await db.insert(notifications).values([
+      { userId: user.id, projectId: project.id, taskId: conceptId, type: "mentioned",
+        message: "Demo: Du wurdest in DEMO-2 Konzept ausarbeiten erwähnt.", eventKey: `demo:mention:${user.id}` },
+      { userId: user.id, projectId: project.id, taskId: conceptId, type: "status",
+        message: "Demo: Der Status von DEMO-2 Konzept ausarbeiten wurde geändert.", eventKey: `demo:status:${user.id}` },
+    ]).onConflictDoNothing();
 
     const labels = await listLabels(db, project.id);
     const focus = labels.find((label) => label.name === "Wichtig") ?? await createLabel(db, actor, { projectId: project.id, name: "Wichtig", color: "#ef4444" });
