@@ -36,7 +36,9 @@ describe("mail delivery", () => {
   it("keeps failed outbox mail pending for retry", async () => {
     await testDb.insert(mailOutbox).values({ toEmail: "ada@example.com", subject: "Invite", body: sealMailBody("Link") });
     vi.mocked(sendMail).mockRejectedValueOnce(new Error("SMTP unavailable"));
-    await expect(sendPendingOutbox(testDb)).rejects.toThrow("SMTP unavailable");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await sendPendingOutbox(testDb)).toBe(0);
+    log.mockRestore();
     expect((await testDb.select().from(mailOutbox))[0].sentAt).toBeNull();
     expect(await sendPendingOutbox(testDb)).toBe(1);
     expect((await testDb.select().from(mailOutbox))[0].sentAt).not.toBeNull();

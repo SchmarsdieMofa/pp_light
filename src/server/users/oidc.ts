@@ -4,9 +4,25 @@ import type { DB } from "@/server/db/client";
 import { authTokens, oidcAccounts, users } from "@/server/db/schema";
 import { normalizeEmail } from "./service";
 
-/** Called only for an OIDC profile with a provider-verified email address. */
-export async function resolveOidcUser(db: DB, profile: { subject: string; email: string; name?: string; emailVerified: boolean }, allowedDomains: string[]): Promise<string | null> {
-  if (!profile.emailVerified || !profile.subject || !profile.email) return null;
+/**
+ * Maps an OIDC login to a user. An already linked subject signs in directly. Linking or creating by e-mail
+ * requires a verified address – from the `email_verified` claim or, for issuers that never send it
+ * (e.g. Microsoft Entra ID), from `trustIssuerEmail` (OIDC_TRUST_EMAIL=true).
+ */
+export async function resolveOidcUser(
+  db: DB,
+  profile: { subject: string; email: string; name?: string; emailVerified: boolean },
+  allowedDomains: string[],
+  options: { trustIssuerEmail?: boolean } = {},
+): Promise<string | null> {
+  if (!profile.subject) return null;
+  const [alreadyLinked] = await db
+    .select({ id: users.id, active: users.active })
+    .from(oidcAccounts)
+    .innerJoin(users, eq(users.id, oidcAccounts.userId))
+    .where(and(eq(oidcAccounts.provider, "oidc"), eq(oidcAccounts.subject, profile.subject)));
+  if (alreadyLinked) return alreadyLinked.active ? alreadyLinked.id : null;
+  if (!(profile.emailVerified || options.trustIssuerEmail) || !profile.email) return null;
   const email = normalizeEmail(profile.email);
   if (!z.email().safeParse(email).success) return null;
   const domain = email.split("@")[1];

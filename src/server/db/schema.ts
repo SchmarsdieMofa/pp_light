@@ -32,6 +32,8 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash"),
   role: globalRole("role").notNull().default("member"),
   active: boolean("active").notNull().default(true),
+  /** Bumped on password reset; sessions carrying an older value are rejected. */
+  sessionVersion: integer("session_version").notNull().default(0),
   createdAt: createdAt(),
 });
 
@@ -267,7 +269,18 @@ export const mailOutbox = pgTable("mail_outbox", {
   subject: text("subject").notNull(),
   body: text("body").notNull(),
   sentAt: timestamp("sent_at", { withTimezone: true }),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
+  failedAt: timestamp("failed_at", { withTimezone: true }),
   createdAt: createdAt(),
+});
+
+/** Failed logins per e-mail and per client IP (Postgres only – no Redis needed). */
+export const loginAttempts = pgTable("login_attempts", {
+  key: text("key").primaryKey(),
+  failures: integer("failures").notNull().default(0),
+  lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const authTokens = pgTable(

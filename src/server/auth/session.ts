@@ -8,7 +8,8 @@ import { resolveActor } from "./actor";
 /** Session user, re-checked against the DB on every request (deactivation takes effect immediately). */
 export async function getActor(): Promise<Actor | null> {
   const session = await auth();
-  return resolveActor(db(), session?.user?.id);
+  const sessionVersion = (session as { sv?: number } | null)?.sv;
+  return resolveActor(db(), session?.user?.id, sessionVersion);
 }
 
 export async function requireActor(): Promise<Actor> {

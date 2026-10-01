@@ -37,19 +37,12 @@ services:
     command: ["worker"]
     env_file: .env
     environment:
+      # Mail goes to the SMTP server configured in .env (SMTP_HOST, SMTP_PORT, …).
+      # No Mailpit here: it would expose reset and invitation links without authentication.
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      SMTP_HOST: mailpit
-      SMTP_PORT: 1025
     depends_on:
       app:
         condition: service_healthy
-      mailpit:
-        condition: service_started
-  mailpit:
-    image: axllent/mailpit:latest
-    restart: unless-stopped
-    ports:
-      - "8025:8025"
 volumes:
   pgdata:
   uploads:

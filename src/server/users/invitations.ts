@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { DB } from "@/server/db/client";
 import { authTokens, mailOutbox, users } from "@/server/db/schema";
@@ -70,6 +70,8 @@ export async function consumeAuthToken(db: DB, rawToken: string, kind: "invite" 
   if (!/^[\w-]{43}$/.test(rawToken) || password.length < 12) {
     throw new DomainError("VALIDATION", "Ungültiger Link oder Passwort mit weniger als zwölf Zeichen.");
   }
+  // Cheap check first: anonymous requests with made-up tokens must not trigger argon2 work.
+  if (!(await tokenIsValid(db, rawToken, kind))) throw new DomainError("VALIDATION", "Dieser Link ist ungültig oder abgelaufen.");
   const passwordHash = await hashPassword(password);
   await db.transaction(async (tx) => {
     const [token] = await tx.update(authTokens).set({ usedAt: new Date() })
@@ -77,13 +79,29 @@ export async function consumeAuthToken(db: DB, rawToken: string, kind: "invite" 
         isNull(authTokens.usedAt), gt(authTokens.expiresAt, new Date())))
       .returning({ userId: authTokens.userId });
     if (!token) throw new DomainError("VALIDATION", "Dieser Link ist ungültig oder abgelaufen.");
-    await tx.update(users).set({ passwordHash, active: true }).where(eq(users.id, token.userId));
+    // Only an invitation activates an account; a reset must never undo a deactivation.
+    const updated = await tx
+      .update(users)
+      .set({ passwordHash, sessionVersion: sql`${users.sessionVersion} + 1`, ...(kind === "invite" ? { active: true } : {}) })
+      .where(kind === "invite" ? eq(users.id, token.userId) : and(eq(users.id, token.userId), eq(users.active, true)))
+      .returning({ id: users.id });
+    if (!updated.length) throw new DomainError("VALIDATION", "Dieser Link ist ungültig oder abgelaufen.");
   });
 }
 
 export async function setUserActive(db: DB, actor: Actor, userId: string, active: boolean): Promise<void> {
   assertCan(actor, "admin.manageUsers");
   if (actor.id === userId && !active) throw new DomainError("VALIDATION", "Du kannst dein eigenes Konto nicht deaktivieren.");
-  const changed = await db.update(users).set({ active }).where(eq(users.id, userId)).returning({ id: users.id });
-  if (!changed.length) throw new DomainError("NOT_FOUND", "Nutzer nicht gefunden.");
+  await db.transaction(async (tx) => {
+    const changed = await tx.update(users).set({ active }).where(eq(users.id, userId)).returning({ id: users.id });
+    if (!changed.length) throw new DomainError("NOT_FOUND", "Nutzer nicht gefunden.");
+    // Open reset/invite links would otherwise let a deactivated person back in.
+    if (!active) await tx.delete(authTokens).where(eq(authTokens.userId, userId));
+  });
+}
+
+/** Withdraws a pending invitation; the account stays inactive. */
+export async function revokeInvitation(db: DB, actor: Actor, userId: string): Promise<void> {
+  assertCan(actor, "admin.manageUsers");
+  await db.delete(authTokens).where(and(eq(authTokens.userId, userId), eq(authTokens.kind, "invite")));
 }

@@ -1,6 +1,9 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { clientIp } from "@/server/auth/credentials";
+import { lockedFor, recordFailure } from "@/server/auth/throttle";
 import { db } from "@/server/db/client";
 import { DomainError } from "@/server/errors";
 import { consumeAuthToken, requestPasswordReset } from "@/server/users/invitations";
@@ -8,7 +11,13 @@ import { consumeAuthToken, requestPasswordReset } from "@/server/users/invitatio
 export type AuthFormState = { error?: string; done?: boolean };
 
 export async function requestResetAction(_prev: AuthFormState, form: FormData): Promise<AuthFormState> {
-  await requestPasswordReset(db(), String(form.get("email") ?? ""));
+  // Same answer either way (no enumeration); an IP that floods reset requests is silently ignored.
+  const key = `reset-ip:${clientIp(await headers())}`;
+  const now = new Date();
+  if ((await lockedFor(db(), [key], now)) === 0) {
+    await recordFailure(db(), key, 10, now);
+    await requestPasswordReset(db(), String(form.get("email") ?? ""));
+  }
   return { done: true };
 }
 

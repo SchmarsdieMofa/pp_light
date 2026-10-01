@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { inviteUserAction, setUserActiveAction } from "@/app/(app)/admin/actions";
+import { inviteUserAction, revokeInvitationAction, setUserActiveAction } from "@/app/(app)/admin/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -38,6 +38,11 @@ export function AdminUsers({ users, ownId }: { users: UserRow[]; ownId: string }
             if (!result.ok) setMessage(result.error.message); else router.refresh();
           } finally { setBusy(false); }
         }}>{user.active ? "Deaktivieren" : "Aktivieren"}</Button>}
+        {!user.active && <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={async () => {
+          setBusy(true); try { const result = await revokeInvitationAction(user.id);
+            setMessage(result.ok ? `Einladung für ${user.email} zurückgezogen.` : result.error.message);
+          } finally { setBusy(false); }
+        }}>Einladung zurückziehen</Button>}
       </li>)}
     </ul>
   </div>;
