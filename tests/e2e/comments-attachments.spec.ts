@@ -65,4 +65,7 @@ test("comments, mentions, Markdown, files and history are visible in the task pa
   await adminFile.locator("..").getByRole("button", { name: "Löschen" }).click();
   await expect(adminFile).toHaveCount(0);
   expect((await page.request.get(downloadUrl!)).status()).toBe(404);
+  const adminPanel = page.getByRole("complementary", { name: "Aufgabe" });
+  await adminPanel.getByLabel("Status").selectOption({ label: "In Arbeit" });
+  await expect(adminPanel.getByText(/Status Offen → In Arbeit/)).toBeVisible();
 });
