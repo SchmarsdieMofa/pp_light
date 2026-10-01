@@ -49,6 +49,8 @@ test("inbox shows a new notice and marks it read", async ({ page }) => {
   try {
     await login(page);
     const [admin] = await db.select().from(users).where(eq(users.email, E2E_ADMIN.email));
+    // Earlier specs (mentions, assignments) also notify the admin: start from an empty inbox.
+    await db.update(notifications).set({ readAt: new Date() }).where(eq(notifications.userId, admin.id));
     await db.insert(notifications).values({ userId: admin.id, type: "mentioned", message: "Ada wurde erwähnt", eventKey: `e2e-${crypto.randomUUID()}` });
     await page.reload();
     await expect(page.getByLabel("1 ungelesen")).toBeVisible();
