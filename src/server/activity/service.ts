@@ -7,7 +7,8 @@ export type ActivityAction =
   | "subtask.created"
   | "task.updated"
   | "task.assigneesChanged"
-  | "task.labelsChanged";
+  | "task.labelsChanged"
+  | "task.moved";
 
 export type ActivityEntry = typeof activityLog.$inferSelect;
 

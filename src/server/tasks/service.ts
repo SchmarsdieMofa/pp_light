@@ -1,6 +1,13 @@
-import { and, desc, eq, sql } from "drizzle-orm";
-import { generateKeyBetween } from "fractional-indexing";
-import { createTaskSchema, updateTaskSchema, type CreateTaskInput, type TaskPatch } from "@/lib/schemas/task";
+import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
+import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
+import {
+  createTaskSchema,
+  moveTaskSchema,
+  updateTaskSchema,
+  type CreateTaskInput,
+  type MoveTaskInput,
+  type TaskPatch,
+} from "@/lib/schemas/task";
 import { recordActivity } from "@/server/activity/service";
 import type { DB, Executor } from "@/server/db/client";
 import { byPosition } from "@/server/db/order";
@@ -142,6 +149,83 @@ export async function updateTask(
       action: "task.updated",
       diff,
     });
+    return updated;
+  });
+}
+
+const staleBoard = () => new DomainError("CONFLICT", "Das Board hat sich geändert – bitte neu laden.");
+
+/** Renumbers a column (in its current visual order) when stored keys collide or are out of order. */
+async function rebalanceColumn(ex: Executor, statusId: string, excludeId: string): Promise<void> {
+  const rows = await ex
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(eq(tasks.statusId, statusId), isNull(tasks.parentId), ne(tasks.id, excludeId)))
+    .orderBy(byPosition(tasks.position), asc(tasks.number));
+  const keys = generateNKeysBetween(null, null, rows.length);
+  for (const [i, row] of rows.entries()) {
+    await ex.update(tasks).set({ position: keys[i] }).where(eq(tasks.id, row.id));
+  }
+}
+
+export async function moveTask(db: DB, actor: Actor, taskId: string, raw: MoveTaskInput): Promise<Task> {
+  const input = moveTaskSchema.parse(raw);
+  if (input.afterId === taskId || input.beforeId === taskId) {
+    throw new DomainError("VALIDATION", "Eine Karte kann nicht neben sich selbst liegen.");
+  }
+
+  return db.transaction(async (tx) => {
+    const { task, role } = await loadTaskAccess(tx, actor, taskId);
+    assertCan(actor, "task.update", projectCtx(role));
+    const status = await resolveStatus(tx, task.projectId, input.statusId);
+    // One move per project at a time: keeps neighbour reads and the rebalance consistent.
+    await tx.select({ id: projects.id }).from(projects).where(eq(projects.id, task.projectId)).for("update");
+
+    const loadNeighbour = async (id: string | null) => {
+      if (!id) return null;
+      const [n] = await tx
+        .select({ id: tasks.id, position: tasks.position, statusId: tasks.statusId })
+        .from(tasks)
+        .where(eq(tasks.id, id))
+        .limit(1);
+      if (!n || n.statusId !== status.id) throw staleBoard();
+      return n;
+    };
+    let after = await loadNeighbour(input.afterId);
+    let before = await loadNeighbour(input.beforeId);
+    if (after && before && after.position >= before.position) {
+      await rebalanceColumn(tx, status.id, task.id);
+      after = await loadNeighbour(input.afterId);
+      before = await loadNeighbour(input.beforeId);
+      if (after && before && after.position >= before.position) throw staleBoard();
+    }
+    const position = generateKeyBetween(after?.position ?? null, before?.position ?? null);
+
+    const statusChanged = status.id !== task.statusId;
+    const [updated] = await tx
+      .update(tasks)
+      .set(
+        statusChanged
+          ? {
+              statusId: status.id,
+              position,
+              completedAt: status.isDone ? (task.completedAt ?? new Date()) : null,
+              updatedAt: sql`now()`,
+            }
+          : { position },
+      )
+      .where(eq(tasks.id, task.id))
+      .returning();
+
+    if (statusChanged) {
+      await recordActivity(tx, {
+        projectId: task.projectId,
+        taskId: task.id,
+        actorId: actor.id,
+        action: "task.moved",
+        diff: { statusId: [task.statusId, status.id] },
+      });
+    }
     return updated;
   });
 }

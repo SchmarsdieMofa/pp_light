@@ -11,7 +11,8 @@ export type TaskListFilters = {
 };
 export const TASK_SORT_FIELDS = ["number", "title", "status", "priority", "dueDate"] as const;
 export type TaskSortField = (typeof TASK_SORT_FIELDS)[number];
-export type TaskSort = { field: TaskSortField; dir: "asc" | "desc" };
+/** "position" is internal (board order) and deliberately not accepted from URL params. */
+export type TaskSort = { field: TaskSortField | "position"; dir: "asc" | "desc" };
 
 const uuid = z.uuid();
 

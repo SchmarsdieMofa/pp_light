@@ -36,3 +36,10 @@ export const labelSchema = z.object({
 export type LabelInput = z.input<typeof labelSchema>;
 
 export const checklistTextSchema = z.string().trim().min(1, "Text fehlt").max(300, "Höchstens 300 Zeichen");
+
+export const moveTaskSchema = z.object({
+  statusId: z.uuid(),
+  afterId: z.uuid().nullable(),
+  beforeId: z.uuid().nullable(),
+});
+export type MoveTaskInput = z.input<typeof moveTaskSchema>;

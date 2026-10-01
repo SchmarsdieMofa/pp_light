@@ -56,6 +56,8 @@ function orderFor(sort: TaskSort): SQL[] {
       return [dir(tasks.priority), asc(tasks.number)];
     case "dueDate":
       return [sql`${tasks.dueDate} ${sql.raw(sort.dir === "desc" ? "desc" : "asc")} nulls last`, asc(tasks.number)];
+    case "position":
+      return [byPosition(statuses.position), byPosition(tasks.position), asc(tasks.number)];
     default:
       return [dir(tasks.number)];
   }
