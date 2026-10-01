@@ -4,7 +4,7 @@ import { z } from "zod";
 import { statusSchema, type StatusInput } from "@/lib/schemas/task";
 import type { DB, Executor } from "@/server/db/client";
 import { byPosition } from "@/server/db/order";
-import { statuses, tasks } from "@/server/db/schema";
+import { projects, statuses, tasks } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { assertCan, projectCtx, type Actor } from "@/server/permissions";
 import { listStatuses, requireProjectAccess, type Status } from "@/server/projects/service";
@@ -14,7 +14,7 @@ async function requireManage(db: DB, actor: Actor, projectId: string) {
   assertCan(actor, "project.update", projectCtx(access.role));
 }
 
-async function loadStatus(db: DB, statusId: string): Promise<Status> {
+async function loadStatus(db: Executor, statusId: string): Promise<Status> {
   const notFound = new DomainError("NOT_FOUND", "Spalte nicht gefunden.");
   if (!z.uuid().safeParse(statusId).success) throw notFound;
   const [status] = await db.select().from(statuses).where(eq(statuses.id, statusId)).limit(1);
@@ -58,8 +58,21 @@ export async function updateStatus(db: DB, actor: Actor, statusId: string, raw: 
   const input = statusSchema.parse(raw);
   const status = await loadStatus(db, statusId);
   await requireManage(db, actor, status.projectId);
-  await assertUniqueName(db, status.projectId, input.name, status.id);
-  await db.update(statuses).set(input).where(eq(statuses.id, status.id));
+  await db.transaction(async (tx) => {
+    await tx.select({ id: projects.id }).from(projects).where(eq(projects.id, status.projectId)).for("update");
+    const current = await loadStatus(tx, statusId);
+    await assertUniqueName(tx, current.projectId, input.name, current.id);
+    await tx.update(statuses).set(input).where(eq(statuses.id, current.id));
+    if (current.isDone !== input.isDone) {
+      await tx
+        .update(tasks)
+        .set({
+          completedAt: input.isDone ? sql`coalesce(${tasks.completedAt}, now())` : null,
+          updatedAt: sql`now()`,
+        })
+        .where(eq(tasks.statusId, current.id));
+    }
+  });
 }
 
 export async function moveStatus(db: DB, actor: Actor, statusId: string, direction: "left" | "right"): Promise<void> {
@@ -79,15 +92,16 @@ export async function deleteStatus(db: DB, actor: Actor, statusId: string, targe
   const status = await loadStatus(db, statusId);
   await requireManage(db, actor, status.projectId);
   if (targetStatusId === statusId) throw new DomainError("VALIDATION", "Bitte eine andere Zielspalte wählen.");
-  const all = await listStatuses(db, status.projectId);
-  const target = all.find((s) => s.id === targetStatusId);
-  if (!target) throw new DomainError("VALIDATION", "Bitte eine andere Zielspalte wählen.");
-
   await db.transaction(async (tx) => {
+    await tx.select({ id: projects.id }).from(projects).where(eq(projects.id, status.projectId)).for("update");
+    const all = await tx.select().from(statuses).where(eq(statuses.projectId, status.projectId));
+    const current = all.find((s) => s.id === statusId);
+    const target = all.find((s) => s.id === targetStatusId);
+    if (!current || !target) throw new DomainError("VALIDATION", "Bitte eine andere Zielspalte wählen.");
     const moving = await tx
       .select({ id: tasks.id, completedAt: tasks.completedAt })
       .from(tasks)
-      .where(eq(tasks.statusId, status.id))
+      .where(eq(tasks.statusId, current.id))
       .orderBy(byPosition(tasks.position));
     const [last] = await tx
       .select({ position: tasks.position })
@@ -109,6 +123,6 @@ export async function deleteStatus(db: DB, actor: Actor, statusId: string, targe
         })
         .where(eq(tasks.id, task.id));
     }
-    await tx.delete(statuses).where(eq(statuses.id, status.id));
+    await tx.delete(statuses).where(eq(statuses.id, current.id));
   });
 }

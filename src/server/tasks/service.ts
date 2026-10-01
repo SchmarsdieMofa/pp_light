@@ -62,13 +62,13 @@ export async function createTask(db: DB, actor: Actor, raw: CreateTaskInput): Pr
         throw new DomainError("VALIDATION", "Unteraufgaben können keine eigenen Unteraufgaben haben.");
       }
     }
-    const status = await resolveStatus(tx, input.projectId, input.statusId);
     // Row lock on the project serializes concurrent creations → unique, gapless numbers.
     const [{ taskCounter }] = await tx
       .update(projects)
       .set({ taskCounter: sql`${projects.taskCounter} + 1` })
       .where(eq(projects.id, input.projectId))
       .returning({ taskCounter: projects.taskCounter });
+    const status = await resolveStatus(tx, input.projectId, input.statusId);
 
     const [task] = await tx
       .insert(tasks)
@@ -177,9 +177,9 @@ export async function moveTask(db: DB, actor: Actor, taskId: string, raw: MoveTa
   return db.transaction(async (tx) => {
     const { task, role } = await loadTaskAccess(tx, actor, taskId);
     assertCan(actor, "task.update", projectCtx(role));
-    const status = await resolveStatus(tx, task.projectId, input.statusId);
     // One move per project at a time: keeps neighbour reads and the rebalance consistent.
     await tx.select({ id: projects.id }).from(projects).where(eq(projects.id, task.projectId)).for("update");
+    const status = await resolveStatus(tx, task.projectId, input.statusId);
 
     const loadNeighbour = async (id: string | null) => {
       if (!id) return null;

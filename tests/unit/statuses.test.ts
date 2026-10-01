@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
 import { ZodError } from "zod";
+import { tasks } from "@/server/db/schema";
 import { listStatuses } from "@/server/projects/service";
 import { createStatus, deleteStatus, moveStatus, updateStatus } from "@/server/statuses/service";
 import { getTaskDetail } from "@/server/tasks/queries";
@@ -50,6 +52,32 @@ describe("status columns", () => {
     await expect(updateTask(testDb, ada, parent.id, parent.updatedAt.toISOString(), { title: "X" })).rejects.toMatchObject({
       code: "CONFLICT",
     });
+  });
+
+  it("keeps task completion in sync when a column changes its done setting", async () => {
+    const ada = await makeActor("ada@example.com");
+    const { project, open } = await makeProject(ada, "FLP");
+    const task = await createTask(testDb, ada, { projectId: project.id, title: "A" });
+    await updateStatus(testDb, ada, open.id, { name: open.name, color: "#ef4444", isDone: true });
+    const [completed] = await testDb.select({ completedAt: tasks.completedAt }).from(tasks).where(eq(tasks.id, task.id));
+    expect(completed.completedAt).not.toBeNull();
+    await updateStatus(testDb, ada, open.id, { name: open.name, color: "#ef4444", isDone: false });
+    const [reopened] = await testDb.select({ completedAt: tasks.completedAt }).from(tasks).where(eq(tasks.id, task.id));
+    expect(reopened.completedAt).toBeNull();
+  });
+
+  it("keeps a column when two deletions target each other", async () => {
+    const ada = await makeActor("ada@example.com");
+    const { project, statuses } = await makeProject(ada, "RAC");
+    await deleteStatus(testDb, ada, statuses[0].id, statuses[2].id);
+    await deleteStatus(testDb, ada, statuses[1].id, statuses[2].id);
+    const [a, b] = [statuses[2], statuses[3]];
+    const results = await Promise.allSettled([
+      deleteStatus(testDb, ada, a.id, b.id),
+      deleteStatus(testDb, ada, b.id, a.id),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(await names(project.id)).toHaveLength(1);
   });
 
   it("refuses to delete the last column or into itself/another project", async () => {
