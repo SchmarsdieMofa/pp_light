@@ -43,3 +43,10 @@ export const moveTaskSchema = z.object({
   beforeId: z.uuid().nullable(),
 });
 export type MoveTaskInput = z.input<typeof moveTaskSchema>;
+
+export const statusSchema = z.object({
+  name: z.string().trim().min(1, "Name fehlt").max(40, "Höchstens 40 Zeichen"),
+  color: z.enum(colorValues, "Unbekannte Farbe"),
+  isDone: z.boolean(),
+});
+export type StatusInput = z.input<typeof statusSchema>;
