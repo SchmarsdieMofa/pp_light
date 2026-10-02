@@ -56,7 +56,7 @@ export function ProjectLifecycle(props: { projectId: string; archivedAt: string 
             triggerVariant="outline"
             triggerSize="sm"
             title="Projekt archivieren?"
-            description="Es verschwindet aus Sidebar, Suche und Kalender und wird schreibgeschützt. Du findest es in der Projektübersicht unter „Archiv“ und kannst es dort wiederherstellen."
+            description="Es verschwindet aus Sidebar, Suche und Kalender und wird schreibgeschützt. Du findest es im Archiv und kannst es dort wiederherstellen."
             confirmLabel="Archivieren"
             pending={pending}
             onConfirm={() => run(() => archiveProjectAction(props.projectId), () => { toast.success("Projekt archiviert"); router.refresh(); })}
@@ -101,5 +101,17 @@ export function DeleteProject(props: { projectId: string; projectKey: string; pr
         />
       </ConfirmAction>
     </div>
+  );
+}
+
+/** Restore straight from the archive list. */
+export function RestoreProjectButton(props: { projectId: string; projectName: string }) {
+  const { pending, run } = useRunner();
+  const router = useRouter();
+  return (
+    <Button type="button" size="sm" variant="outline" disabled={pending} aria-label={`${props.projectName} wiederherstellen`}
+      onClick={() => run(() => restoreProjectAction(props.projectId), () => { toast.success(`${props.projectName} wiederhergestellt`); router.refresh(); })}>
+      <RotateCcw /> Wiederherstellen
+    </Button>
   );
 }

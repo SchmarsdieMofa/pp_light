@@ -88,6 +88,20 @@ describe("project lifecycle", () => {
     await expect(createTask(testDb, root, { projectId: p.project.id, title: "Neu" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
+  it("lists archived projects with final progress and who may restore them", async () => {
+    const { ada, mia, p } = await setup();
+    const root = await makeActor("root@example.com", "admin");
+    const other = await makeActor("ole@example.com");
+    await archiveProject(testDb, ada, p.project.id);
+
+    const [forAda] = await listArchivedProjects(testDb, ada);
+    // Top-level tasks only: three tasks, one done; the subtask does not count.
+    expect(forAda).toMatchObject({ key: "LIF", taskTotal: 3, taskDone: 1, canRestore: true });
+    expect((await listArchivedProjects(testDb, mia))[0].canRestore).toBe(false);
+    expect((await listArchivedProjects(testDb, root))[0].canRestore).toBe(true);
+    expect(await listArchivedProjects(testDb, other)).toEqual([]);
+  });
+
   it("deletes a project with its files only after the key is repeated", async () => {
     const { ada, mia, p, open } = await setup();
     const dir = join(tmpdir(), `pp-lifecycle-${Date.now()}`);

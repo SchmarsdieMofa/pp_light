@@ -173,15 +173,32 @@ export async function getProjectReport(db: DB, actor: Actor, projectId: string, 
   };
 }
 
-/** Archived and completed projects the actor can see, newest first. */
-export async function listArchivedProjects(db: DB, actor: Actor): Promise<Project[]> {
-  const base = db.select({ project: projects }).from(projects);
-  const rows =
-    actor.role === "admin"
-      ? await base.where(isNotNull(projects.archivedAt)).orderBy(desc(projects.archivedAt))
-      : await base
-          .innerJoin(projectMembers, and(eq(projectMembers.projectId, projects.id), eq(projectMembers.userId, actor.id)))
-          .where(isNotNull(projects.archivedAt))
-          .orderBy(desc(projects.archivedAt));
-  return rows.map((r) => r.project);
+export type ArchivedProject = Project & { taskTotal: number; taskDone: number; canRestore: boolean };
+
+/** Archived and completed projects the actor can see, newest first, with their final progress. */
+export async function listArchivedProjects(db: DB, actor: Actor): Promise<ArchivedProject[]> {
+  const member = and(eq(projectMembers.projectId, projects.id), eq(projectMembers.userId, actor.id));
+  const base = db.select({ project: projects, role: projectMembers.role }).from(projects);
+  const rows = await (actor.role === "admin" ? base.leftJoin(projectMembers, member) : base.innerJoin(projectMembers, member))
+    .where(isNotNull(projects.archivedAt))
+    .orderBy(desc(projects.archivedAt));
+  if (rows.length === 0) return [];
+
+  const counts = await db
+    .select({
+      projectId: tasks.projectId,
+      total: sql<number>`count(*)::int`,
+      done: sql<number>`count(*) filter (where ${statuses.isDone})::int`,
+    })
+    .from(tasks)
+    .innerJoin(statuses, eq(statuses.id, tasks.statusId))
+    .where(and(inArray(tasks.projectId, rows.map((r) => r.project.id)), sql`${tasks.parentId} is null`))
+    .groupBy(tasks.projectId);
+  const byId = new Map(counts.map((c) => [c.projectId, c]));
+  return rows.map(({ project, role }) => ({
+    ...project,
+    taskTotal: byId.get(project.id)?.total ?? 0,
+    taskDone: byId.get(project.id)?.done ?? 0,
+    canRestore: can(actor, "project.update", projectCtx(role)),
+  }));
 }

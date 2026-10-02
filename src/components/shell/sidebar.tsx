@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, FolderKanban, Home, Search, Users } from "lucide-react";
+import { Archive, CalendarDays, FolderKanban, Home, Search, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { OPEN_PALETTE_EVENT } from "@/components/shell/command-center";
@@ -25,6 +25,9 @@ export function Sidebar({ user, projects, initialUnread, isAdmin }: { user: { na
         </Link>
         <Link href="/projects" className={cn(navItem, pathname === "/projects" && navActive)}>
           <FolderKanban className="size-4" /> Projektübersicht
+        </Link>
+        <Link href="/projects/archive" className={cn(navItem, pathname === "/projects/archive" && navActive)}>
+          <Archive className="size-4" /> Archiv
         </Link>
         <Link href="/calendar" className={cn(navItem, pathname === "/calendar" && navActive)}>
           <CalendarDays className="size-4" /> Kalender

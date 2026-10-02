@@ -40,8 +40,15 @@ test("renames, reviews and completes a project, restores it and finally deletes 
   await expect(page.getByLabel("Neue Aufgabe in Offen")).toHaveCount(0);
   await expect(page.getByRole("link", { name: /LZK Lebenszyklus/ })).toHaveCount(0);
   await page.goto("/projects");
-  await page.locator("summary", { hasText: "Archiv (" }).click();
-  await expect(page.getByRole("list", { name: "Archivierte Projekte" })).toContainText("Lebenszyklus 2026");
+  await page.getByRole("link", { name: /Archiv \(\d+\)/ }).click();
+  await expect(page).toHaveURL(/\/projects\/archive$/);
+  const archive = page.getByRole("list", { name: "Archivierte Projekte" });
+  await expect(archive).toContainText("Lebenszyklus 2026");
+  await page.getByRole("link", { name: /Abgeschlossen \d+/ }).click();
+  await expect(archive).toContainText("Lebenszyklus 2026");
+  await expect(archive).toContainText("Ziel erreicht.");
+  await page.getByRole("link", { name: /Archiviert \d+/ }).click();
+  await expect(page.getByRole("list", { name: "Archivierte Projekte" }).getByText("Lebenszyklus 2026")).toHaveCount(0);
 
   // Restore, then delete with the key.
   await page.goto(board.replace(/\/board$/, "/settings"));

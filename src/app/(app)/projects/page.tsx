@@ -1,3 +1,4 @@
+import { Archive, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { NewProjectDialog } from "@/components/projects/new-project-dialog";
 import { Button } from "@/components/ui/button";
@@ -83,25 +84,12 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
       </section>
 
       {archived.length > 0 && (
-        <details className="group rounded-lg border">
-          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium">
-            <span className="mr-1 inline-block transition-transform group-open:rotate-90" aria-hidden>›</span>
-            Archiv ({archived.length})
-            <span className="ml-2 font-normal text-muted-foreground">abgeschlossene und archivierte Projekte</span>
-          </summary>
-          <ul aria-label="Archivierte Projekte" className="divide-y border-t">
-            {archived.map((project) => (
-              <li key={project.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm">
-                <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{project.key}</span>
-                <Link href={`/projects/${project.id}/review`} className="min-w-0 flex-1 truncate hover:underline">{project.name}</Link>
-                <span className="text-xs text-muted-foreground">
-                  {project.completedAt ? "Abgeschlossen" : "Archiviert"} am{" "}
-                  {new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeZone: "Europe/Berlin" }).format(project.archivedAt!)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </details>
+        <Link href="/projects/archive" className="flex items-center gap-2 rounded-lg border px-4 py-3 text-sm hover:bg-muted/50">
+          <Archive className="size-4 text-muted-foreground" aria-hidden />
+          <span className="font-medium">Archiv ({archived.length})</span>
+          <span className="text-muted-foreground">abgeschlossene und archivierte Projekte</span>
+          <ChevronRight className="ml-auto size-4 text-muted-foreground" aria-hidden />
+        </Link>
       )}
     </div>
   );
