@@ -59,3 +59,10 @@ export async function closeTask(page: Page) {
   await overlay.getByRole("link", { name: "Schließen" }).click();
   await expect(overlay).toBeHidden();
 }
+
+/** Picks an entry in one of the app's dropdowns (`<Select>`), which open a listbox in a popup. */
+export async function choose(trigger: Locator, option: string) {
+  await trigger.click();
+  const escaped = option.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  await trigger.page().getByRole("option", { name: new RegExp(`^${escaped}`) }).first().click();
+}

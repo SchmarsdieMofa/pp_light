@@ -1,5 +1,6 @@
 "use client";
 
+import { Select } from "@/components/ui/select";
 import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import {
@@ -14,7 +15,6 @@ import { AutosaveInput, ColorPicker, ConfirmAction, useRunner } from "./settings
 
 type StatusItem = { id: string; name: string; color: string; isDone: boolean };
 
-const selectClass = "h-8 w-full rounded-md border bg-background px-2 text-sm";
 
 /** Board columns: rename, recolor and mark as "done" in place – every change saves itself. */
 export function StatusManager(props: { projectId: string; statuses: StatusItem[]; canManage: boolean }) {
@@ -104,12 +104,15 @@ function StatusRow(props: { status: StatusItem; others: StatusItem[]; first: boo
               pending={pending}
               onConfirm={() => run(() => deleteStatusAction(s.id, target))}
             >
-              <label className="space-y-1 text-sm">
-                <span className="text-muted-foreground">Aufgaben verschieben nach</span>
-                <select className={selectClass} value={target} onChange={(e) => setTarget(e.target.value)}>
-                  {props.others.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-                </select>
-              </label>
+              <div className="space-y-1 text-sm">
+                <label htmlFor={`move-target-${s.id}`} className="text-muted-foreground">Aufgaben verschieben nach</label>
+                <Select
+                  id={`move-target-${s.id}`}
+                  value={target}
+                  options={props.others.map((o) => ({ value: o.id, label: o.name }))}
+                  onValueChange={setTarget}
+                />
+              </div>
             </ConfirmAction>
           )}
         </div>

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { addDays, formatDate, todayInZone } from "../../src/lib/dates";
-import { closeTask, createProjectViaUi, login } from "./fixtures";
+import { closeTask, createProjectViaUi, login, choose } from "./fixtures";
 
 async function openList(page: Page, boardUrl: string) {
   await page.goto(boardUrl.replace(/\/board$/, "/list"));
@@ -31,8 +31,8 @@ test("creates tasks, edits them in the panel and shows them on the board", async
 
   await panel.getByLabel("Titel").fill("Header bauen (responsive)");
   await panel.getByLabel("Titel").press("Enter");
-  await panel.getByLabel("Status").selectOption({ label: "In Arbeit" });
-  await panel.getByLabel("Priorität").selectOption({ label: "Hoch" });
+  await choose(panel.getByLabel("Status"), "In Arbeit");
+  await choose(panel.getByLabel("Priorität"), "Hoch");
   await panel.getByLabel("Fällig").fill("2030-01-15");
   await panel.getByLabel("Fällig").press("Enter");
   await page.waitForLoadState("networkidle");
@@ -151,7 +151,7 @@ test("manages subtasks, checklist, labels and filters", async ({ page }) => {
   await expect(table.getByRole("row", { name: /Logo/ })).toContainText("Design");
   await expect(table.getByRole("row", { name: /Logo/ })).toContainText("0/1");
 
-  await page.getByLabel("Label", { exact: true }).selectOption({ label: "Design" });
+  await choose(page.getByLabel("Label", { exact: true }), "Design");
   await expect(table.getByRole("link", { name: "Logo" })).toBeVisible();
   await expect(table.getByRole("link", { name: "Impressum" })).toHaveCount(0);
 

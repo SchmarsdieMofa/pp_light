@@ -1,5 +1,6 @@
 "use client";
 
+import { Select } from "@/components/ui/select";
 import { UserPlus, UserMinus } from "lucide-react";
 import { useState } from "react";
 import { addMemberAction, changeMemberRoleAction, removeMemberAction } from "@/app/(app)/projects/actions";
@@ -13,7 +14,7 @@ const ROLE_HINTS: Record<ProjectRole, string> = {
   member: "Bearbeitet Aufgaben",
   guest: "Liest und kommentiert",
 };
-const selectClass = "h-8 rounded-md border bg-background px-2 text-sm";
+const roleOptions = PROJECT_ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r], description: ROLE_HINTS[r] }));
 
 type MemberItem = { id: string; name: string; email: string; role: ProjectRole };
 
@@ -40,18 +41,14 @@ export function MemberManager(props: { projectId: string; members: MemberItem[];
             </span>
             {props.canManage ? (
               <>
-                <select
+                <Select
                   aria-label={`Rolle von ${m.name}`}
-                  className={selectClass}
+                  className="w-28"
                   value={m.role}
                   disabled={pending}
-                  onChange={(e) => {
-                    const next = e.target.value as ProjectRole;
-                    run(() => changeMemberRoleAction(props.projectId, m.id, next));
-                  }}
-                >
-                  {PROJECT_ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
-                </select>
+                  options={roleOptions}
+                  onValueChange={(next) => run(() => changeMemberRoleAction(props.projectId, m.id, next as ProjectRole))}
+                />
                 <ConfirmAction
                   trigger={<UserMinus />}
                   triggerLabel={`${m.name} entfernen`}
@@ -84,9 +81,7 @@ export function MemberManager(props: { projectId: string; members: MemberItem[];
             onChange={(e) => setEmail(e.target.value)}
             className="h-8 min-w-0 flex-1 basis-56 rounded-md border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           />
-          <select aria-label="Rolle" className={selectClass} value={role} onChange={(e) => setRole(e.target.value as ProjectRole)}>
-            {PROJECT_ROLES.map((r) => <option key={r} value={r} title={ROLE_HINTS[r]}>{ROLE_LABELS[r]}</option>)}
-          </select>
+          <Select aria-label="Rolle" className="w-28" value={role} options={roleOptions} onValueChange={(next) => setRole(next as ProjectRole)} />
           <Button type="submit" size="sm" variant="outline" disabled={pending || !email.trim()}>
             <UserPlus /> Mitglied hinzufügen
           </Button>

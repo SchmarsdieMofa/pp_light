@@ -5,7 +5,7 @@ import { mailOutbox } from "../../src/server/db/schema";
 import { openMailBody } from "../../src/server/mail/crypto";
 import { sendMail } from "../../src/server/mail/service";
 import { E2E_DATABASE_URL } from "../helpers/test-env";
-import { closeTask, createProjectViaUi, dragTo, login } from "./fixtures";
+import { closeTask, createProjectViaUi, dragTo, login, choose } from "./fixtures";
 import { formatDate } from "../../src/lib/dates";
 
 test.setTimeout(180_000);
@@ -114,7 +114,7 @@ test("invitation through Mailpit to project planning and an inbox mention", asyn
     await expect(panel.getByLabel("Titel")).toHaveValue("Nachfolger");
     await setDate(page, "Start", "2026-10-05");
     await setDate(page, "Fällig", "2026-10-06");
-    await panel.getByRole("combobox", { name: "Blocker hinzufügen" }).selectOption({ label: "ABF-1 Ausgang" });
+    await choose(panel.getByRole("combobox", { name: "Blocker hinzufügen" }), "ABF-1 Ausgang");
     await panel.getByRole("button", { name: "Hinzufügen" }).first().click();
     await expect(panel.getByRole("link", { name: /ABF-1 Ausgang/ })).toBeVisible();
 

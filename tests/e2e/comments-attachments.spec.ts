@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { E2E_MEMBER, closeTask, createProjectViaUi, login } from "./fixtures";
+import { E2E_MEMBER, closeTask, createProjectViaUi, login, choose } from "./fixtures";
 
 test("comments, mentions, Markdown, files and history are visible in the task panel", async ({ page }) => {
   test.setTimeout(90_000);
@@ -7,7 +7,7 @@ test("comments, mentions, Markdown, files and history are visible in the task pa
   const board = await createProjectViaUi(page, "M6 Unterhaltung", "mse");
   await page.goto(board.replace(/\/board$/, "/settings"));
   await page.getByLabel("E-Mail des Mitglieds").fill(E2E_MEMBER.email);
-  await page.getByLabel("Rolle", { exact: true }).selectOption({ label: "Gast" });
+  await choose(page.getByLabel("Rolle", { exact: true }), "Gast");
   await page.getByRole("button", { name: "Mitglied hinzufügen" }).click();
   await page.goto(board);
 
@@ -71,7 +71,7 @@ test("comments, mentions, Markdown, files and history are visible in the task pa
   await expect(adminFile).toHaveCount(0);
   expect((await page.request.get(downloadUrl!)).status()).toBe(404);
   const adminPanel = page.getByRole("dialog", { name: "Aufgabe" });
-  await adminPanel.getByLabel("Status").selectOption({ label: "In Arbeit" });
+  await choose(adminPanel.getByLabel("Status"), "In Arbeit");
   await adminPanel.locator("summary", { hasText: "Verlauf" }).click();
   await expect(adminPanel.getByText(/Status Offen → In Arbeit/)).toBeVisible();
 });

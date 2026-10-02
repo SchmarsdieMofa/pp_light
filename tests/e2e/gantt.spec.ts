@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { createProjectViaUi, E2E_MEMBER, login } from "./fixtures";
+import { createProjectViaUi, E2E_MEMBER, login, choose } from "./fixtures";
 import { formatDate } from "../../src/lib/dates";
 
 test.setTimeout(120_000);
@@ -40,7 +40,7 @@ test("shows grouped tasks and saves a dragged date with dependency cascade", asy
 
   const panel = page.getByRole("dialog", { name: "Aufgabe" });
   await openCard(page, "Ausgang");
-  await panel.getByLabel("Phase").selectOption({ label: "Planung" });
+  await choose(panel.getByLabel("Phase"), "Planung");
   await setDate(page, "Start", "2026-10-01");
   await setDate(page, "Fällig", "2026-10-02");
   await panel.getByRole("link", { name: "Schließen" }).click();
@@ -49,7 +49,7 @@ test("shows grouped tasks and saves a dragged date with dependency cascade", asy
   await openCard(page, "Nachfolger");
   await setDate(page, "Start", "2026-10-05");
   await setDate(page, "Fällig", "2026-10-06");
-  await panel.getByRole("combobox", { name: "Blocker hinzufügen" }).selectOption({ label: "GAN-1 Ausgang" });
+  await choose(panel.getByRole("combobox", { name: "Blocker hinzufügen" }), "GAN-1 Ausgang");
   await panel.getByRole("button", { name: "Hinzufügen" }).first().click();
   await expect(panel.getByRole("link", { name: /GAN-1 Ausgang/ })).toBeVisible();
 
@@ -94,7 +94,7 @@ test("shows the schedule read-only for guests", async ({ page }) => {
 
   await page.goto(board.replace(/\/board$/, "/settings"));
   await page.getByLabel("E-Mail des Mitglieds").fill(E2E_MEMBER.email);
-  await page.getByLabel("Rolle", { exact: true }).selectOption({ label: "Gast" });
+  await choose(page.getByLabel("Rolle", { exact: true }), "Gast");
   await page.getByRole("button", { name: "Mitglied hinzufügen" }).click();
   await expect(page.getByRole("list", { name: "Mitglieder" })).toContainText(E2E_MEMBER.name);
   await page.getByRole("button", { name: "Abmelden" }).click();
@@ -135,7 +135,7 @@ async function ganttProject(page: Page, key: string) {
   }
   const panel = page.getByRole("dialog", { name: "Aufgabe" });
   await openCard(page, "Eins");
-  await panel.getByLabel("Phase").selectOption({ label: "Planung" });
+  await choose(panel.getByLabel("Phase"), "Planung");
   await setDate(page, "Start", "2026-10-05");
   await setDate(page, "Fällig", "2026-10-06");
   await panel.getByRole("link", { name: "Schließen" }).click();

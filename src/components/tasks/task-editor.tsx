@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { setAssigneesAction, setLabelsAction, undoScheduleAction, updateTaskAction } from "@/app/(app)/tasks/actions";
+import { Select } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { TASK_PRIORITIES, type TaskPriority } from "@/lib/enums";
@@ -20,7 +21,6 @@ import { TaskDependencies } from "./task-dependencies";
 import { TaskSubtasks } from "./task-subtasks";
 import { useTaskHref } from "./use-task-href";
 
-const fieldClass = "h-8 w-full rounded-md border bg-background px-2 text-sm disabled:opacity-60";
 
 /**
  * Optimistic-lock editor.
@@ -214,22 +214,16 @@ function SelectField(props: {
       <label htmlFor={props.id} className="text-muted-foreground">
         {props.label}
       </label>
-      <select
+      <Select
         id={props.id}
-        className={fieldClass}
         value={value}
         disabled={props.disabled}
-        onChange={(e) => {
-          setValue(e.target.value);
-          void commit(e.target.value);
+        options={props.options}
+        onValueChange={(next) => {
+          setValue(next);
+          void commit(next);
         }}
-      >
-        {props.options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      />
     </>
   );
 }

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { createProjectViaUi, login } from "./fixtures";
+import { createProjectViaUi, login, choose } from "./fixtures";
 
 test("captures, opens, reschedules and completes my tasks on the home page", async ({ page }) => {
   await login(page);
@@ -9,7 +9,7 @@ test("captures, opens, reschedules and completes my tasks on the home page", asy
 
   // Quick capture: assigned to me, due today.
   const capture = page.getByRole("form", { name: "Aufgabe für mich anlegen" });
-  await capture.getByLabel("Projekt").selectOption({ label: "Startseite" });
+  await choose(capture.getByLabel("Projekt"), "Startseite");
   await capture.getByRole("radio", { name: "Heute" }).click();
   await capture.getByLabel("Neue Aufgabe für mich").fill("Angebot schicken");
   await capture.getByLabel("Neue Aufgabe für mich").press("Enter");

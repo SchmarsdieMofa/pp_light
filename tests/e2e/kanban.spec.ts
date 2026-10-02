@@ -1,5 +1,5 @@
 import { expect, test, type Page, type Response } from "@playwright/test";
-import { createProjectViaUi, dragTo, E2E_MEMBER, login } from "./fixtures";
+import { createProjectViaUi, dragTo, E2E_MEMBER, login, choose } from "./fixtures";
 
 async function addInColumn(page: Page, column: string, title: string) {
   const input = page.getByLabel(`Neue Aufgabe in ${column}`);
@@ -45,7 +45,7 @@ test("drags cards between and within columns and keeps the order after reload", 
   await expect(page.getByRole("region", { name: "Offen" }).getByRole("link")).toHaveText([/Karte C/, /Karte B/]);
 
   await card(page, "In Arbeit", "Karte A").click();
-  await expect(page.getByRole("dialog", { name: "Aufgabe" }).getByLabel("Status")).toHaveValue(/.+/);
+  await expect(page.getByRole("dialog", { name: "Aufgabe" }).getByLabel("Status")).toHaveText(/.+/);
   await expect(page.getByRole("dialog", { name: "Aufgabe" }).getByLabel("Titel")).toHaveValue("Karte A");
 });
 
@@ -113,7 +113,7 @@ test("manages status columns", async ({ page }) => {
 
   await page.getByRole("button", { name: "Spalte Review löschen" }).click();
   const confirm = page.getByRole("dialog", { name: "Spalte „Review“ löschen?" });
-  await confirm.getByLabel("Aufgaben verschieben nach").selectOption({ label: "Offen" });
+  await choose(confirm.getByLabel("Aufgaben verschieben nach"), "Offen");
   await confirm.getByRole("button", { name: "Spalte löschen" }).click();
   await expect(page.getByRole("group", { name: "Spalte Review" })).toHaveCount(0);
 
@@ -138,7 +138,7 @@ test("adds members, assigns them and protects the last owner", async ({ page }) 
   await page.getByRole("button", { name: "Mitglied hinzufügen" }).click();
   await expect(page.getByRole("list", { name: "Mitglieder" })).toContainText(E2E_MEMBER.name);
 
-  await page.getByLabel("Rolle von Ada Admin").selectOption({ label: "Mitglied" });
+  await choose(page.getByLabel("Rolle von Ada Admin"), "Mitglied");
   await expect(page.getByText("Ein Projekt braucht mindestens einen Owner.")).toBeVisible();
 
   await page.goto(board);

@@ -1,5 +1,6 @@
 "use client";
 
+import { Select } from "@/components/ui/select";
 import { Plus } from "lucide-react";
 import { useState, useSyncExternalStore, useTransition } from "react";
 import { toast } from "sonner";
@@ -62,18 +63,26 @@ export function QuickCapture({ projects, today }: { projects: Project[]; today: 
           maxLength={200}
           readOnly={pending}
           onChange={(e) => setTitle(e.target.value)}
+          // Explicit: the project picker adds its own input, which turns off the browser's implicit Enter submit.
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              e.currentTarget.form?.requestSubmit();
+            }
+          }}
           className="h-9 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-2 border-t pt-2 pl-1">
-        <select
+        <Select
           aria-label="Projekt"
+          size="sm"
+          className="w-auto max-w-48"
           value={projectId}
-          onChange={(e) => setPicked(e.target.value)}
-          className="h-7 max-w-48 rounded-md border bg-background px-2 text-xs"
-        >
-          {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+          options={projects.map((p) => ({ value: p.id, label: p.name }))}
+          searchPlaceholder="Projekt suchen…"
+          onValueChange={setPicked}
+        />
         <div role="radiogroup" aria-label="Fällig" className="flex items-center gap-0.5 rounded-md border p-0.5">
           {([["none", "Ohne Termin"], ["today", "Heute"], ["tomorrow", "Morgen"]] as const).map(([value, label]) => (
             <button

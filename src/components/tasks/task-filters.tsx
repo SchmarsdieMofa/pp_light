@@ -1,5 +1,6 @@
 "use client";
 
+import { Select } from "@/components/ui/select";
 import { Search, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -134,18 +135,16 @@ function FilterSelect(props: { id: string; label: string; value?: string; option
       )}
     >
       <label htmlFor={props.id}>{props.label}</label>
-      <select
+      <Select
         id={props.id}
-        className="h-full cursor-pointer rounded-r-md bg-transparent pr-1 text-sm text-foreground outline-none"
+        className="h-full w-auto rounded-l-none border-0 bg-transparent pr-1.5 pl-1 text-sm text-foreground hover:bg-transparent"
         value={value}
-        onChange={(e) => {
-          setValue(e.target.value);
-          props.onChange(e.target.value);
+        options={[{ value: "", label: "Alle" }, ...props.options.map((o) => ({ value: o.id, label: o.name }))]}
+        onValueChange={(next) => {
+          setValue(next);
+          props.onChange(next);
         }}
-      >
-        <option value="">Alle</option>
-        {props.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-      </select>
+      />
     </div>
   );
 }

@@ -45,7 +45,7 @@ test("admins manage users in the settings overlay; members only see their accoun
   await expect(page).toHaveURL(/\/\?settings=nutzer$/);
   const dialog = page.getByRole("dialog", { name: "Einstellungen" });
   await expect(dialog.getByRole("link", { name: "Nutzerverwaltung" })).toHaveAttribute("aria-current", "page");
-  await expect(dialog.getByRole("combobox", { name: `Rolle von ${E2E_MEMBER.name}` })).toHaveValue("member");
+  await expect(dialog.getByRole("combobox", { name: `Rolle von ${E2E_MEMBER.name}` })).toHaveText("Mitglied");
 
   // The overlay sits above the current view and closes with Esc, keeping the page.
   await page.goto("/calendar?settings=konto");

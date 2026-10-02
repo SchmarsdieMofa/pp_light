@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { createProjectViaUi, E2E_MEMBER, login } from "./fixtures";
+import { createProjectViaUi, E2E_MEMBER, login, choose } from "./fixtures";
 import { formatDate } from "../../src/lib/dates";
 
 test.setTimeout(120_000);
@@ -58,16 +58,16 @@ test("manages phases and cascades a dependency with undo", async ({ page }) => {
   await addCard(page, "Nachfolger");
   await openCard(page, "Ausgang");
   const panel = page.getByRole("dialog", { name: "Aufgabe" });
-  await panel.getByLabel("Phase").selectOption({ label: "Planung" });
+  await choose(panel.getByLabel("Phase"), "Planung");
   await setDate(page, "Start", "2026-10-01");
   await setDate(page, "Fällig", "2026-10-02");
-  await expect(panel.getByLabel("Phase")).toHaveValue(/.+/);
+  await expect(panel.getByLabel("Phase")).toHaveText("Planung");
   await closeCard(page);
 
   await openCard(page, "Nachfolger");
   await setDate(page, "Start", "2026-10-01");
   await setDate(page, "Fällig", "2026-10-02");
-  await panel.getByRole("combobox", { name: "Blocker hinzufügen" }).selectOption({ label: "MVI-1 Ausgang" });
+  await choose(panel.getByRole("combobox", { name: "Blocker hinzufügen" }), "MVI-1 Ausgang");
   await panel.getByRole("button", { name: "Hinzufügen" }).first().click();
   await expect(panel.getByRole("link", { name: /MVI-1 Ausgang/ })).toBeVisible();
   await expect(panel.getByLabel("Start")).toHaveValue("05.10.2026");
@@ -87,7 +87,7 @@ test("manages phases and cascades a dependency with undo", async ({ page }) => {
   await closeCard(page);
 
   await openCard(page, "Ausgang");
-  await panel.getByRole("combobox", { name: "Blocker hinzufügen" }).selectOption({ label: "MVI-2 Nachfolger" });
+  await choose(panel.getByRole("combobox", { name: "Blocker hinzufügen" }), "MVI-2 Nachfolger");
   await panel.getByRole("button", { name: "Hinzufügen" }).first().click();
   await expect(page.getByText("Diese Abhängigkeit würde einen Zyklus erzeugen.")).toBeVisible();
 

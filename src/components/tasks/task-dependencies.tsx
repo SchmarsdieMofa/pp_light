@@ -1,5 +1,6 @@
 "use client";
 
+import { Select } from "@/components/ui/select";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -83,13 +84,15 @@ function DependencyList(props: {
             setSelected(""); setLag(0); movedMessage(result.movedCount);
           });
         }}>
-          <select aria-label={props.isBlockerList ? "Blocker hinzufügen" : "Nachfolger hinzufügen"}
-            className={`${selectClass} w-full`} value={selected} onChange={(event) => setSelected(event.target.value)}>
-            <option value="">Aufgabe wählen…</option>
-            {available.map((option) => <option key={option.id} value={option.id}>
-              {props.detail.key}-{option.number} {option.title}
-            </option>)}
-          </select>
+          <Select
+            aria-label={props.isBlockerList ? "Blocker hinzufügen" : "Nachfolger hinzufügen"}
+            placeholder="Aufgabe wählen…"
+            searchable
+            searchPlaceholder="Aufgabe suchen…"
+            value={selected}
+            options={available.map((option) => ({ value: option.id, label: `${props.detail.key}-${option.number} ${option.title}` }))}
+            onValueChange={setSelected}
+          />
           {/* Lag and submit only matter once a task is picked. */}
           {selected && (
             <>
