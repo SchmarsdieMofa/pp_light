@@ -1,3 +1,4 @@
+import { ChevronRight, FolderKanban } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TaskEditor } from "@/components/tasks/task-editor";
@@ -12,13 +13,14 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   if (!detail) notFound();
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-4 sm:p-6">
-      <p className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href={`/projects/${detail.projectId}/list`} className="hover:text-foreground">
-          ← {detail.projectName}
+      <nav aria-label="Pfad" className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
+        <Link href={`/projects/${detail.projectId}/board`} title="Zum Projekt" className="inline-flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 -ml-2 hover:bg-muted hover:text-foreground">
+          <FolderKanban className="size-3.5 shrink-0" />
+          <span className="truncate">{detail.projectName}</span>
         </Link>
-        <span aria-hidden>·</span>
-        <span className="font-medium tabular-nums">{detail.key}-{detail.number}</span>
-      </p>
+        <ChevronRight className="size-3.5 shrink-0 opacity-60" aria-hidden />
+        <span className="shrink-0 font-medium tabular-nums text-foreground">{detail.key}-{detail.number}</span>
+      </nav>
       <TaskEditor key={detail.id} detail={detail} />
     </div>
   );

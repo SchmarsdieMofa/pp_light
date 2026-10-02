@@ -49,6 +49,15 @@ test("creates tasks, edits them in the panel and shows them on the board", async
   await page.goto(board);
   await expect(page.getByRole("region", { name: "In Arbeit" })).toContainText("Header bauen (responsive)");
   await expect(page.getByRole("region", { name: "Offen" })).toContainText("Footer bauen");
+
+  // From a task, both the overlay and the task page lead back to the project.
+  await page.getByRole("region", { name: "Offen" }).getByRole("link", { name: /Footer bauen/ }).click();
+  const overlay = page.getByRole("dialog", { name: /Aufgabe TSK-2/ });
+  await expect(overlay.getByRole("navigation", { name: "Pfad" })).toContainText("Aufgaben-Test");
+  await overlay.getByRole("link", { name: "Als Seite öffnen" }).click();
+  await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]{36}$/);
+  await page.getByRole("navigation", { name: "Pfad" }).getByRole("link", { name: "Aufgaben-Test" }).click();
+  await expect(page).toHaveURL(board);
 });
 
 test("completes and reopens tasks with one click and searches live", async ({ page }) => {

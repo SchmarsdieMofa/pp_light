@@ -11,7 +11,11 @@ export async function TaskPanel({ taskId }: { taskId: string }) {
   const detail = await getTaskDetail(db(), actor, taskId);
   return (
     <TaskOverlay label={detail ? `Aufgabe ${detail.key}-${detail.number}` : "Aufgabe"}>
-      <PanelHeader taskId={detail?.id} reference={detail ? `${detail.key}-${detail.number}` : undefined} />
+      <PanelHeader
+        taskId={detail?.id}
+        reference={detail ? `${detail.key}-${detail.number}` : undefined}
+        project={detail ? { id: detail.projectId, name: detail.projectName } : undefined}
+      />
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6">
         {detail ? <TaskEditor key={detail.id} detail={detail} /> : <p className="text-sm text-muted-foreground">Aufgabe nicht gefunden.</p>}
       </div>
