@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { setAssigneesAction, setLabelsAction, undoScheduleAction, updateTaskAction } from "@/app/(app)/tasks/actions";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
-import { isPlausibleDate } from "@/lib/dates";
 import { TASK_PRIORITIES, type TaskPriority } from "@/lib/enums";
 import { PRIORITY_LABELS } from "@/lib/priority";
 import type { TaskPatch } from "@/lib/schemas/task";
@@ -248,16 +248,14 @@ function DateField(props: {
       <label htmlFor={props.id} className="text-muted-foreground">
         {props.label}
       </label>
-      <input
+      <DatePicker
         id={props.id}
-        type="date"
-        className={fieldClass}
-        value={value}
+        label={props.label}
+        value={value || null}
         disabled={props.disabled}
-        onChange={(e) => {
-          setValue(e.target.value);
-          // Typing a year digit by digit yields 0002-…, 0020-…: only save complete, plausible dates (or clearing).
-          if (e.target.value === "" || isPlausibleDate(e.target.value)) void commit(e.target.value);
+        onChange={(next) => {
+          setValue(next ?? "");
+          void commit(next ?? "");
         }}
       />
     </>

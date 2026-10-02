@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createProjectViaUi, E2E_MEMBER, login } from "./fixtures";
+import { formatDate } from "../../src/lib/dates";
 
 test.setTimeout(120_000);
 
@@ -14,11 +15,12 @@ async function setDate(page: Page, label: "Start" | "Fällig", value: string) {
     && !!item.request().headers()["next-action"] && !!item.request().postData()?.includes(field)
     && !!item.request().postData()?.includes(value));
   await page.getByRole("dialog", { name: "Aufgabe" }).getByLabel(label).fill(value);
+  await page.getByRole("dialog", { name: "Aufgabe" }).getByLabel(label).press("Enter");
   await response;
   await page.reload();
   // The server-rendered value is visible before hydration; wait so the next fill reaches React.
   await page.waitForLoadState("networkidle");
-  await expect(page.getByRole("dialog", { name: "Aufgabe" }).getByLabel(label)).toHaveValue(value);
+  await expect(page.getByRole("dialog", { name: "Aufgabe" }).getByLabel(label)).toHaveValue(formatDate(value));
 }
 
 test("shows grouped tasks and saves a dragged date with dependency cascade", async ({ page }) => {

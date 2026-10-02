@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createProjectViaUi, E2E_MEMBER, login } from "./fixtures";
+import { formatDate } from "../../src/lib/dates";
 
 test.setTimeout(120_000);
 
@@ -29,12 +30,13 @@ async function setDate(page: Page, label: "Start" | "Fällig", value: string, ve
       && !!request.postData()?.includes(field) && !!request.postData()?.includes(value);
   });
   await page.getByRole("dialog", { name: "Aufgabe" }).getByLabel(label).fill(value);
+  await page.getByRole("dialog", { name: "Aufgabe" }).getByLabel(label).press("Enter");
   await response;
   if (verifyPersisted) {
     await page.reload();
     // The server-rendered value is visible before hydration; wait so the next fill reaches React.
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("dialog", { name: "Aufgabe" }).getByLabel(label)).toHaveValue(value);
+    await expect(page.getByRole("dialog", { name: "Aufgabe" }).getByLabel(label)).toHaveValue(formatDate(value));
   }
 }
 
@@ -68,20 +70,20 @@ test("manages phases and cascades a dependency with undo", async ({ page }) => {
   await panel.getByRole("combobox", { name: "Blocker hinzufügen" }).selectOption({ label: "MVI-1 Ausgang" });
   await panel.getByRole("button", { name: "Hinzufügen" }).first().click();
   await expect(panel.getByRole("link", { name: /MVI-1 Ausgang/ })).toBeVisible();
-  await expect(panel.getByLabel("Start")).toHaveValue("2026-10-05");
-  await expect(panel.getByLabel("Fällig")).toHaveValue("2026-10-06");
+  await expect(panel.getByLabel("Start")).toHaveValue("05.10.2026");
+  await expect(panel.getByLabel("Fällig")).toHaveValue("06.10.2026");
   await closeCard(page);
 
   await openCard(page, "Ausgang");
   await setDate(page, "Fällig", "2026-10-06", false);
   await expect(page.getByText("1 Aufgabe verschoben").last()).toBeVisible();
   await page.getByRole("button", { name: "Rückgängig" }).click();
-  await expect(panel.getByLabel("Fällig")).toHaveValue("2026-10-02");
+  await expect(panel.getByLabel("Fällig")).toHaveValue("02.10.2026");
   await closeCard(page);
 
   await openCard(page, "Nachfolger");
-  await expect(panel.getByLabel("Start")).toHaveValue("2026-10-05");
-  await expect(panel.getByLabel("Fällig")).toHaveValue("2026-10-06");
+  await expect(panel.getByLabel("Start")).toHaveValue("05.10.2026");
+  await expect(panel.getByLabel("Fällig")).toHaveValue("06.10.2026");
   await closeCard(page);
 
   await openCard(page, "Ausgang");

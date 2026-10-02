@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { addDays, formatDate, todayInZone } from "../../src/lib/dates";
 import { closeTask, createProjectViaUi, login } from "./fixtures";
 
 async function openList(page: Page, boardUrl: string) {
@@ -31,6 +32,7 @@ test("creates tasks, edits them in the panel and shows them on the board", async
   await panel.getByLabel("Status").selectOption({ label: "In Arbeit" });
   await panel.getByLabel("Priorität").selectOption({ label: "Hoch" });
   await panel.getByLabel("Fällig").fill("2030-01-15");
+  await panel.getByLabel("Fällig").press("Enter");
   await page.waitForLoadState("networkidle");
   await closeTask(page);
 
@@ -42,6 +44,36 @@ test("creates tasks, edits them in the panel and shows them on the board", async
   await page.goto(board);
   await expect(page.getByRole("region", { name: "In Arbeit" })).toContainText("Header bauen (responsive)");
   await expect(page.getByRole("region", { name: "Offen" })).toContainText("Footer bauen");
+});
+
+test("picks dates from the calendar, by quick choice or by typing", async ({ page }) => {
+  await login(page);
+  const board = await createProjectViaUi(page, "Datum-Test", "dat");
+  await openList(page, board);
+  await quickAdd(page, "Termin");
+  await page.getByRole("table", { name: "Aufgaben" }).getByRole("link", { name: "Termin" }).click();
+  const panel = page.getByRole("dialog", { name: "Aufgabe" });
+  const due = panel.getByLabel("Fällig");
+  const today = todayInZone();
+
+  await due.locator("..").getByRole("button", { name: "Kalender öffnen" }).click();
+  const picker = page.getByRole("dialog", { name: "Fällig wählen" });
+  await picker.getByRole("button", { name: "Morgen" }).click();
+  await expect(picker).toBeHidden();
+  await expect(due).toHaveValue(formatDate(addDays(today, 1)));
+
+  await panel.getByLabel("Start").locator("..").getByRole("button", { name: "Kalender öffnen" }).click();
+  const startPicker = page.getByRole("dialog", { name: "Start wählen" });
+  await startPicker.getByRole("button", { name: "Nächster Monat" }).click();
+  await startPicker.getByRole("gridcell").getByRole("button").nth(14).click();
+  await expect(panel.getByLabel("Start")).not.toHaveValue("");
+
+  await due.fill("24.12.");
+  await due.press("Enter");
+  await expect(due).toHaveValue(`24.12.${today.slice(0, 4)}`);
+  await page.waitForLoadState("networkidle");
+  await page.reload();
+  await expect(page.getByRole("dialog", { name: "Aufgabe" }).getByLabel("Fällig")).toHaveValue(`24.12.${today.slice(0, 4)}`);
 });
 
 test("manages subtasks, checklist, labels and filters", async ({ page }) => {
@@ -154,6 +186,8 @@ test.describe("German locale", () => {
 
     // Enter an implausible year directly: native date segment typing differs across operating systems.
     await panel.getByLabel("Fällig").fill("0202-10-14");
+    await panel.getByLabel("Fällig").press("Enter");
+    await expect(panel.getByLabel("Fällig")).toHaveValue("");
     await page.waitForLoadState("networkidle");
     await page.reload();
     await closeTask(page);
@@ -161,6 +195,7 @@ test.describe("German locale", () => {
     await expect(row.getByRole("cell").nth(7)).toHaveText("–");
     await row.getByRole("link", { name: "Fokus" }).click();
     await panel.getByLabel("Fällig").fill("2030-10-14");
+    await panel.getByLabel("Fällig").press("Enter");
     await page.waitForLoadState("networkidle");
     await closeTask(page);
     await expect(row).toContainText(

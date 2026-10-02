@@ -72,3 +72,29 @@ describe("parseTaskListParams", () => {
     });
   });
 });
+
+describe("date input", () => {
+  it("parses German and ISO input into ISO days", async () => {
+    const { parseDateInput } = await import("@/lib/dates");
+    expect(parseDateInput("15.01.2030", "2026-10-02")).toBe("2030-01-15");
+    expect(parseDateInput("5.1.30", "2026-10-02")).toBe("2030-01-05");
+    expect(parseDateInput("24.12.", "2026-10-02")).toBe("2026-12-24");
+    expect(parseDateInput(" 2030-01-15 ", "2026-10-02")).toBe("2030-01-15");
+  });
+
+  it("rejects impossible or implausible dates", async () => {
+    const { parseDateInput } = await import("@/lib/dates");
+    expect(parseDateInput("31.02.2030")).toBeNull();
+    expect(parseDateInput("0202-10-14")).toBeNull();
+    expect(parseDateInput("morgen")).toBeNull();
+    expect(parseDateInput("")).toBeNull();
+  });
+
+  it("shifts days and finds the Monday of a week across DST", async () => {
+    const { addDays, weekStart } = await import("@/lib/dates");
+    expect(addDays("2026-10-24", 2)).toBe("2026-10-26");
+    expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
+    expect(weekStart("2026-10-04")).toBe("2026-09-28");
+    expect(weekStart("2026-09-28")).toBe("2026-09-28");
+  });
+});

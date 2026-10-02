@@ -6,6 +6,7 @@ import { openMailBody } from "../../src/server/mail/crypto";
 import { sendMail } from "../../src/server/mail/service";
 import { E2E_DATABASE_URL } from "../helpers/test-env";
 import { closeTask, createProjectViaUi, dragTo, login } from "./fixtures";
+import { formatDate } from "../../src/lib/dates";
 
 test.setTimeout(180_000);
 
@@ -16,10 +17,11 @@ async function setDate(page: Page, label: "Start" | "Fällig", value: string) {
     && Boolean(response.request().postData()?.includes(field))
     && Boolean(response.request().postData()?.includes(value)));
   await page.getByRole("dialog", { name: "Aufgabe" }).getByLabel(label).fill(value);
+  await page.getByRole("dialog", { name: "Aufgabe" }).getByLabel(label).press("Enter");
   await saved;
   await page.reload();
   await page.waitForLoadState("networkidle");
-  await expect(page.getByRole("dialog", { name: "Aufgabe" }).getByLabel(label)).toHaveValue(value);
+  await expect(page.getByRole("dialog", { name: "Aufgabe" }).getByLabel(label)).toHaveValue(formatDate(value));
 }
 
 test("invitation through Mailpit to project planning and an inbox mention", async ({ page }) => {

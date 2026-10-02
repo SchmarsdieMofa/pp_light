@@ -36,3 +36,38 @@ export function weekEnd(iso: string): string {
   date.setUTCDate(date.getUTCDate() + ((7 - date.getUTCDay()) % 7));
   return date.toISOString().slice(0, 10);
 }
+
+/** ISO day (YYYY-MM-DD) shifted by whole days – UTC arithmetic, so DST never skips or repeats a day. */
+export function addDays(iso: string, days: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d + days));
+  return date.toISOString().slice(0, 10);
+}
+
+/** Monday of the week containing `iso`. */
+export function weekStart(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const weekday = (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7;
+  return addDays(iso, -weekday);
+}
+
+function validIso(y: number, m: number, d: number): string | null {
+  const date = new Date(Date.UTC(y, m - 1, d));
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return null;
+  const iso = date.toISOString().slice(0, 10);
+  return isPlausibleDate(iso) ? iso : null;
+}
+
+/**
+ * Typed date → ISO day, or null if it is no real date. Accepts German input ("15.1.2030", "15.01.30",
+ * "15.1." = this year) and ISO ("2030-01-15"). `today` supplies the year for the short form.
+ */
+export function parseDateInput(text: string, today: string = todayInZone()): string | null {
+  const value = text.trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (iso) return validIso(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+  const de = /^(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})?$/.exec(value);
+  if (!de) return null;
+  const year = de[3] === undefined ? Number(today.slice(0, 4)) : de[3].length === 2 ? 2000 + Number(de[3]) : Number(de[3]);
+  return validIso(year, Number(de[2]), Number(de[1]));
+}
