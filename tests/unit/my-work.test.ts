@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { statuses } from "@/server/db/schema";
 import { removeMember } from "@/server/members/service";
-import { completeTask, listMyWork, reopenTask } from "@/server/my-work/service";
+import { completeTask, createMyTask, listCapturableProjects, listMyWork, reopenTask } from "@/server/my-work/service";
 import { getTaskDetail } from "@/server/tasks/queries";
 import { setTaskAssignees } from "@/server/tasks/relations";
 import { createTask, updateTask } from "@/server/tasks/service";
@@ -66,5 +66,20 @@ describe("my work", () => {
     const { ada, a, t4 } = await setup();
     await reopenTask(testDb, ada, t4.id);
     expect((await getTaskDetail(testDb, ada, t4.id))?.statusId).toBe(a.open.id);
+  });
+
+  it("captures a task assigned to me with a due date", async () => {
+    const { mia, a } = await setup();
+    const created = await createMyTask(testDb, mia, { projectId: a.project.id, title: "Schnell notiert", dueDate: "2026-10-20" });
+    const mine = (await listMyWork(testDb, mia)).find((t) => t.id === created.id);
+    expect(mine).toMatchObject({ title: "Schnell notiert", dueDate: "2026-10-20" });
+  });
+
+  it("refuses quick capture where I cannot be assignee and creates nothing", async () => {
+    const { a } = await setup();
+    const root = await makeActor("root@example.com", "admin");
+    await expect(createMyTask(testDb, root, { projectId: a.project.id, title: "Waise", dueDate: null })).rejects.toMatchObject({ code: "VALIDATION" });
+    expect((await listMyWork(testDb, root)).length).toBe(0);
+    expect((await listCapturableProjects(testDb, root)).length).toBe(0);
   });
 });

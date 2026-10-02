@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { todayInZone, weekEnd } from "@/lib/dates";
-import { groupMyWork } from "@/lib/my-work";
+import { dueLabel, greeting, groupMyWork } from "@/lib/my-work";
 
 describe("todayInZone", () => {
   it("uses the Berlin calendar day, not UTC", () => {
@@ -34,5 +34,22 @@ describe("groupMyWork", () => {
       later: groups.later.map((t) => t.id),
       none: groups.none.map((t) => t.id),
     }).toEqual({ overdue: ["f", "a"], today: ["b"], week: ["c"], later: ["d"], none: ["e"] });
+  });
+});
+
+describe("dueLabel", () => {
+  it("says due dates the way people do", () => {
+    expect(dueLabel("2026-10-13", "2026-10-14")).toBe("seit gestern");
+    expect(dueLabel("2026-10-11", "2026-10-14")).toBe("seit 3 Tagen");
+    expect(dueLabel("2026-10-14", "2026-10-14")).toBe("Heute");
+    expect(dueLabel("2026-10-15", "2026-10-14")).toBe("Morgen");
+    expect(dueLabel("2026-10-16", "2026-10-14")).toBe("Fr 16.10.");
+    expect(dueLabel("2026-10-19", "2026-10-14")).toBe("19.10.2026");
+  });
+
+  it("greets by time of day", () => {
+    expect(greeting(8)).toBe("Guten Morgen");
+    expect(greeting(14)).toBe("Guten Tag");
+    expect(greeting(20)).toBe("Guten Abend");
   });
 });

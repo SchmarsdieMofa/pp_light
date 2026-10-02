@@ -10,6 +10,7 @@ import { PriorityBadge } from "@/components/tasks/task-badges";
 import { useTaskHref } from "@/components/tasks/use-task-href";
 import { isoWeek, longDate, MONTH_NAMES, monthGrid, monthOf, shiftMonth, WEEKDAYS_SHORT, weekdayIndex } from "@/lib/calendar";
 import { addDays, formatDate, weekStart } from "@/lib/dates";
+import { projectColors } from "@/lib/project-colors";
 import { buildHref, normalizeSearchParams } from "@/lib/urls";
 import { cn } from "@/lib/utils";
 import type { CalendarTask } from "@/server/calendar/service";
@@ -17,8 +18,6 @@ import type { CalendarTask } from "@/server/calendar/service";
 export type CalendarViewMode = "month" | "week" | "list";
 type Project = { id: string; name: string; key: string };
 
-/** Distinct, readable in light and dark. A project keeps its color as long as the project list does not change. */
-const PROJECT_COLORS = ["#3b82f6", "#10b981", "#a855f7", "#f97316", "#ec4899", "#14b8a6", "#eab308", "#ef4444", "#6366f1", "#84cc16"];
 const MONTH_CHIPS = 3;
 
 export function CalendarView(props: {
@@ -39,10 +38,7 @@ export function CalendarView(props: {
   const params = normalizeSearchParams(Object.fromEntries(searchParams.entries()));
   const href = (overrides: Record<string, string | null>) => buildHref(pathname, params, { task: null, ...overrides });
 
-  const colorOf = useMemo(() => {
-    const map = new Map(props.projects.map((p, i) => [p.id, PROJECT_COLORS[i % PROJECT_COLORS.length]]));
-    return (projectId: string) => map.get(projectId) ?? PROJECT_COLORS[0];
-  }, [props.projects]);
+  const colorOf = useMemo(() => projectColors(props.projects), [props.projects]);
 
   const [query, setQuery] = useState("");
   const [, startTransition] = useTransition();
