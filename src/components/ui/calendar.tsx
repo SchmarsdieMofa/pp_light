@@ -2,35 +2,9 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addDays, todayInZone, weekStart } from "@/lib/dates";
+import { longDate, MONTH_NAMES, monthGrid, monthOf, shiftMonth, WEEKDAYS_SHORT, weekdayIndex } from "@/lib/calendar";
+import { addDays, todayInZone } from "@/lib/dates";
 import { cn } from "@/lib/utils";
-
-export const MONTH_NAMES = [
-  "Januar", "Februar", "März", "April", "Mai", "Juni",
-  "Juli", "August", "September", "Oktober", "November", "Dezember",
-];
-export const WEEKDAYS_SHORT = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
-
-/** "YYYY-MM" of an ISO day. */
-const monthOf = (iso: string) => iso.slice(0, 7);
-
-export function shiftMonth(month: string, amount: number): string {
-  const [y, m] = month.split("-").map(Number);
-  const date = new Date(Date.UTC(y, m - 1 + amount, 1));
-  return date.toISOString().slice(0, 7);
-}
-
-/** 42 ISO days (6 weeks, Monday first) covering `month` ("YYYY-MM"). */
-export function monthGrid(month: string): string[] {
-  const first = weekStart(`${month}-01`);
-  return Array.from({ length: 42 }, (_, i) => addDays(first, i));
-}
-
-export function longDate(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })
-    .format(new Date(Date.UTC(y, m - 1, d)));
-}
 
 const iconButton =
   "flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50";
@@ -82,7 +56,7 @@ export function Calendar({
   function onGridKey(event: React.KeyboardEvent) {
     const current = (event.target as HTMLElement).dataset.day;
     if (!current) return;
-    const weekday = (new Date(`${current}T00:00:00Z`).getUTCDay() + 6) % 7;
+    const weekday = weekdayIndex(current);
     const offsets: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7, Home: -weekday, End: 6 - weekday };
     let target: string | undefined;
     if (event.key in offsets) target = addDays(current, offsets[event.key]);

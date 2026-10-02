@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, FolderKanban, Home, Search } from "lucide-react";
+import { Bell, CalendarDays, FolderKanban, Home, Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -12,11 +12,11 @@ import { buildHref, normalizeSearchParams } from "@/lib/urls";
 import { cn } from "@/lib/utils";
 import type { SearchResult } from "@/server/search/service";
 
-type Item = { id: string; label: string; hint: string; href: string; icon: "home" | "inbox" | "project" | "task" };
+type Item = { id: string; label: string; hint: string; href: string; icon: "home" | "inbox" | "project" | "task" | "calendar" };
 
 export const OPEN_PALETTE_EVENT = "pp:open-palette";
 
-const ICONS = { home: Home, inbox: Bell, project: FolderKanban, task: Search };
+const ICONS = { home: Home, inbox: Bell, project: FolderKanban, task: Search, calendar: CalendarDays };
 
 /** Global keyboard shortcuts plus the Strg+K command palette. Mounted once in the app layout. */
 export function CommandCenter({ projects }: { projects: { id: string; key: string; name: string }[] }) {
@@ -95,6 +95,7 @@ function Palette(props: {
   const staticItems: Item[] = [
     { id: "home", label: "Meine Arbeit", hint: "Startseite", href: "/", icon: "home" },
     { id: "projects", label: "Projektübersicht", hint: "Alle Projekte", href: "/projects", icon: "project" },
+    { id: "calendar", label: "Kalender", hint: "Termine aller Projekte", href: "/calendar", icon: "calendar" },
     { id: "inbox", label: "Benachrichtigungen", hint: "Inbox", href: "/inbox", icon: "inbox" },
     ...props.projects.map((p) => ({ id: `p-${p.id}`, label: p.name, hint: p.key, href: `/projects/${p.id}/board`, icon: "project" as const })),
   ];

@@ -98,3 +98,15 @@ describe("date input", () => {
     expect(weekStart("2026-09-28")).toBe("2026-09-28");
   });
 });
+
+describe("calendar helpers", () => {
+  it("builds a Monday-first 6-week grid and ISO week numbers", async () => {
+    const { isoWeek, monthGrid, shiftMonth } = await import("@/lib/calendar");
+    const grid = monthGrid("2026-10");
+    expect(grid[0]).toBe("2026-09-28");
+    expect(grid[41]).toBe("2026-11-08");
+    expect(shiftMonth("2026-12", 1)).toBe("2027-01");
+    expect(isoWeek("2026-10-02")).toBe(40);
+    expect(isoWeek("2027-01-01")).toBe(53);
+  });
+});

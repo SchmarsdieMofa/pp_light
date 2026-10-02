@@ -48,7 +48,7 @@ test("creates tasks, edits them in the panel and shows them on the board", async
 
 test("picks dates from the calendar, by quick choice or by typing", async ({ page }) => {
   await login(page);
-  const board = await createProjectViaUi(page, "Datum-Test", "dat");
+  const board = await createProjectViaUi(page, "Datum-Test", "dtm");
   await openList(page, board);
   await quickAdd(page, "Termin");
   await page.getByRole("table", { name: "Aufgaben" }).getByRole("link", { name: "Termin" }).click();

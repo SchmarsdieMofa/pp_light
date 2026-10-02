@@ -25,6 +25,8 @@ export async function createProjectViaUi(page: Page, name: string, key: string):
   await page.getByLabel("Name").fill(name);
   await page.getByLabel("Kürzel").fill(key);
   await page.getByRole("button", { name: "Anlegen" }).click();
+  // Wait for the new project itself: when already on another board, the URL alone matches at once.
+  await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
   await expect(page).toHaveURL(/\/board$/);
   return page.url();
 }
