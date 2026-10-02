@@ -8,6 +8,7 @@ import { AdminUsers, type UserRow } from "@/components/admin/admin-users";
 import { DensityToggle } from "@/components/board/density-toggle";
 import { ThemeToggle } from "@/components/shell/user-menu";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import type { CardDensity } from "@/lib/enums";
 import { isTypingTarget } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
@@ -114,7 +115,7 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
             </Button>
           </header>
 
-          <div className="min-h-0 flex-1 divide-y overflow-y-auto overscroll-contain px-5 py-5">
+          <ScrollArea className="flex-1" contentClassName="divide-y px-5 py-5" scrollFade>
             {tab === "konto" ? (
               <>
                 <Block title="Profil" description="So sehen dich andere in Projekten, Kommentaren und Zuweisungen.">
@@ -141,7 +142,7 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
                 <AdminUsers users={data.users!} ownId={data.ownId} />
               </Block>
             )}
-          </div>
+          </ScrollArea>
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>

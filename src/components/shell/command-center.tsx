@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { searchAction } from "@/app/(app)/search/actions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { isTypingTarget, resolveShortcut, SHORTCUT_HELP } from "@/lib/shortcuts";
 import { buildHref, normalizeSearchParams } from "@/lib/urls";
 import { cn } from "@/lib/utils";
@@ -173,27 +174,29 @@ function Palette(props: {
             }
           }}
         />
-        <ul id="palette-results" role="listbox" aria-label="Ergebnisse" className="max-h-80 overflow-y-auto">
-          {items.length === 0 && <li className="px-2 py-3 text-sm text-muted-foreground">Keine Treffer</li>}
-          {items.map((item, index) => {
-            const Icon = ICONS[item.icon];
-            return (
-              <li
-                key={item.id}
-                id={`palette-${item.id}`}
-                role="option"
-                aria-selected={index === active}
-                className={cn("flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm", index === active && "bg-accent")}
-                onMouseEnter={() => setActive(index)}
-                onClick={() => open(item)}
-              >
-                <Icon className="size-4 shrink-0 text-muted-foreground" />
-                <span className="truncate">{item.label}</span>
-                <span className="ml-auto shrink-0 text-xs text-muted-foreground">{item.hint}</span>
-              </li>
-            );
-          })}
-        </ul>
+        <ScrollArea className="max-h-80" viewportClassName="h-auto max-h-80" scrollFade>
+          <ul id="palette-results" role="listbox" aria-label="Ergebnisse">
+            {items.length === 0 && <li className="px-2 py-3 text-sm text-muted-foreground">Keine Treffer</li>}
+            {items.map((item, index) => {
+              const Icon = ICONS[item.icon];
+              return (
+                <li
+                  key={item.id}
+                  id={`palette-${item.id}`}
+                  role="option"
+                  aria-selected={index === active}
+                  className={cn("flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm", index === active && "bg-accent")}
+                  onMouseEnter={() => setActive(index)}
+                  onClick={() => open(item)}
+                >
+                  <Icon className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{item.label}</span>
+                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">{item.hint}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

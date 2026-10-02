@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
 import { OPEN_PALETTE_EVENT } from "@/components/shell/command-center";
 import { NewProjectDialog } from "@/components/projects/new-project-dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { NotificationLink } from "./notification-link";
 import { UserMenu } from "./user-menu";
@@ -18,33 +19,35 @@ const navActive = "bg-accent font-medium";
 export function Sidebar({ user, projects, initialUnread }: { user: { name: string; email: string }; projects: SidebarProject[]; initialUnread: number }) {
   const pathname = usePathname();
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r bg-muted/30">
+    <aside className="sticky top-0 flex h-svh w-60 shrink-0 flex-col border-r bg-muted/30">
       <div className="px-4 py-3 text-sm font-semibold">pp_light</div>
-      <nav aria-label="Hauptnavigation" className="flex flex-1 flex-col gap-1 px-2">
-        <Link href="/" className={cn(navItem, pathname === "/" && navActive)}>
-          <Home className="size-4" /> Start
-        </Link>
-        <Link href="/projects" className={cn(navItem, pathname === "/projects" && navActive)}>
-          <FolderKanban className="size-4" /> Projektübersicht
-        </Link>
-        <Link href="/projects/archive" className={cn(navItem, pathname === "/projects/archive" && navActive)}>
-          <Archive className="size-4" /> Archiv
-        </Link>
-        <Link href="/calendar" className={cn(navItem, pathname === "/calendar" && navActive)}>
-          <CalendarDays className="size-4" /> Kalender
-        </Link>
-        <button
-          type="button"
-          className={cn(navItem, "text-left")}
-          onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}
-        >
-          <Search className="size-4" /> Suchen
-          <kbd className="ml-auto rounded border bg-background px-1 text-[10px] text-muted-foreground">Strg K</kbd>
-        </button>
-        <NotificationLink initialUnread={initialUnread} />
-        <SidebarProjects projects={projects} pathname={pathname} />
-        <NewProjectDialog />
-      </nav>
+      <ScrollArea className="flex-1" scrollFade>
+        <nav aria-label="Hauptnavigation" className="flex flex-col gap-1 px-2 pb-2">
+          <Link href="/" className={cn(navItem, pathname === "/" && navActive)}>
+            <Home className="size-4" /> Start
+          </Link>
+          <Link href="/projects" className={cn(navItem, pathname === "/projects" && navActive)}>
+            <FolderKanban className="size-4" /> Projektübersicht
+          </Link>
+          <Link href="/projects/archive" className={cn(navItem, pathname === "/projects/archive" && navActive)}>
+            <Archive className="size-4" /> Archiv
+          </Link>
+          <Link href="/calendar" className={cn(navItem, pathname === "/calendar" && navActive)}>
+            <CalendarDays className="size-4" /> Kalender
+          </Link>
+          <button
+            type="button"
+            className={cn(navItem, "text-left")}
+            onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}
+          >
+            <Search className="size-4" /> Suchen
+            <kbd className="ml-auto rounded border bg-background px-1 text-[10px] text-muted-foreground">Strg K</kbd>
+          </button>
+          <NotificationLink initialUnread={initialUnread} />
+          <SidebarProjects projects={projects} pathname={pathname} />
+          <NewProjectDialog />
+        </nav>
+      </ScrollArea>
       <div className="border-t p-2">
         <UserMenu user={user} />
       </div>

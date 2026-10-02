@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { requireActor } from "@/server/auth/session";
 import { db } from "@/server/db/client";
 import { getTaskDetail } from "@/server/tasks/queries";
@@ -16,9 +17,9 @@ export async function TaskPanel({ taskId }: { taskId: string }) {
         reference={detail ? `${detail.key}-${detail.number}` : undefined}
         project={detail ? { id: detail.projectId, name: detail.projectName } : undefined}
       />
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6">
+      <ScrollArea className="flex-1" contentClassName="p-4 md:p-6" scrollFade>
         {detail ? <TaskEditor key={detail.id} detail={detail} /> : <p className="text-sm text-muted-foreground">Aufgabe nicht gefunden.</p>}
-      </div>
+      </ScrollArea>
     </TaskOverlay>
   );
 }
