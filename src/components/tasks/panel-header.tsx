@@ -3,6 +3,7 @@
 import { ChevronRight, FolderKanban, Maximize2, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { CopyButton } from "@/components/ui/copy-button";
 import { buildHref, normalizeSearchParams } from "@/lib/urls";
 
 const action = "inline-flex items-center gap-1.5 rounded-md px-2 py-1 hover:bg-muted hover:text-foreground";
@@ -27,6 +28,11 @@ export function PanelHeader({ taskId, reference, project }: { taskId?: string; r
         <span className="shrink-0 font-medium tabular-nums text-foreground">{reference}</span>
       </nav>
       <div className="ml-auto flex items-center gap-1">
+        {taskId && (
+          <CopyButton label="Link kopieren" text={() => `${window.location.origin}/tasks/${taskId}`}>
+            <span className="hidden sm:inline">Link kopieren</span>
+          </CopyButton>
+        )}
         {taskId && (
           <Link href={`/tasks/${taskId}`} className={action} aria-label="Als Seite öffnen">
             <Maximize2 className="size-3.5" /> <span className="hidden sm:inline">Als Seite öffnen</span>
