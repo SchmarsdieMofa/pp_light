@@ -54,12 +54,14 @@ services:
     environment:
       PP_DOMAIN: ${PP_DOMAIN:?PP_DOMAIN in .env setzen}
       PP_TLS: ${PP_TLS:-internal}
+      PP_TRUSTED_PROXIES: ${PP_TRUSTED_PROXIES:-private_ranges}
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp"
     volumes:
-      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # direct: Caddy does HTTPS itself · behind-proxy: an existing company proxy does HTTPS (see README)
+      - ./docker/caddy/${PP_MODE:-direct}.Caddyfile:/etc/caddy/Caddyfile:ro
       - ./certs:/certs:ro
       - caddy_data:/data
       - caddy_config:/config

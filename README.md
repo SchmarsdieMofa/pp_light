@@ -48,6 +48,19 @@ Die App ist dann unter `https://pp.firma.local` erreichbar. Port 80 leitet auf H
 - **Eigenes Zertifikat** (z. B. von der Firmen-CA): `cert.pem` (inkl. Zwischenzertifikaten) und `key.pem` nach `./certs/` legen und `PP_TLS=/certs/cert.pem /certs/key.pem` setzen. Erneuern: Dateien austauschen, `docker compose restart caddy`.
 - **Let's Encrypt:** nur wenn `PP_DOMAIN` öffentlich erreichbar ist – dann `PP_TLS=<eure E-Mail-Adresse>`.
 
+### Hinter einem vorhandenen Firmen-Proxy
+
+Steht vor dem Server bereits ein Reverse Proxy oder Load-Balancer, der HTTPS übernimmt und per HTTP an den Server weitergibt, führt die automatische HTTPS-Umleitung von Caddy zu einer Endlosschleife (`ERR_TOO_MANY_REDIRECTS`). Dann in `.env`:
+
+```bash
+PP_MODE=behind-proxy
+PP_TRUSTED_PROXIES=10.0.0.10        # IP-Adresse(n) des Firmen-Proxys, mehrere mit Leerzeichen, auch Netze wie 10.0.0.0/24
+```
+
+und `docker compose up -d` erneut ausführen. Caddy nimmt dann nur noch HTTP auf Port 80 an, ohne Umleitung und ohne eigenes Zertifikat (`PP_TLS` entfällt). Die App erzeugt trotzdem `https://`-Links und sichere Cookies. Der Firmen-Proxy leitet `https://<PP_DOMAIN>` an `http://<Server>:80` weiter und sollte `X-Forwarded-For` mit der Client-Adresse setzen – sonst teilen sich alle Nutzer bei der IP-Sperre eine Adresse.
+
+Nur die Adressen in `PP_TRUSTED_PROXIES` dürfen pp_light erreichen; wer den Proxy umgeht, bekommt 403. Ohne Angabe gilt jedes private Netz als vertrauenswürdig – das funktioniert, lässt aber Zugriffe per unverschlüsseltem HTTP am Proxy vorbei zu. Deshalb die echte Proxy-Adresse eintragen (bei der IT erfragen).
+
 Caddy setzt Sicherheits-Header und ersetzt `X-Forwarded-For` durch die echte Client-Adresse, damit die IP-Sperre beim Login greift.
 
 ### Backups
