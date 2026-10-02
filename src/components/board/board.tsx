@@ -84,7 +84,7 @@ export function Board(props: {
       onDragEnd={onDragEnd}
       onDragCancel={() => setActiveId(null)}
     >
-      <div className="flex gap-4 overflow-x-auto pb-2">
+      <div className="flex flex-1 gap-4 overflow-x-auto pb-2">
         {props.columns.map((column) => (
           <Column
             key={column.id}
@@ -119,7 +119,7 @@ function Column(props: {
     <section
       ref={setNodeRef}
       aria-label={props.column.name}
-      className={`flex w-72 shrink-0 flex-col rounded-lg bg-muted/40 p-3 ${isOver ? "ring-2 ring-primary/30" : ""}`}
+      className={`flex min-w-72 flex-1 basis-0 flex-col rounded-lg bg-muted/40 p-3 ${isOver ? "ring-2 ring-primary/30" : ""}`}
     >
       <h2 className="mb-2 flex items-center gap-2 text-sm font-medium">
         <span className="size-2 rounded-full" style={{ backgroundColor: props.column.color }} />

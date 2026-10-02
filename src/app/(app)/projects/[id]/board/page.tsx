@@ -23,8 +23,8 @@ export default async function BoardPage(props: {
   ]);
 
   return (
-    <WithTaskPanel taskId={params.task}>
-      <div className="space-y-3">
+    <WithTaskPanel taskId={params.task} className="flex-1">
+      <div className="flex h-full flex-col gap-3">
         <div className="flex justify-end">
           <DensityToggle density={prefs.cardDensity} />
         </div>

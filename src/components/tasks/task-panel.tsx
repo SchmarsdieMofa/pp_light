@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils";
 import { requireActor } from "@/server/auth/session";
 import { db } from "@/server/db/client";
 import { getTaskDetail } from "@/server/tasks/queries";
@@ -18,9 +19,9 @@ export async function TaskPanel({ taskId }: { taskId: string }) {
   );
 }
 
-export function WithTaskPanel({ taskId, children }: { taskId?: string; children: React.ReactNode }) {
+export function WithTaskPanel({ taskId, className, children }: { taskId?: string; className?: string; children: React.ReactNode }) {
   return (
-    <div className="flex gap-6">
+    <div className={cn("flex gap-6", className)}>
       <div className="min-w-0 flex-1">{children}</div>
       {taskId && <TaskPanel taskId={taskId} />}
     </div>

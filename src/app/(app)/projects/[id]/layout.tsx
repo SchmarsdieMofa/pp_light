@@ -16,7 +16,7 @@ export default async function ProjectLayout({
         <h1 className="text-lg font-semibold">{project.name}</h1>
         <ProjectTabs projectId={project.id} />
       </header>
-      <div className="flex-1 p-6">{children}</div>
+      <div className="flex min-h-0 flex-1 flex-col p-6">{children}</div>
     </div>
   );
 }
