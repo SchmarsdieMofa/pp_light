@@ -1,5 +1,6 @@
 "use client";
 
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
 import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -73,14 +74,10 @@ function StatusRow(props: { status: StatusItem; others: StatusItem[]; first: boo
       <ColorPicker value={s.color} label={`Farbe von ${s.name}`} disabled={!props.canManage} onChange={(color) => run(() => save({ color }))} />
       <AutosaveInput value={s.name} label="Name" required maxLength={40} disabled={!props.canManage} onSave={(name) => save({ name })} className="flex-1" />
       <label className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={s.isDone}
           disabled={!props.canManage || pending}
-          onChange={(e) => {
-            const isDone = e.target.checked;
-            run(() => save({ isDone }));
-          }}
+          onCheckedChange={(isDone) => run(() => save({ isDone }))}
         />
         Erledigt
       </label>

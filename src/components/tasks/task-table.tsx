@@ -1,5 +1,6 @@
 "use client";
 
+import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowDown, ArrowUp, ChevronRight, CheckSquare, GitBranch, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useOptimistic, useState, useTransition } from "react";
@@ -163,13 +164,12 @@ function TaskRow(props: {
   return (
     <tr className="group border-b last:border-b-0 hover:bg-muted/40">
       <td className="px-2 py-2">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={props.done}
           disabled={!props.canEdit}
           aria-label={`${row.key}-${row.number} ${row.title} ${props.done ? "wieder öffnen" : "erledigen"}`}
-          onChange={(e) => props.onToggle(e.target.checked)}
-          className="size-4 cursor-pointer align-middle disabled:cursor-default"
+          onCheckedChange={props.onToggle}
+          className="align-middle"
         />
       </td>
       <td className="hidden truncate px-2 py-2 text-xs text-muted-foreground tabular-nums sm:table-cell">{row.key}-{row.number}</td>

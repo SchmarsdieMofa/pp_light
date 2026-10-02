@@ -39,7 +39,7 @@ test("creates tasks, edits them in the panel and shows them on the board", async
   await closeTask(page);
 
   // The flat list shows the status as a column.
-  await page.getByLabel("Nach Status gruppieren").uncheck();
+  await page.getByRole("checkbox", { name: "Nach Status gruppieren" }).uncheck();
   await expect(page).toHaveURL(/group=none/);
   const row = table.getByRole("row", { name: /Header bauen \(responsive\)/ });
   await expect(row).toContainText("In Arbeit");
@@ -145,7 +145,7 @@ test("manages subtasks, checklist, labels and filters", async ({ page }) => {
   await expect(panel.getByRole("region", { name: "Checkliste" })).toContainText("1/1");
 
   await panel.getByLabel("Labels").first().click();
-  await panel.getByRole("group", { name: "Labels" }).getByLabel("Design").check();
+  await panel.getByRole("group", { name: "Labels" }).getByRole("checkbox", { name: "Design" }).check();
   await page.waitForLoadState("networkidle");
   await closeTask(page);
   await expect(table.getByRole("row", { name: /Logo/ })).toContainText("Design");

@@ -146,7 +146,7 @@ test("adds members, assigns them and protects the last owner", async ({ page }) 
   await card(page, "Offen", "Team-Aufgabe").click();
   const panel = page.getByRole("dialog", { name: "Aufgabe" });
   await panel.getByLabel("Zuständige").first().click();
-  await panel.getByRole("group", { name: "Zuständige" }).getByLabel(E2E_MEMBER.name).check();
+  await panel.getByRole("group", { name: "Zuständige" }).getByRole("checkbox", { name: E2E_MEMBER.name }).check();
   await panel.getByRole("link", { name: "Schließen" }).click();
   await expect(card(page, "Offen", "Team-Aufgabe")).toContainText("MM");
 });

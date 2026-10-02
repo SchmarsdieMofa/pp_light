@@ -1,5 +1,6 @@
 "use client";
 
+import { Checkbox } from "@/components/ui/checkbox";
 import { CalendarDays, ChevronLeft, ChevronRight, Filter, List, Rows3, Search, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -225,11 +226,10 @@ function ProjectFilter(props: {
       <div role="group" aria-label="Projekte" className="absolute z-30 mt-1 max-h-72 w-64 space-y-1 overflow-y-auto rounded-md border bg-popover p-2 shadow-md">
         {props.projects.map((project) => (
           <label key={project.id} className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-muted">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={picked.includes(project.id)}
-              onChange={(event) => {
-                const next = event.target.checked ? [...picked, project.id] : picked.filter((id) => id !== project.id);
+              onCheckedChange={(checked) => {
+                const next = checked ? [...picked, project.id] : picked.filter((id) => id !== project.id);
                 setPicked(next);
                 props.onChange(next);
               }}

@@ -1,5 +1,6 @@
 "use client";
 
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
 import { Search, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -102,12 +103,11 @@ export function TaskFilters(props: {
           {props.count} {props.count === 1 ? "Aufgabe" : "Aufgaben"}
         </span>
         <label className="flex cursor-pointer items-center gap-1.5 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={grouped}
-            onChange={(e) => {
-              setGrouped(e.target.checked);
-              apply({ group: e.target.checked ? null : "none" });
+            onCheckedChange={(checked) => {
+              setGrouped(checked);
+              apply({ group: checked ? null : "none" });
             }}
           />
           Nach Status gruppieren

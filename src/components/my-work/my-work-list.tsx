@@ -1,5 +1,6 @@
 "use client";
 
+import { Checkbox } from "@/components/ui/checkbox";
 import { PartyPopper } from "lucide-react";
 import Link from "next/link";
 import { useOptimistic, useTransition } from "react";
@@ -80,11 +81,9 @@ export function MyWorkList(props: { groups: MyWorkGroups<MyWorkTask>; today: str
             <ul className="divide-y rounded-xl border bg-card">
               {tasks.map((task) => (
                 <li key={task.id} className="group flex items-center gap-3 px-3 py-2 text-sm">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     aria-label={`${task.key}-${task.number} ${task.title} erledigen`}
-                    onChange={() => complete(task)}
-                    className="size-4 shrink-0 cursor-pointer"
+                    onCheckedChange={() => complete(task)}
                   />
                   <Link href={taskHref(task.id)} scroll={false} className="min-w-0 flex-1">
                     <span className="block truncate font-medium hover:underline">{task.title}</span>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Checkbox } from "@/components/ui/checkbox";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { markAllReadAction, markReadAction, saveNotificationPreferencesAction } from "@/app/(app)/inbox/actions";
@@ -41,7 +42,7 @@ export function InboxControls({ notificationId, disabled }: { notificationId?: s
         <legend className="font-medium">E-Mail für diese Ereignisse ausschalten</legend>
         {NOTIFICATION_TYPES.map((type) => (
           <label key={type} className="flex items-center gap-2">
-            <input type="checkbox" checked={selected.includes(type)} onChange={(event) => setSelected(event.target.checked ? [...selected, type] : selected.filter((value) => value !== type))} />
+            <Checkbox checked={selected.includes(type)} onCheckedChange={(checked) => setSelected(checked ? [...selected, type] : selected.filter((value) => value !== type))} />
             {labels[type]}
           </label>
         ))}

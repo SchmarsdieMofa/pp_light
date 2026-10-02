@@ -32,7 +32,7 @@ test("shows due tasks of several projects, filters them and reschedules by drag 
 
   // Project filter: only "Kalender Nord".
   await page.getByText("Alle Projekte").click();
-  await page.getByRole("group", { name: "Projekte" }).getByLabel(/Kalender Nord/).check();
+  await page.getByRole("group", { name: "Projekte" }).getByRole("checkbox", { name: /Kalender Nord/ }).check();
   await expect(page).toHaveURL(/projects=/);
   await expect(page.getByText(/^1 Aufgabe$/)).toBeVisible();
   await expect(page.getByRole("link", { name: /Abnahme planen/ })).toHaveCount(0);

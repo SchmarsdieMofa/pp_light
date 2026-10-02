@@ -1,5 +1,6 @@
 "use client";
 
+import { Checkbox } from "@/components/ui/checkbox";
 import { ChevronDown, ChevronUp, Diamond, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { createPhaseAction, deletePhaseAction, movePhaseAction, updatePhaseAction } from "@/app/(app)/projects/actions";
@@ -53,7 +54,7 @@ export function PhaseManager(props: { projectId: string; phases: Phase[]; canMan
           <DatePicker label="Start der neuen Phase" value={start} onChange={setStart} className="w-36" />
           {!milestone && <DatePicker label="Ende der neuen Phase" value={end} onChange={setEnd} className="w-36" />}
           <label className="flex h-8 items-center gap-1.5 px-1 text-xs text-muted-foreground">
-            <input type="checkbox" checked={milestone} onChange={(event) => setMilestone(event.target.checked)} /> Meilenstein
+            <Checkbox checked={milestone} onCheckedChange={setMilestone} /> Meilenstein
           </label>
           <Button type="submit" size="sm" variant="outline" disabled={pending || !name.trim()}>
             <Plus /> Phase hinzufügen
@@ -94,10 +95,7 @@ function PhaseRow(props: { phase: Phase; canManage: boolean; first: boolean; las
         <DatePicker label="Ende" value={phase.endDate} disabled={pending} onChange={(end) => run(() => save({ end }))} className="w-36" />
       )}
       <label className="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted">
-        <input type="checkbox" checked={phase.isMilestone} disabled={pending} onChange={(event) => {
-          const milestone = event.target.checked;
-          run(() => save({ milestone }));
-        }} /> Meilenstein
+        <Checkbox checked={phase.isMilestone} disabled={pending} onCheckedChange={(milestone) => run(() => save({ milestone }))} /> Meilenstein
       </label>
       <div className="ml-auto flex items-center opacity-60 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
         <Button type="button" size="icon-sm" variant="ghost" aria-label={`${phase.name} nach links`} title="Nach vorne" disabled={pending || props.first}

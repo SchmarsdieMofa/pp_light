@@ -1,5 +1,6 @@
 "use client";
 
+import { Checkbox } from "@/components/ui/checkbox";
 import { X } from "lucide-react";
 import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -43,13 +44,11 @@ export function TaskChecklist({ detail }: { detail: TaskDetail }) {
       <ul className="space-y-1">
         {items.map((item) => (
           <li key={item.id} className="group flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
+            <Checkbox
               aria-label={item.text}
               checked={item.done}
               disabled={!detail.canEdit}
-              onChange={(e) => {
-                const checked = e.target.checked;
+              onCheckedChange={(checked) => {
                 run(
                   () => toggleChecklistItemAction(item.id, checked),
                   undefined,
