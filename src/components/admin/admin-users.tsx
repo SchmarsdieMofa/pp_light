@@ -6,7 +6,7 @@ import { inviteUserAction, revokeInvitationAction, setUserActiveAction, setUserR
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type UserRow = { id: string; email: string; name: string; role: "admin" | "member"; active: boolean };
+export type UserRow = { id: string; email: string; name: string; role: "admin" | "member"; active: boolean };
 
 export function AdminUsers({ users, ownId }: { users: UserRow[]; ownId: string }) {
   const router = useRouter();

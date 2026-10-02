@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, CalendarDays, ChevronRight, FolderKanban, Home, Search, Settings } from "lucide-react";
+import { Archive, CalendarDays, ChevronRight, FolderKanban, Home, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
@@ -42,9 +42,6 @@ export function Sidebar({ user, projects, initialUnread }: { user: { name: strin
           <kbd className="ml-auto rounded border bg-background px-1 text-[10px] text-muted-foreground">Strg K</kbd>
         </button>
         <NotificationLink initialUnread={initialUnread} />
-        <Link href="/settings" className={cn(navItem, pathname.startsWith("/settings") && navActive)}>
-          <Settings className="size-4" /> Einstellungen
-        </Link>
         <SidebarProjects projects={projects} pathname={pathname} />
         <NewProjectDialog />
       </nav>

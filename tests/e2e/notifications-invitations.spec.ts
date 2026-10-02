@@ -11,15 +11,17 @@ test("admin invites a user who sets a password, then resets it", async ({ page }
   const db = createDb(E2E_DATABASE_URL);
   try {
     await login(page);
-    await page.getByRole("link", { name: "Einstellungen" }).click();
-    await page.getByRole("link", { name: "Nutzerverwaltung" }).click();
-    await expect(page).toHaveURL(/\/settings\/users$/);
+    await page.getByRole("complementary").getByRole("link", { name: "Einstellungen" }).click();
+    await page.getByRole("dialog", { name: "Einstellungen" }).getByRole("link", { name: "Nutzerverwaltung" }).click();
+    await expect(page).toHaveURL(/settings=nutzer/);
     await page.getByRole("textbox", { name: "Name" }).fill("Nina Example");
     await page.getByRole("textbox", { name: "E-Mail" }).fill(email);
     await page.getByRole("button", { name: "Einladen" }).click();
     await expect(page.getByRole("status")).toContainText("Einladung vorgemerkt");
     const [invite] = await db.select().from(mailOutbox).where(eq(mailOutbox.toEmail, email));
     const token = openMailBody(invite.body, "e2e-secret-e2e-secret-e2e-secret-e2e").match(/\/invite\/([\w-]+)/)![1];
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Einstellungen" })).toHaveCount(0);
     await page.getByRole("button", { name: "Abmelden" }).click();
     await expect(page).toHaveURL(/\/login$/);
     await page.goto(`/invite/${token}`);

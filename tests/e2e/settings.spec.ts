@@ -14,17 +14,18 @@ test("changes own name and password from the settings", async ({ page }) => {
   }
 
   await login(page, email, "AltesPasswort123!");
-  await page.getByRole("link", { name: "Einstellungen" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Einstellungen" })).toBeVisible();
+  await page.getByRole("complementary").getByRole("link", { name: "Einstellungen" }).click();
+  const dialog = page.getByRole("dialog", { name: "Einstellungen" });
+  await expect(dialog).toBeVisible();
   // Members get no user management.
-  await expect(page.getByRole("link", { name: "Nutzerverwaltung" })).toHaveCount(0);
+  await expect(dialog.getByRole("link", { name: "Nutzerverwaltung" })).toHaveCount(0);
 
-  const name = page.getByLabel("Name", { exact: true });
+  const name = dialog.getByLabel("Name", { exact: true });
   await name.fill("Kai Neu");
   await name.press("Enter");
-  await expect(page.getByRole("complementary").getByText("Kai Neu")).toBeVisible();
+  await expect(page.locator("aside").getByText("Kai Neu")).toBeVisible();
 
-  const form = page.getByRole("form", { name: "Passwort ändern" });
+  const form = dialog.getByRole("form", { name: "Passwort ändern" });
   await form.getByLabel("Aktuelles Passwort").fill("falsch-falsch-1");
   await form.getByLabel("Neues Passwort", { exact: true }).fill("NeuesPasswort123!");
   await form.getByLabel("Neues Passwort wiederholen").fill("NeuesPasswort123!");
@@ -38,17 +39,27 @@ test("changes own name and password from the settings", async ({ page }) => {
   await expect(page.getByRole("complementary").getByText("Kai Neu")).toBeVisible();
 });
 
-test("admins manage users in the settings; members are sent back", async ({ page, browser }) => {
+test("admins manage users in the settings overlay; members only see their account", async ({ page, browser }) => {
   await login(page);
   await page.goto("/admin");
-  await expect(page).toHaveURL(/\/settings\/users$/);
-  await expect(page.getByRole("link", { name: "Nutzerverwaltung" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByRole("combobox", { name: `Rolle von ${E2E_MEMBER.name}` })).toHaveValue("member");
+  await expect(page).toHaveURL(/\/\?settings=nutzer$/);
+  const dialog = page.getByRole("dialog", { name: "Einstellungen" });
+  await expect(dialog.getByRole("link", { name: "Nutzerverwaltung" })).toHaveAttribute("aria-current", "page");
+  await expect(dialog.getByRole("combobox", { name: `Rolle von ${E2E_MEMBER.name}` })).toHaveValue("member");
+
+  // The overlay sits above the current view and closes with Esc, keeping the page.
+  await page.goto("/calendar?settings=konto");
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(/\/calendar$/);
 
   const context = await browser.newContext();
   const member = await context.newPage();
   await login(member, E2E_MEMBER.email, E2E_MEMBER.password);
   await member.goto("/settings/users");
-  await expect(member).toHaveURL(/\/settings$/);
+  const memberDialog = member.getByRole("dialog", { name: "Einstellungen" });
+  await expect(memberDialog.getByRole("form", { name: "Passwort ändern" })).toBeVisible();
+  await expect(memberDialog.getByRole("combobox", { name: /Rolle von/ })).toHaveCount(0);
   await context.close();
 });

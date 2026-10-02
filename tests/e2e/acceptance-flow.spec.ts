@@ -31,9 +31,9 @@ test("invitation through Mailpit to project planning and an inbox mention", asyn
   const db = createDb(E2E_DATABASE_URL);
   try {
     await login(page);
-    await page.getByRole("link", { name: "Einstellungen" }).click();
-    await page.getByRole("link", { name: "Nutzerverwaltung" }).click();
-    await expect(page).toHaveURL(/\/settings\/users$/);
+    await page.getByRole("complementary").getByRole("link", { name: "Einstellungen" }).click();
+    await page.getByRole("dialog", { name: "Einstellungen" }).getByRole("link", { name: "Nutzerverwaltung" }).click();
+    await expect(page).toHaveURL(/settings=nutzer/);
     await page.getByRole("textbox", { name: "Name" }).fill("Nina Flow");
     await page.getByRole("textbox", { name: "E-Mail" }).fill(email);
     await page.getByRole("button", { name: "Einladen" }).click();
@@ -63,6 +63,8 @@ test("invitation through Mailpit to project planning and an inbox mention", asyn
     const token = mail.Text.match(/\/invite\/([\w-]+)/)?.[1];
     expect(token).toBeTruthy();
 
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Einstellungen" })).toHaveCount(0);
     await page.getByRole("button", { name: "Abmelden" }).click();
     await expect(page).toHaveURL(/\/login$/);
     await page.goto(`/invite/${token}`);

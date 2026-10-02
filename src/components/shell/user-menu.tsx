@@ -1,10 +1,12 @@
 "use client";
 
-import { LogOut, Monitor, Moon, Sun } from "lucide-react";
+import { LogOut, Monitor, Moon, Settings, Sun } from "lucide-react";
+import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
 import { logoutAction, saveThemeAction } from "@/app/(app)/actions";
-import { Button } from "@/components/ui/button";
+import { useSettingsHref } from "@/components/settings/use-settings-href";
+import { Button, buttonVariants } from "@/components/ui/button";
 import type { Theme } from "@/lib/enums";
 
 const THEME_OPTIONS: { value: Theme; label: string; Icon: typeof Sun }[] = [
@@ -45,14 +47,18 @@ export function ThemeToggle({ withLabels = false }: { withLabels?: boolean }) {
 }
 
 export function UserMenu({ user }: { user: { name: string; email: string } }) {
+  const settingsHref = useSettingsHref();
   return (
     <div className="space-y-2">
       <div className="px-2 text-sm">
         <div className="truncate font-medium">{user.name}</div>
         <div className="truncate text-xs text-muted-foreground">{user.email}</div>
       </div>
-      <div className="px-1">
+      <div className="flex items-center justify-between px-1">
         <ThemeToggle />
+        <Link href={settingsHref("konto")} scroll={false} aria-label="Einstellungen" title="Einstellungen" className={buttonVariants({ variant: "ghost", size: "icon" })}>
+          <Settings className="size-4" />
+        </Link>
       </div>
       <form action={logoutAction}>
         <Button type="submit" variant="ghost" size="sm" className="w-full justify-start gap-2">
