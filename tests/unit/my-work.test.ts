@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { statuses } from "@/server/db/schema";
 import { removeMember } from "@/server/members/service";
-import { completeTask, listMyWork } from "@/server/my-work/service";
+import { completeTask, listMyWork, reopenTask } from "@/server/my-work/service";
 import { getTaskDetail } from "@/server/tasks/queries";
 import { setTaskAssignees } from "@/server/tasks/relations";
 import { createTask, updateTask } from "@/server/tasks/service";
@@ -60,5 +60,11 @@ describe("my work", () => {
     await expect(completeTask(testDb, gast, t2.id)).rejects.toMatchObject({ code: "FORBIDDEN" });
     await testDb.update(statuses).set({ isDone: false }).where(eq(statuses.projectId, b.project.id));
     await expect(completeTask(testDb, ada, t2.id)).rejects.toMatchObject({ code: "VALIDATION" });
+  });
+
+  it("reopens a done task into the first open column", async () => {
+    const { ada, a, t4 } = await setup();
+    await reopenTask(testDb, ada, t4.id);
+    expect((await getTaskDetail(testDb, ada, t4.id))?.statusId).toBe(a.open.id);
   });
 });

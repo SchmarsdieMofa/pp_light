@@ -71,3 +71,24 @@ export async function completeTask(db: DB, actor: Actor, taskId: string): Promis
     .limit(1);
   await moveTask(db, actor, task.id, { statusId: done.id, afterId: last?.id ?? null, beforeId: null });
 }
+
+/** Moves a done task back to the end of its project's first open column. */
+export async function reopenTask(db: DB, actor: Actor, taskId: string): Promise<void> {
+  const { task, role } = await loadTaskAccess(db, actor, taskId);
+  assertCan(actor, "task.update", projectCtx(role));
+  const [open] = await db
+    .select()
+    .from(statuses)
+    .where(and(eq(statuses.projectId, task.projectId), eq(statuses.isDone, false)))
+    .orderBy(byPosition(statuses.position))
+    .limit(1);
+  if (!open) throw new DomainError("VALIDATION", "Dieses Projekt hat keine offene Spalte.");
+  if (task.statusId === open.id) return;
+  const [last] = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(eq(tasks.statusId, open.id), isNull(tasks.parentId), ne(tasks.id, task.id)))
+    .orderBy(desc(byPosition(tasks.position)), desc(tasks.number))
+    .limit(1);
+  await moveTask(db, actor, task.id, { statusId: open.id, afterId: last?.id ?? null, beforeId: null });
+}

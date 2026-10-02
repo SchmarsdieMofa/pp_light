@@ -21,7 +21,9 @@ test("creates tasks, edits them in the panel and shows them on the board", async
   await quickAdd(page, "Footer bauen");
 
   const table = page.getByRole("table", { name: "Aufgaben" });
-  await expect(table.getByRole("row").nth(1)).toContainText("TSK-1");
+  // Grouped by status: the group header comes first, then its tasks.
+  await expect(table.getByRole("button", { name: /Offen/ })).toHaveAttribute("aria-expanded", "true");
+  await expect(table.getByRole("row").nth(2)).toContainText("TSK-1");
 
   await table.getByRole("link", { name: "Header bauen" }).click();
   const panel = page.getByRole("dialog", { name: "Aufgabe" });
@@ -36,6 +38,9 @@ test("creates tasks, edits them in the panel and shows them on the board", async
   await page.waitForLoadState("networkidle");
   await closeTask(page);
 
+  // The flat list shows the status as a column.
+  await page.getByLabel("Nach Status gruppieren").uncheck();
+  await expect(page).toHaveURL(/group=none/);
   const row = table.getByRole("row", { name: /Header bauen \(responsive\)/ });
   await expect(row).toContainText("In Arbeit");
   await expect(row).toContainText("Hoch");
@@ -44,6 +49,34 @@ test("creates tasks, edits them in the panel and shows them on the board", async
   await page.goto(board);
   await expect(page.getByRole("region", { name: "In Arbeit" })).toContainText("Header bauen (responsive)");
   await expect(page.getByRole("region", { name: "Offen" })).toContainText("Footer bauen");
+});
+
+test("completes and reopens tasks with one click and searches live", async ({ page }) => {
+  await login(page);
+  const board = await createProjectViaUi(page, "Haken-Test", "hak");
+  await openList(page, board);
+  await quickAdd(page, "Rechnung schreiben");
+  await quickAdd(page, "Angebot prüfen");
+  const table = page.getByRole("table", { name: "Aufgaben" });
+
+  await table.getByRole("checkbox", { name: "HAK-1 Rechnung schreiben erledigen" }).check();
+  await expect(page.getByText("HAK-1 erledigt")).toBeVisible();
+  // Done tasks sit in the collapsed "Fertig" group.
+  const doneGroup = table.getByRole("button", { name: /Fertig/ });
+  await expect(doneGroup).toHaveAttribute("aria-expanded", "false");
+  await expect(table.getByRole("link", { name: "Rechnung schreiben" })).toHaveCount(0);
+  await doneGroup.click();
+  await table.getByRole("checkbox", { name: "HAK-1 Rechnung schreiben wieder öffnen" }).uncheck();
+  await expect(page.getByText("HAK-1 wieder geöffnet")).toBeVisible();
+  await expect(table.getByRole("button", { name: /Offen/ })).toContainText("2");
+
+  // Search filters as you type – no Enter needed.
+  await page.getByLabel("Suche").fill("Angebot");
+  await expect(page).toHaveURL(/q=Angebot/);
+  await expect(table.getByRole("link", { name: "Rechnung schreiben" })).toHaveCount(0);
+  await expect(table.getByRole("link", { name: "Angebot prüfen" })).toBeVisible();
+  await page.getByRole("button", { name: "Zurücksetzen" }).click();
+  await expect(table.getByRole("link", { name: "Rechnung schreiben" })).toBeVisible();
 });
 
 test("picks dates from the calendar, by quick choice or by typing", async ({ page }) => {
@@ -192,7 +225,7 @@ test.describe("German locale", () => {
     await page.reload();
     await closeTask(page);
     const row = page.getByRole("table", { name: "Aufgaben" }).getByRole("row", { name: /Fokus/ });
-    await expect(row.getByRole("cell").nth(7)).toHaveText("–");
+    await expect(row.getByRole("cell").nth(5)).toHaveText("–");
     await row.getByRole("link", { name: "Fokus" }).click();
     await panel.getByLabel("Fällig").fill("2030-10-14");
     await panel.getByLabel("Fällig").press("Enter");
