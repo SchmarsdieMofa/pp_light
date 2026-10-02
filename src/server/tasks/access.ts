@@ -2,12 +2,13 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { ProjectRole } from "@/lib/enums";
 import type { Executor } from "@/server/db/client";
-import { projectMembers, tasks } from "@/server/db/schema";
+import { projectMembers, projects, tasks } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
-import type { Actor } from "@/server/permissions";
+import type { AccessRole, Actor } from "@/server/permissions";
 
 export type Task = typeof tasks.$inferSelect;
-export type TaskAccess = { task: Task; role: ProjectRole | "admin" };
+/** `role` is "readonly" while the task's project is archived (see projectCtx). */
+export type TaskAccess = { task: Task; role: AccessRole };
 
 const notFound = () => new DomainError("NOT_FOUND", "Aufgabe nicht gefunden.");
 
@@ -23,14 +24,15 @@ export async function loadTaskAccess(
 ): Promise<TaskAccess> {
   if (!z.uuid().safeParse(taskId).success) throw notFound();
   const query = ex
-    .select({ task: tasks, role: projectMembers.role })
+    .select({ task: tasks, role: projectMembers.role, archivedAt: projects.archivedAt })
     .from(tasks)
+    .innerJoin(projects, eq(projects.id, tasks.projectId))
     .leftJoin(projectMembers, and(eq(projectMembers.projectId, tasks.projectId), eq(projectMembers.userId, actor.id)))
     .where(eq(tasks.id, taskId))
     .limit(1);
   const [row] = opts.forUpdate ? await query.for("update", { of: tasks }) : await query;
   if (!row) throw notFound();
-  if (row.role) return { task: row.task, role: row.role };
-  if (actor.role === "admin") return { task: row.task, role: "admin" };
-  throw notFound();
+  const role: ProjectRole | "admin" | null = row.role ?? (actor.role === "admin" ? "admin" : null);
+  if (!role) throw notFound();
+  return { task: row.task, role: row.archivedAt ? "readonly" : role };
 }

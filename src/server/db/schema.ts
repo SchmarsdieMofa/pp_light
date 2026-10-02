@@ -43,6 +43,9 @@ export const projects = pgTable("projects", {
   description: text("description").notNull().default(""),
   key: text("key").notNull().unique(),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
+  /** Set when the project was closed through the review (archivedAt is set too); null for a plain archive. */
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  closingNote: text("closing_note").notNull().default(""),
   createdBy: uuid("created_by").notNull().references(() => users.id),
   taskCounter: integer("task_counter").notNull().default(0),
   createdAt: createdAt(),

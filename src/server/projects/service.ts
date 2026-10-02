@@ -7,11 +7,15 @@ import type { DB } from "@/server/db/client";
 import { byPosition } from "@/server/db/order";
 import { projectMembers, projects, statuses, tasks, users } from "@/server/db/schema";
 import { DomainError, isUniqueViolation } from "@/server/errors";
-import { assertCan, type Actor } from "@/server/permissions";
+import { assertCan, type AccessRole, type Actor } from "@/server/permissions";
 
 export type Project = typeof projects.$inferSelect;
 export type Status = typeof statuses.$inferSelect;
-export type ProjectAccess = { project: Project; role: ProjectRole | "admin" };
+/**
+ * `role` is what the actor may do now ("readonly" while the project is archived); `memberRole` is the
+ * unmasked role, which decides who may restore, complete or delete the project.
+ */
+export type ProjectAccess = { project: Project; role: AccessRole; memberRole: ProjectRole | "admin" };
 
 const DEFAULT_STATUSES = [
   { name: "Offen", color: "#94a3b8", isDone: false },
@@ -99,9 +103,9 @@ export async function getProjectForUser(db: DB, actor: Actor, projectId: string)
     .where(eq(projects.id, projectId))
     .limit(1);
   if (!row) return null;
-  if (row.role) return { project: row.project, role: row.role };
-  if (actor.role === "admin") return { project: row.project, role: "admin" };
-  return null;
+  const memberRole = row.role ?? (actor.role === "admin" ? "admin" : null);
+  if (!memberRole) return null;
+  return { project: row.project, role: row.project.archivedAt ? "readonly" : memberRole, memberRole };
 }
 
 export function listStatuses(db: DB, projectId: string): Promise<Status[]> {
