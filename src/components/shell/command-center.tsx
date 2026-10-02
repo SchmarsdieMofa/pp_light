@@ -94,6 +94,7 @@ function Palette(props: {
 
   const staticItems: Item[] = [
     { id: "home", label: "Meine Arbeit", hint: "Startseite", href: "/", icon: "home" },
+    { id: "projects", label: "Projektübersicht", hint: "Alle Projekte", href: "/projects", icon: "project" },
     { id: "inbox", label: "Benachrichtigungen", hint: "Inbox", href: "/inbox", icon: "inbox" },
     ...props.projects.map((p) => ({ id: `p-${p.id}`, label: p.name, hint: p.key, href: `/projects/${p.id}/board`, icon: "project" as const })),
   ];
@@ -109,7 +110,7 @@ function Palette(props: {
           icon: "task" as const,
         })),
         ...(result?.projects ?? []).map((p) => ({ id: `p-${p.id}`, label: p.name, hint: p.key, href: `/projects/${p.id}/board`, icon: "project" as const })),
-        ...staticItems.filter((i) => i.icon !== "project" && i.label.toLowerCase().includes(q.toLowerCase())),
+        ...staticItems.filter((i) => (i.id === "projects" || i.icon !== "project") && i.label.toLowerCase().includes(q.toLowerCase())),
       ];
 
   function search(value: string) {

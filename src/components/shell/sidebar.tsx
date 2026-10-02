@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, Search, Users } from "lucide-react";
+import { FolderKanban, Home, Search, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { OPEN_PALETTE_EVENT } from "@/components/shell/command-center";
@@ -22,6 +22,9 @@ export function Sidebar({ user, projects, initialUnread, isAdmin }: { user: { na
       <nav aria-label="Hauptnavigation" className="flex flex-1 flex-col gap-1 px-2">
         <Link href="/" className={cn(navItem, pathname === "/" && navActive)}>
           <Home className="size-4" /> Start
+        </Link>
+        <Link href="/projects" className={cn(navItem, pathname === "/projects" && navActive)}>
+          <FolderKanban className="size-4" /> Projektübersicht
         </Link>
         <button
           type="button"

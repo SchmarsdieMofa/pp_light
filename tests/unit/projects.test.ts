@@ -4,10 +4,12 @@ import type { Actor } from "@/server/permissions";
 import {
   createProject,
   getProjectForUser,
+  listProjectOverview,
   listProjectsForUser,
   listStatuses,
 } from "@/server/projects/service";
 import { createUser } from "@/server/users/service";
+import { createTask, updateTask } from "@/server/tasks/service";
 import { resetDb, testDb } from "../helpers/db";
 
 async function actor(email: string, role: "admin" | "member" = "member"): Promise<Actor> {
@@ -70,6 +72,28 @@ describe("projects service", () => {
     expect((await listProjectsForUser(testDb, ada)).map((p) => p.name)).toEqual(["Alpha", "Beta"]);
     expect((await listProjectsForUser(testDb, bob)).map((p) => p.name)).toEqual(["Bobs"]);
     expect((await listProjectsForUser(testDb, root)).map((p) => p.name)).toEqual(["Alpha", "Beta", "Bobs"]);
+  });
+
+  it("counts open and overdue tasks only for visible projects", async () => {
+    const ada = await actor("ada@example.com");
+    const bob = await actor("bob@example.com");
+    const root = await actor("root@example.com", "admin");
+    const a = await createProject(testDb, ada, { name: "Alpha", key: "ALP" });
+    const b = await createProject(testDb, bob, { name: "Beta", key: "BET" });
+    const doneStatus = (await listStatuses(testDb, a.id)).find((status) => status.isDone)!;
+    const overdue = await createTask(testDb, ada, { projectId: a.id, title: "Überfällig" });
+    const future = await createTask(testDb, ada, { projectId: a.id, title: "Später" });
+    const done = await createTask(testDb, ada, { projectId: a.id, title: "Erledigt" });
+    const other = await createTask(testDb, bob, { projectId: b.id, title: "Fremd" });
+    await updateTask(testDb, ada, overdue.id, overdue.updatedAt.toISOString(), { dueDate: "2026-10-01" });
+    await updateTask(testDb, ada, future.id, future.updatedAt.toISOString(), { dueDate: "2026-10-03" });
+    await updateTask(testDb, ada, done.id, done.updatedAt.toISOString(), { dueDate: "2026-10-01", statusId: doneStatus.id });
+    await updateTask(testDb, bob, other.id, other.updatedAt.toISOString(), { dueDate: "2026-10-01" });
+
+    expect((await listProjectOverview(testDb, ada, "2026-10-02")).map((p) => [p.key, p.openTaskCount, p.overdueTaskCount]))
+      .toEqual([["ALP", 2, 1]]);
+    expect((await listProjectOverview(testDb, root, "2026-10-02")).map((p) => [p.key, p.openTaskCount, p.overdueTaskCount]))
+      .toEqual([["ALP", 2, 1], ["BET", 1, 1]]);
   });
 
   it("hides projects from non-members and tolerates malformed ids", async () => {

@@ -24,7 +24,7 @@ docker compose up -d --build
 docker compose exec app node scripts/create-admin.mjs --email admin@firma.de --name "Vorname Nachname" --password "<mind. 10 Zeichen>"
 ```
 
-Danach läuft die App auf <http://localhost:3000>. Die Startseite „Meine Arbeit“ zeigt zugewiesene Aufgaben nach Fälligkeit und lässt sie mit einem Klick abschließen. `Strg+K` (Mac: `⌘+K`) öffnet die Suche nach Aufgaben und Projekten. `?` zeigt alle Tastenkürzel; `C` fokussiert die Schnell-Eingabe und `1`/`2`/`3` wechseln im Projekt zwischen Board, Gantt und Liste. Auf dem Handy öffnet der Menü-Button die Navigation; Board und Aufgaben-Panel sind ebenfalls mobil bedienbar. Die Inbox ist unter `/inbox`, die Nutzerverwaltung für Admins unter `/admin`.
+Danach läuft die App auf <http://localhost:3000>. Die Startseite „Meine Arbeit“ zeigt zugewiesene Aufgaben nach Fälligkeit und lässt sie mit einem Klick abschließen. Die Projektübersicht unter `/projects` zeigt alle aktiven Projekte, auf die du Zugriff hast, mit Suche sowie offenen und überfälligen Aufgaben. `Strg+K` (Mac: `⌘+K`) öffnet die Suche nach Aufgaben und Projekten. `?` zeigt alle Tastenkürzel; `C` fokussiert die Schnell-Eingabe und `1`/`2`/`3` wechseln im Projekt zwischen Board, Gantt und Liste. Auf dem Handy öffnet der Menü-Button die Navigation; Board und Aufgaben-Panel sind ebenfalls mobil bedienbar. Die Inbox ist unter `/inbox`, die Nutzerverwaltung für Admins unter `/admin`.
 
 Der separate `worker`-Container versendet Einladungen, Passwort-Reset-Links und Benachrichtigungs-Digests über den SMTP-Server aus `.env`. Eine Mail, die fünfmal nicht zugestellt werden kann, wird aufgegeben (`mail_outbox.failed_at`, Fehler in `last_error`), ohne andere Mails aufzuhalten.
 

@@ -1,5 +1,24 @@
 import { expect, test } from "@playwright/test";
-import { login } from "./fixtures";
+import { createProjectViaUi, login } from "./fixtures";
+
+test("shows all accessible projects in one overview and filters them", async ({ page }) => {
+  await login(page);
+  const north = await createProjectViaUi(page, "Übersicht Nord", "ovn");
+  await createProjectViaUi(page, "Übersicht Süd", "ovs");
+
+  await page.getByRole("link", { name: "Projektübersicht" }).click();
+  const overview = page.getByRole("region", { name: "Projektliste" });
+  await expect(overview.getByRole("heading", { name: "Übersicht Nord" })).toBeVisible();
+  await expect(overview.getByRole("heading", { name: "Übersicht Süd" })).toBeVisible();
+
+  await page.getByRole("searchbox", { name: "Projekte suchen" }).fill("OVN");
+  await page.getByRole("button", { name: "Suchen", exact: true }).click();
+  await expect(overview.getByRole("heading", { name: "Übersicht Nord" })).toBeVisible();
+  await expect(overview.getByRole("heading", { name: "Übersicht Süd" })).toHaveCount(0);
+
+  await overview.getByRole("navigation", { name: "Ansichten für Übersicht Nord" }).getByRole("link", { name: "Liste" }).click();
+  await expect(page).toHaveURL(north.replace(/\/board$/, "/list"));
+});
 
 test("creates a project with default columns and lists it in the sidebar", async ({ page }) => {
   await login(page);

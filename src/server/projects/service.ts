@@ -1,11 +1,11 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, exists, inArray, isNull, sql } from "drizzle-orm";
 import { generateNKeysBetween } from "fractional-indexing";
 import { z } from "zod";
 import type { ProjectRole } from "@/lib/enums";
 import { createProjectSchema, type CreateProjectInput } from "@/lib/schemas/project";
 import type { DB } from "@/server/db/client";
 import { byPosition } from "@/server/db/order";
-import { projectMembers, projects, statuses, users } from "@/server/db/schema";
+import { projectMembers, projects, statuses, tasks, users } from "@/server/db/schema";
 import { DomainError, isUniqueViolation } from "@/server/errors";
 import { assertCan, type Actor } from "@/server/permissions";
 
@@ -55,6 +55,35 @@ export async function listProjectsForUser(db: DB, actor: Actor): Promise<Project
     .where(and(eq(projectMembers.userId, actor.id), isNull(projects.archivedAt)))
     .orderBy(asc(projects.name));
   return rows.map((r) => r.project);
+}
+
+export async function listProjectOverview(db: DB, actor: Actor, today: string) {
+  const visible = await listProjectsForUser(db, actor);
+  if (visible.length === 0) return [];
+
+  const counts = await db
+    .select({
+      projectId: tasks.projectId,
+      open: sql<number>`count(*) filter (where not ${statuses.isDone})::int`,
+      overdue: sql<number>`count(*) filter (where not ${statuses.isDone} and ${tasks.dueDate} < ${today})::int`,
+    })
+    .from(tasks)
+    .innerJoin(statuses, eq(statuses.id, tasks.statusId))
+    .where(and(
+      inArray(tasks.projectId, visible.map((project) => project.id)),
+      isNull(tasks.parentId),
+      actor.role === "admin" ? undefined : exists(
+        db.select({ one: sql`1` }).from(projectMembers)
+          .where(and(eq(projectMembers.projectId, tasks.projectId), eq(projectMembers.userId, actor.id))),
+      ),
+    ))
+    .groupBy(tasks.projectId);
+  const byId = new Map(counts.map((row) => [row.projectId, row]));
+  return visible.map((project) => ({
+    ...project,
+    openTaskCount: byId.get(project.id)?.open ?? 0,
+    overdueTaskCount: byId.get(project.id)?.overdue ?? 0,
+  }));
 }
 
 /** Project plus the actor's role in it; null if it does not exist or the actor may not see it. */
