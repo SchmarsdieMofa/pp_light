@@ -9,7 +9,7 @@ test("finds assigned work, uses shortcuts and completes a task", async ({ page }
   await quickAdd.press("Enter");
   await page.getByRole("region", { name: "Offen" }).getByRole("link", { name: /Freigabe vorbereiten/ }).click();
 
-  const panel = page.getByRole("complementary", { name: "Aufgabe" });
+  const panel = page.getByRole("dialog", { name: "Aufgabe" });
   await panel.getByLabel("Zuständige").first().click();
   const assigned = page.waitForResponse((response) =>
     response.request().method() === "POST" && Boolean(response.request().headers()["next-action"]),

@@ -12,11 +12,11 @@ async function addCard(page: Page, title: string) {
 
 async function openCard(page: Page, title: string) {
   await page.getByRole("region", { name: "Offen" }).getByRole("link", { name: new RegExp(title) }).click();
-  await expect(page.getByRole("complementary", { name: "Aufgabe" }).getByRole("textbox", { name: "Titel" })).toHaveValue(title);
+  await expect(page.getByRole("dialog", { name: "Aufgabe" }).getByRole("textbox", { name: "Titel" })).toHaveValue(title);
 }
 
 async function closeCard(page: Page) {
-  const panel = page.getByRole("complementary", { name: "Aufgabe" });
+  const panel = page.getByRole("dialog", { name: "Aufgabe" });
   await panel.getByRole("link", { name: "Schließen" }).click();
   await expect(panel).toBeHidden();
 }
@@ -28,13 +28,13 @@ async function setDate(page: Page, label: "Start" | "Fällig", value: string, ve
     return request.method() === "POST" && !!request.headers()["next-action"]
       && !!request.postData()?.includes(field) && !!request.postData()?.includes(value);
   });
-  await page.getByRole("complementary", { name: "Aufgabe" }).getByLabel(label).fill(value);
+  await page.getByRole("dialog", { name: "Aufgabe" }).getByLabel(label).fill(value);
   await response;
   if (verifyPersisted) {
     await page.reload();
     // The server-rendered value is visible before hydration; wait so the next fill reaches React.
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("complementary", { name: "Aufgabe" }).getByLabel(label)).toHaveValue(value);
+    await expect(page.getByRole("dialog", { name: "Aufgabe" }).getByLabel(label)).toHaveValue(value);
   }
 }
 
@@ -55,7 +55,7 @@ test("manages phases and cascades a dependency with undo", async ({ page }) => {
   await addCard(page, "Ausgang");
   await addCard(page, "Nachfolger");
   await openCard(page, "Ausgang");
-  const panel = page.getByRole("complementary", { name: "Aufgabe" });
+  const panel = page.getByRole("dialog", { name: "Aufgabe" });
   await panel.getByLabel("Phase").selectOption({ label: "Planung" });
   await setDate(page, "Start", "2026-10-01");
   await setDate(page, "Fällig", "2026-10-02");

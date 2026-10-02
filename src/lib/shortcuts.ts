@@ -24,7 +24,7 @@ export const SHORTCUT_HELP = [
   { keys: "Strg + K", text: "Suche und Befehle" },
   { keys: "C", text: "Neue Aufgabe" },
   { keys: "1 / 2 / 3", text: "Board / Gantt / Liste" },
-  { keys: "Esc", text: "Aufgaben-Panel schließen" },
+  { keys: "Esc", text: "Aufgabe schließen" },
   { keys: "?", text: "Diese Hilfe" },
 ] as const;
 

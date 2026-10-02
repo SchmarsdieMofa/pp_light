@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { createProjectViaUi, login } from "./fixtures";
+import { closeTask, createProjectViaUi, login } from "./fixtures";
 
 async function openList(page: Page, boardUrl: string) {
   await page.goto(boardUrl.replace(/\/board$/, "/list"));
@@ -23,7 +23,7 @@ test("creates tasks, edits them in the panel and shows them on the board", async
   await expect(table.getByRole("row").nth(1)).toContainText("TSK-1");
 
   await table.getByRole("link", { name: "Header bauen" }).click();
-  const panel = page.getByRole("complementary", { name: "Aufgabe" });
+  const panel = page.getByRole("dialog", { name: "Aufgabe" });
   await expect(panel.getByLabel("Titel")).toHaveValue("Header bauen");
 
   await panel.getByLabel("Titel").fill("Header bauen (responsive)");
@@ -31,6 +31,8 @@ test("creates tasks, edits them in the panel and shows them on the board", async
   await panel.getByLabel("Status").selectOption({ label: "In Arbeit" });
   await panel.getByLabel("Priorität").selectOption({ label: "Hoch" });
   await panel.getByLabel("Fällig").fill("2030-01-15");
+  await page.waitForLoadState("networkidle");
+  await closeTask(page);
 
   const row = table.getByRole("row", { name: /Header bauen \(responsive\)/ });
   await expect(row).toContainText("In Arbeit");
@@ -55,7 +57,7 @@ test("manages subtasks, checklist, labels and filters", async ({ page }) => {
   await quickAdd(page, "Impressum");
   const table = page.getByRole("table", { name: "Aufgaben" });
   await table.getByRole("link", { name: "Logo" }).click();
-  const panel = page.getByRole("complementary", { name: "Aufgabe" });
+  const panel = page.getByRole("dialog", { name: "Aufgabe" });
 
   const subInput = panel.getByLabel("Neue Unteraufgabe");
   await subInput.fill("Entwurf");
@@ -70,6 +72,8 @@ test("manages subtasks, checklist, labels and filters", async ({ page }) => {
 
   await panel.getByLabel("Labels").first().click();
   await panel.getByRole("group", { name: "Labels" }).getByLabel("Design").check();
+  await page.waitForLoadState("networkidle");
+  await closeTask(page);
   await expect(table.getByRole("row", { name: /Logo/ })).toContainText("Design");
   await expect(table.getByRole("row", { name: /Logo/ })).toContainText("0/1");
 
@@ -77,6 +81,7 @@ test("manages subtasks, checklist, labels and filters", async ({ page }) => {
   await expect(table.getByRole("link", { name: "Logo" })).toBeVisible();
   await expect(table.getByRole("link", { name: "Impressum" })).toHaveCount(0);
 
+  await table.getByRole("link", { name: "Logo" }).click();
   await panel
     .getByRole("region", { name: "Unteraufgaben" })
     .getByRole("link", { name: /Entwurf/ })
@@ -122,7 +127,7 @@ test("returns 404 for unknown task pages and tolerates bad panel ids", async ({ 
   expect(res?.status()).toBe(404);
   const board = await createProjectViaUi(page, "Fehler-Test", "err");
   await page.goto(`${board.replace(/\/board$/, "/list")}?task=kaputt&status=abc`);
-  await expect(page.getByRole("complementary", { name: "Aufgabe" })).toContainText("Aufgabe nicht gefunden.");
+  await expect(page.getByRole("dialog", { name: "Aufgabe" })).toContainText("Aufgabe nicht gefunden.");
 });
 
 test.describe("German locale", () => {
@@ -135,7 +140,7 @@ test.describe("German locale", () => {
     await openList(page, board);
     await quickAdd(page, "Fokus");
     await page.getByRole("table", { name: "Aufgaben" }).getByRole("link", { name: "Fokus" }).click();
-    const panel = page.getByRole("complementary", { name: "Aufgabe" });
+    const panel = page.getByRole("dialog", { name: "Aufgabe" });
 
     await panel.getByLabel("Zuständige").first().click();
     const box = panel.getByRole("group", { name: "Zuständige" }).getByRole("checkbox").first();
@@ -151,10 +156,13 @@ test.describe("German locale", () => {
     await panel.getByLabel("Fällig").fill("0202-10-14");
     await page.waitForLoadState("networkidle");
     await page.reload();
+    await closeTask(page);
     const row = page.getByRole("table", { name: "Aufgaben" }).getByRole("row", { name: /Fokus/ });
     await expect(row.getByRole("cell").nth(7)).toHaveText("–");
     await row.getByRole("link", { name: "Fokus" }).click();
     await panel.getByLabel("Fällig").fill("2030-10-14");
+    await page.waitForLoadState("networkidle");
+    await closeTask(page);
     await expect(row).toContainText(
       "14.10.2030",
     );

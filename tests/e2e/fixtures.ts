@@ -50,3 +50,10 @@ export async function dragTo(page: Page, source: Locator, target: Locator, posit
   await page.mouse.move(to.x + to.width / 2, endY, { steps: 20 });
   await page.mouse.up();
 }
+
+/** Closes the task overlay; while it is open the view behind it is inert. */
+export async function closeTask(page: Page) {
+  const overlay = page.getByRole("dialog", { name: "Aufgabe" });
+  await overlay.getByRole("link", { name: "Schließen" }).click();
+  await expect(overlay).toBeHidden();
+}

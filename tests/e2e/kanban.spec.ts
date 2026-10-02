@@ -45,8 +45,35 @@ test("drags cards between and within columns and keeps the order after reload", 
   await expect(page.getByRole("region", { name: "Offen" }).getByRole("link")).toHaveText([/Karte C/, /Karte B/]);
 
   await card(page, "In Arbeit", "Karte A").click();
-  await expect(page.getByRole("complementary", { name: "Aufgabe" }).getByLabel("Status")).toHaveValue(/.+/);
-  await expect(page.getByRole("complementary", { name: "Aufgabe" }).getByLabel("Titel")).toHaveValue("Karte A");
+  await expect(page.getByRole("dialog", { name: "Aufgabe" }).getByLabel("Status")).toHaveValue(/.+/);
+  await expect(page.getByRole("dialog", { name: "Aufgabe" }).getByLabel("Titel")).toHaveValue("Karte A");
+});
+
+test("opens a card as overlay and closes it with Esc or a click beside it", async ({ page }) => {
+  await login(page);
+  await createProjectViaUi(page, "Overlay-Test", "ovl");
+  await addInColumn(page, "Offen", "Overlay-Karte");
+
+  await card(page, "Offen", "Overlay-Karte").click();
+  const overlay = page.getByRole("dialog", { name: "Aufgabe OVL-1" });
+  const title = overlay.getByRole("textbox", { name: "Titel" });
+  await expect(title).toHaveValue("Overlay-Karte");
+
+  // Esc in a field leaves the field and saves it; the next Esc closes the overlay.
+  const saved = serverActions(page, 1);
+  await title.fill("Overlay-Karte neu");
+  await title.press("Escape");
+  await saved;
+  await expect(overlay).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(overlay).toHaveCount(0);
+  await expect(page).not.toHaveURL(/task=/);
+  await expect(card(page, "Offen", "Overlay-Karte neu")).toBeVisible();
+
+  await card(page, "Offen", "Overlay-Karte neu").click();
+  await expect(overlay).toBeVisible();
+  await page.mouse.click(5, 5);
+  await expect(overlay).toHaveCount(0);
 });
 
 test("switches card density and remembers it", async ({ page }) => {
@@ -115,8 +142,9 @@ test("adds members, assigns them and protects the last owner", async ({ page }) 
   await page.goto(board);
   await addInColumn(page, "Offen", "Team-Aufgabe");
   await card(page, "Offen", "Team-Aufgabe").click();
-  const panel = page.getByRole("complementary", { name: "Aufgabe" });
+  const panel = page.getByRole("dialog", { name: "Aufgabe" });
   await panel.getByLabel("Zuständige").first().click();
   await panel.getByRole("group", { name: "Zuständige" }).getByLabel(E2E_MEMBER.name).check();
+  await panel.getByRole("link", { name: "Schließen" }).click();
   await expect(card(page, "Offen", "Team-Aufgabe")).toContainText("MM");
 });

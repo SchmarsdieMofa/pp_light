@@ -69,7 +69,7 @@ function DependencyList(props: {
   return (
     <div className="space-y-2">
       <h3 className="text-xs font-medium text-muted-foreground">{props.title}</h3>
-      {props.links.length === 0 && <p className="text-xs text-muted-foreground">Keine</p>}
+      {props.links.length === 0 && !(props.detail.canEdit && available.length > 0) && <p className="text-xs text-muted-foreground">Keine</p>}
       <ul className="space-y-1">
         {props.links.map((link) => (
           <DependencyRow key={link.id} detail={props.detail} link={link} isBlockerList={props.isBlockerList} href={props.href} />
@@ -84,17 +84,22 @@ function DependencyList(props: {
           });
         }}>
           <select aria-label={props.isBlockerList ? "Blocker hinzufügen" : "Nachfolger hinzufügen"}
-            className={selectClass} value={selected} onChange={(event) => setSelected(event.target.value)}>
+            className={`${selectClass} w-full`} value={selected} onChange={(event) => setSelected(event.target.value)}>
             <option value="">Aufgabe wählen…</option>
             {available.map((option) => <option key={option.id} value={option.id}>
               {props.detail.key}-{option.number} {option.title}
             </option>)}
           </select>
-          <label className="flex items-center gap-1 text-xs">Abstand
-            <input aria-label={`Abstand für ${props.title}`} type="number" min={0} max={3650} className={`${selectClass} w-16`}
-              value={lag} onChange={(event) => setLag(Number(event.target.value))} />
-          </label>
-          <Button type="submit" size="sm" disabled={pending || !selected}>Hinzufügen</Button>
+          {/* Lag and submit only matter once a task is picked. */}
+          {selected && (
+            <>
+              <label className="flex items-center gap-1 text-xs">Abstand
+                <input aria-label={`Abstand für ${props.title}`} type="number" min={0} max={3650} className={`${selectClass} w-16`}
+                  value={lag} onChange={(event) => setLag(Number(event.target.value))} />
+              </label>
+              <Button type="submit" size="sm" disabled={pending}>Hinzufügen</Button>
+            </>
+          )}
         </form>
       )}
     </div>
@@ -118,10 +123,12 @@ function DependencyRow(props: { detail: TaskDetail; link: TaskLink; isBlockerLis
               className={`${selectClass} w-16`} value={lag} disabled={pending}
               onChange={(event) => setLag(Number(event.target.value))} />
           </label>
-          <Button type="button" size="sm" variant="secondary" disabled={pending || lag === props.link.lagDays}
-            onClick={() => run(() => updateDependencyLagAction(blockerId, blockedId, lag), (result) => movedMessage(result.movedCount))}>
-            Abstand speichern
-          </Button>
+          {lag !== props.link.lagDays && (
+            <Button type="button" size="sm" variant="secondary" disabled={pending}
+              onClick={() => run(() => updateDependencyLagAction(blockerId, blockedId, lag), (result) => movedMessage(result.movedCount))}>
+              Abstand speichern
+            </Button>
+          )}
           <Button type="button" size="sm" variant="ghost" disabled={pending}
             onClick={() => run(() => removeDependencyAction(blockerId, blockedId))}>Entfernen</Button>
         </>

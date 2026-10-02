@@ -68,7 +68,7 @@ function Composer({ initial = "", members, onSave, onCancel }: {
         onChange={(event) => { setBody(event.target.value); findMention(event.target.value, event.target.selectionStart); }}
         onClick={(event) => findMention(body, event.currentTarget.selectionStart)}
         onKeyDown={(event) => {
-          if (event.key === "Escape") setSearch(null);
+          if (event.key === "Escape" && suggestions.length > 0) { event.preventDefault(); setSearch(null); }
           if (event.key === "Enter" && suggestions.length > 0 && search) {
             event.preventDefault(); insertMention(suggestions[0]);
           }

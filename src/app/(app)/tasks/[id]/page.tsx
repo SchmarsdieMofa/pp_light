@@ -11,10 +11,14 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   const detail = await getTaskDetail(db(), actor, id);
   if (!detail) notFound();
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-6">
-      <Link href={`/projects/${detail.projectId}/list`} className="text-sm text-muted-foreground hover:text-foreground">
-        ← {detail.projectName}
-      </Link>
+    <div className="mx-auto max-w-5xl space-y-4 p-4 sm:p-6">
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Link href={`/projects/${detail.projectId}/list`} className="hover:text-foreground">
+          ← {detail.projectName}
+        </Link>
+        <span aria-hidden>·</span>
+        <span className="font-medium tabular-nums">{detail.key}-{detail.number}</span>
+      </p>
       <TaskEditor key={detail.id} detail={detail} />
     </div>
   );

@@ -31,14 +31,22 @@ export function TaskDescription({ initial, canEdit, save }: {
       </div>
       {editing ? (
         <div className="space-y-2">
-          <Textarea aria-label="Beschreibung bearbeiten" rows={7} value={value} disabled={pending}
+          <Textarea aria-label="Beschreibung bearbeiten" rows={7} autoFocus value={value} disabled={pending}
             onChange={(event) => setValue(event.target.value)} placeholder="Details, Links, Notizen…" />
           <div className="flex gap-2">
             <Button size="sm" disabled={pending} onClick={() => void commit()}>Speichern</Button>
             <Button size="sm" variant="outline" disabled={pending} onClick={() => { setValue(saved); setEditing(false); }}>Abbrechen</Button>
           </div>
         </div>
-      ) : saved ? <MarkdownText text={saved} /> : <p className="text-sm text-muted-foreground">Keine Beschreibung.</p>}
+      ) : (
+        <div
+          className={canEdit ? "-mx-2 cursor-text rounded-md px-2 py-1 hover:bg-muted/50" : undefined}
+          // Click the text to edit it – links inside stay clickable.
+          onClick={(event) => { if (canEdit && !(event.target as HTMLElement).closest("a")) setEditing(true); }}
+        >
+          {saved ? <MarkdownText text={saved} /> : <p className="text-sm text-muted-foreground">{canEdit ? "Beschreibung hinzufügen…" : "Keine Beschreibung."}</p>}
+        </div>
+      )}
     </section>
   );
 }

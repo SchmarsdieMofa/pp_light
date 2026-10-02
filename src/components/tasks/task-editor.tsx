@@ -75,81 +75,87 @@ export function TaskEditor({ detail }: { detail: TaskDetail }) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="space-y-1">
-        <p className="text-xs text-muted-foreground">
-          {detail.key}-{detail.number}
-          {detail.parent && (
-            <>
-              {" · Teil von "}
-              <Link href={href(detail.parent.id)} className="hover:underline">
-                {detail.key}-{detail.parent.number} {detail.parent.title}
-              </Link>
-            </>
-          )}
-        </p>
+        {detail.parent && (
+          <p className="text-xs text-muted-foreground">
+            {"Teil von "}
+            <Link href={href(detail.parent.id)} className="hover:text-foreground hover:underline">
+              {detail.key}-{detail.parent.number} {detail.parent.title}
+            </Link>
+          </p>
+        )}
         <TextField label="Titel" initial={detail.title} disabled={disabled} save={(title) => save({ title })} large />
       </div>
 
-      <div className="grid grid-cols-[6rem_1fr] items-center gap-x-3 gap-y-2 text-sm">
-        <SelectField
-          id="task-status"
-          label="Status"
-          initial={detail.statusId}
-          disabled={disabled}
-          options={detail.statuses.map((s) => ({ value: s.id, label: s.name }))}
-          save={(statusId) => save({ statusId })}
-        />
-        <SelectField
-          id="task-priority"
-          label="Priorität"
-          initial={detail.priority}
-          disabled={disabled}
-          options={TASK_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))}
-          save={(priority) => save({ priority: priority as TaskPriority })}
-        />
-        <SelectField
-          id="task-phase"
-          label="Phase"
-          initial={detail.phaseId ?? ""}
-          disabled={disabled}
-          options={[{ value: "", label: "Keine Phase" }, ...detail.phases.map((phase) => ({ value: phase.id, label: phase.name }))]}
-          save={(phaseId) => save({ phaseId: phaseId || null })}
-        />
-        <DateField id="task-start" label="Start" initial={detail.startDate} disabled={disabled} save={(startDate) => save({ startDate })} />
-        <DateField id="task-due" label="Fällig" initial={detail.dueDate} disabled={disabled} save={(dueDate) => save({ dueDate })} />
-        <span className="text-muted-foreground">Zuständige</span>
-        <MultiSelect
-          label="Zuständige"
-          options={detail.members}
-          selected={detail.assigneeIds}
-          disabled={disabled}
-          onChange={async (ids) => {
-            const res = await setAssigneesAction(detail.id, ids);
-            if (!res.ok) toast.error(res.error.message);
-          }}
-        />
-        <span className="text-muted-foreground">Labels</span>
-        <MultiSelect
-          label="Labels"
-          options={detail.labels}
-          selected={detail.labelIds}
-          disabled={disabled}
-          onChange={async (ids) => {
-            const res = await setLabelsAction(detail.id, ids);
-            if (!res.ok) toast.error(res.error.message);
-          }}
-        />
+      {/* Phone: properties, content, then links/files. Wider: content left, properties and links/files right. */}
+      <div className="grid gap-x-8 gap-y-6 md:grid-cols-[minmax(0,1fr)_18rem] md:grid-rows-[auto_1fr]">
+        <aside aria-label="Eigenschaften" className="md:col-start-2 md:row-start-1">
+          <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 text-sm">
+            <SelectField
+              id="task-status"
+              label="Status"
+              initial={detail.statusId}
+              disabled={disabled}
+              options={detail.statuses.map((s) => ({ value: s.id, label: s.name }))}
+              save={(statusId) => save({ statusId })}
+            />
+            <SelectField
+              id="task-priority"
+              label="Priorität"
+              initial={detail.priority}
+              disabled={disabled}
+              options={TASK_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))}
+              save={(priority) => save({ priority: priority as TaskPriority })}
+            />
+            <span className="text-muted-foreground">Zuständige</span>
+            <MultiSelect
+              label="Zuständige"
+              options={detail.members}
+              selected={detail.assigneeIds}
+              disabled={disabled}
+              onChange={async (ids) => {
+                const res = await setAssigneesAction(detail.id, ids);
+                if (!res.ok) toast.error(res.error.message);
+              }}
+            />
+            <DateField id="task-due" label="Fällig" initial={detail.dueDate} disabled={disabled} save={(dueDate) => save({ dueDate })} />
+            <DateField id="task-start" label="Start" initial={detail.startDate} disabled={disabled} save={(startDate) => save({ startDate })} />
+            <span className="text-muted-foreground">Labels</span>
+            <MultiSelect
+              label="Labels"
+              options={detail.labels}
+              selected={detail.labelIds}
+              disabled={disabled}
+              onChange={async (ids) => {
+                const res = await setLabelsAction(detail.id, ids);
+                if (!res.ok) toast.error(res.error.message);
+              }}
+            />
+            <SelectField
+              id="task-phase"
+              label="Phase"
+              initial={detail.phaseId ?? ""}
+              disabled={disabled}
+              options={[{ value: "", label: "Keine Phase" }, ...detail.phases.map((phase) => ({ value: phase.id, label: phase.name }))]}
+              save={(phaseId) => save({ phaseId: phaseId || null })}
+            />
+          </div>
+        </aside>
+
+        <div className="min-w-0 space-y-6 md:col-start-1 md:row-span-2 md:row-start-1">
+          <TaskDescription initial={detail.description} canEdit={!disabled} save={(description) => save({ description })} />
+          {!detail.parent && <TaskSubtasks detail={detail} />}
+          <TaskChecklist detail={detail} />
+          <TaskComments detail={detail} />
+          <TaskActivity entries={detail.activity} />
+        </div>
+
+        <div className="min-w-0 space-y-6 md:col-start-2 md:row-start-2">
+          <TaskDependencies detail={detail} />
+          <TaskAttachments detail={detail} />
+        </div>
       </div>
-
-      <TaskDescription initial={detail.description} canEdit={!disabled} save={(description) => save({ description })} />
-
-      {!detail.parent && <TaskSubtasks detail={detail} />}
-      <TaskChecklist detail={detail} />
-      <TaskDependencies detail={detail} />
-      <TaskAttachments detail={detail} />
-      <TaskComments detail={detail} />
-      <TaskActivity entries={detail.activity} />
     </div>
   );
 }
@@ -180,7 +186,7 @@ function TextField(props: {
       value={value}
       disabled={props.disabled}
       maxLength={200}
-      className={props.large ? "h-10 text-lg font-semibold" : undefined}
+      className={props.large ? "h-auto border-transparent bg-transparent px-2 py-1 -mx-2 text-xl font-semibold shadow-none hover:border-input focus-visible:border-ring md:text-xl dark:bg-transparent" : undefined}
       onChange={(e) => setValue(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => {

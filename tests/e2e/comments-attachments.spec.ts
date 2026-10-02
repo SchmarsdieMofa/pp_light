@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { E2E_MEMBER, createProjectViaUi, login } from "./fixtures";
+import { E2E_MEMBER, closeTask, createProjectViaUi, login } from "./fixtures";
 
 test("comments, mentions, Markdown, files and history are visible in the task panel", async ({ page }) => {
   test.setTimeout(90_000);
@@ -15,7 +15,7 @@ test("comments, mentions, Markdown, files and history are visible in the task pa
   await add.fill("Besprechung");
   await add.press("Enter");
   await page.getByRole("region", { name: "Offen" }).getByRole("link", { name: /Besprechung/ }).click();
-  const panel = page.getByRole("complementary", { name: "Aufgabe" });
+  const panel = page.getByRole("dialog", { name: "Aufgabe" });
   await panel.getByRole("button", { name: "Bearbeiten" }).first().click();
   await panel.getByLabel("Beschreibung bearbeiten").fill("**Wichtig** <script>alert(1)</script> [Falle](javascript:alert(1)) ![Track](https://evil.test/pixel.png)");
   await panel.getByRole("button", { name: "Speichern" }).click();
@@ -28,19 +28,23 @@ test("comments, mentions, Markdown, files and history are visible in the task pa
   await panel.getByRole("button", { name: "Kommentieren" }).click();
   await expect(panel.getByText(E2E_MEMBER.name, { exact: true }).last()).toBeVisible();
   await expect(panel.getByRole("heading", { name: "Kommentare (1)" })).toBeVisible();
+  await closeTask(page);
   await expect(page.getByRole("region", { name: "Offen" }).getByRole("link", { name: /Besprechung/ })).toContainText("◌ 1");
+  await page.getByRole("region", { name: "Offen" }).getByRole("link", { name: /Besprechung/ }).click();
 
   await panel.getByLabel("Datei hochladen").setInputFiles({ name: "foto.png", mimeType: "image/png", buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47]) });
   await expect(panel.getByRole("link", { name: "foto.png" })).toBeVisible();
   await expect(panel.getByRole("img", { name: "foto.png" })).toBeVisible();
+  await panel.locator("summary", { hasText: "Verlauf" }).click();
   await expect(panel.getByText(/hat „foto.png“ angehängt/)).toBeVisible();
 
+  await closeTask(page);
   await page.getByRole("button", { name: "Abmelden" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await login(page, E2E_MEMBER.email, E2E_MEMBER.password);
   await page.goto(board);
   await page.getByRole("region", { name: "Offen" }).getByRole("link", { name: /Besprechung/ }).click();
-  const guestPanel = page.getByRole("complementary", { name: "Aufgabe" });
+  const guestPanel = page.getByRole("dialog", { name: "Aufgabe" });
   await expect(guestPanel.getByLabel("Datei hochladen")).toHaveCount(0);
   await expect(guestPanel.getByRole("button", { name: "Bearbeiten" })).toHaveCount(0);
   const guestFile = guestPanel.getByRole("link", { name: "foto.png" });
@@ -56,16 +60,18 @@ test("comments, mentions, Markdown, files and history are visible in the task pa
   await guestPanel.getByRole("button", { name: "Speichern" }).click();
   await expect(guestPanel.getByText("Mein bearbeiteter Kommentar")).toBeVisible();
 
+  await closeTask(page);
   await page.getByRole("button", { name: "Abmelden" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await login(page);
   await page.goto(board);
   await page.getByRole("region", { name: "Offen" }).getByRole("link", { name: /Besprechung/ }).click();
-  const adminFile = page.getByRole("complementary", { name: "Aufgabe" }).getByRole("link", { name: "foto.png" });
+  const adminFile = page.getByRole("dialog", { name: "Aufgabe" }).getByRole("link", { name: "foto.png" });
   await adminFile.locator("..").getByRole("button", { name: "Löschen" }).click();
   await expect(adminFile).toHaveCount(0);
   expect((await page.request.get(downloadUrl!)).status()).toBe(404);
-  const adminPanel = page.getByRole("complementary", { name: "Aufgabe" });
+  const adminPanel = page.getByRole("dialog", { name: "Aufgabe" });
   await adminPanel.getByLabel("Status").selectOption({ label: "In Arbeit" });
+  await adminPanel.locator("summary", { hasText: "Verlauf" }).click();
   await expect(adminPanel.getByText(/Status Offen → In Arbeit/)).toBeVisible();
 });

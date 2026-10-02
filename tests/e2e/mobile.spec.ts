@@ -21,7 +21,7 @@ test("works on a phone: drawer navigation, board and full-screen task panel", as
   await input.fill("Unterwegs prüfen");
   await input.press("Enter");
   await page.getByRole("region", { name: "Offen" }).getByRole("link", { name: /Unterwegs prüfen/ }).click();
-  const panel = page.getByRole("complementary", { name: "Aufgabe" });
+  const panel = page.getByRole("dialog", { name: "Aufgabe" });
   await expect(panel.getByLabel("Titel")).toHaveValue("Unterwegs prüfen");
   const box = await panel.boundingBox();
   const viewport = page.viewportSize()!;

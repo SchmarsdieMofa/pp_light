@@ -5,7 +5,7 @@ import { mailOutbox } from "../../src/server/db/schema";
 import { openMailBody } from "../../src/server/mail/crypto";
 import { sendMail } from "../../src/server/mail/service";
 import { E2E_DATABASE_URL } from "../helpers/test-env";
-import { createProjectViaUi, dragTo, login } from "./fixtures";
+import { closeTask, createProjectViaUi, dragTo, login } from "./fixtures";
 
 test.setTimeout(180_000);
 
@@ -15,11 +15,11 @@ async function setDate(page: Page, label: "Start" | "Fällig", value: string) {
     && Boolean(response.request().headers()["next-action"])
     && Boolean(response.request().postData()?.includes(field))
     && Boolean(response.request().postData()?.includes(value)));
-  await page.getByRole("complementary", { name: "Aufgabe" }).getByLabel(label).fill(value);
+  await page.getByRole("dialog", { name: "Aufgabe" }).getByLabel(label).fill(value);
   await saved;
   await page.reload();
   await page.waitForLoadState("networkidle");
-  await expect(page.getByRole("complementary", { name: "Aufgabe" }).getByLabel(label)).toHaveValue(value);
+  await expect(page.getByRole("dialog", { name: "Aufgabe" }).getByLabel(label)).toHaveValue(value);
 }
 
 test("invitation through Mailpit to project planning and an inbox mention", async ({ page }) => {
@@ -86,7 +86,7 @@ test("invitation through Mailpit to project planning and an inbox mention", asyn
       await expect(page.getByRole("region", { name: "Offen" }).getByRole("link", { name: new RegExp(title) })).toBeVisible();
     }
     await page.getByRole("region", { name: "Offen" }).getByRole("link", { name: /Ausgang/ }).click();
-    const panel = page.getByRole("complementary", { name: "Aufgabe" });
+    const panel = page.getByRole("dialog", { name: "Aufgabe" });
     await panel.getByLabel("Neue Unteraufgabe").fill("Prüfung");
     await panel.getByLabel("Neue Unteraufgabe").press("Enter");
     await expect(panel.getByRole("region", { name: "Unteraufgaben" })).toContainText("Prüfung");
@@ -131,6 +131,7 @@ test("invitation through Mailpit to project planning and an inbox mention", asyn
     await panel.getByRole("button", { name: "Kommentieren" }).click();
     await expect(panel.getByRole("heading", { name: "Kommentare (1)" })).toBeVisible();
 
+    await closeTask(page);
     await page.getByRole("button", { name: "Abmelden" }).click();
     await login(page, email, password);
     await page.getByRole("link", { name: /Benachrichtigungen/ }).click();
