@@ -19,8 +19,13 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-    ports:
-      - "3000:3000"
+      # Links in mails point to the HTTPS address in front of the app.
+      APP_URL: https://${PP_DOMAIN:?PP_DOMAIN in .env setzen}
+      # Auth.js builds its redirects from this, not from the container's own address.
+      AUTH_URL: https://${PP_DOMAIN:?PP_DOMAIN in .env setzen}
+    # No published port: only Caddy talks to the app.
+    expose:
+      - "3000"
     volumes:
       - uploads:/data/uploads
     depends_on:
@@ -43,6 +48,45 @@ services:
     depends_on:
       app:
         condition: service_healthy
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      PP_DOMAIN: ${PP_DOMAIN:?PP_DOMAIN in .env setzen}
+      PP_TLS: ${PP_TLS:-internal}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    entrypoint: ["sh", "/backup.sh"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      BACKUP_HOUR: ${BACKUP_HOUR:-2}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      - ./docker/backup.sh:/backup.sh:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+      - uploads:/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
 volumes:
   pgdata:
   uploads:
+  # Caddy's certificates and its local CA – keep it, or clients must trust a new root certificate.
+  caddy_data:
+  caddy_config:

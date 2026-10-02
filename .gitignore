@@ -48,3 +48,7 @@ next-env.d.ts
 /playwright-report
 /data
 /.projectatlas/
+
+# production data next to the compose file
+/backups/
+/certs/

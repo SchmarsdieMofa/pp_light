@@ -9,22 +9,73 @@ Stack: Next.js 16 · TypeScript · PostgreSQL 17 + Drizzle · Auth.js · Tailwin
 
 ## Betrieb (Produktion)
 
-Voraussetzung: Docker mit Compose.
+Gedacht für den Betrieb im lokalen Netz: ein Server mit Docker und Compose, davor Caddy für HTTPS. Die App selbst ist nur über Caddy erreichbar, nicht direkt.
+
+### Einrichten
+
+1. **DNS:** Für den Server einen Namen im lokalen DNS anlegen, z. B. `pp.firma.local` (Platzhalter – überall durch euren Namen ersetzen).
+2. **Konfiguration:**
+
+   ```bash
+   cp .env.example .env
+   # AUTH_SECRET setzen (Pflicht, zufällig, mind. 32 Zeichen):
+   node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+   # POSTGRES_PASSWORD setzen (nur Buchstaben/Ziffern):
+   node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"
+   ```
+
+   In `.env` außerdem `PP_DOMAIN=pp.firma.local` und die SMTP-Zugangsdaten eintragen (siehe unten). `APP_URL` und `AUTH_URL` setzt Compose daraus automatisch auf `https://<PP_DOMAIN>`.
+3. **Starten und ersten Admin anlegen:**
+
+   ```bash
+   docker compose up -d --build
+   docker compose exec app node scripts/create-admin.mjs --email admin@firma.de --name "Vorname Nachname" --password "<mind. 10 Zeichen>"
+   ```
+
+Die App ist dann unter `https://pp.firma.local` erreichbar. Port 80 leitet auf HTTPS um; Ports 80 und 443 müssen auf dem Server frei sein.
+
+### HTTPS-Zertifikat
+
+`PP_TLS` in `.env` legt fest, woher das Zertifikat kommt:
+
+- **`internal` (Standard):** Caddy betreibt eine eigene kleine Zertifizierungsstelle und stellt das Zertifikat selbst aus und verlängert es. Damit Browser keine Warnung zeigen, muss deren Root-Zertifikat einmalig auf den Clients als vertrauenswürdig installiert werden (Windows: per Gruppenrichtlinie oder `certlm.msc` → „Vertrauenswürdige Stammzertifizierungsstellen“):
+
+  ```bash
+  docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./pp-light-root.crt
+  ```
+
+  Die CA liegt im Volume `caddy_data` – nicht löschen, sonst entsteht eine neue und alle Clients brauchen das neue Root-Zertifikat.
+- **Eigenes Zertifikat** (z. B. von der Firmen-CA): `cert.pem` (inkl. Zwischenzertifikaten) und `key.pem` nach `./certs/` legen und `PP_TLS=/certs/cert.pem /certs/key.pem` setzen. Erneuern: Dateien austauschen, `docker compose restart caddy`.
+- **Let's Encrypt:** nur wenn `PP_DOMAIN` öffentlich erreichbar ist – dann `PP_TLS=<eure E-Mail-Adresse>`.
+
+Caddy setzt Sicherheits-Header und ersetzt `X-Forwarded-For` durch die echte Client-Adresse, damit die IP-Sperre beim Login greift.
+
+### Backups
+
+Der Dienst `backup` sichert täglich um `BACKUP_HOUR` Uhr (Standard 2 Uhr, Zeitzone Europe/Berlin) die Datenbank und alle Anhänge nach `./backups/<Datum_Uhrzeit>/` (`db.dump`, `uploads.tar.gz`) und löscht Sicherungen, die älter als `BACKUP_KEEP_DAYS` Tage sind (Standard 14). Ein anderes Ziel, etwa ein Netzlaufwerk, setzt `BACKUP_DIR`.
 
 ```bash
-cp .env.example .env
-# AUTH_SECRET setzen (Pflicht, zufällig, mind. 32 Zeichen):
-node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
-# POSTGRES_PASSWORD setzen (nur Buchstaben/Ziffern):
-node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"
-
-docker compose up -d --build
-
-# Ersten Admin anlegen:
-docker compose exec app node scripts/create-admin.mjs --email admin@firma.de --name "Vorname Nachname" --password "<mind. 10 Zeichen>"
+docker compose exec backup sh /backup.sh now         # sofort sichern
+docker compose logs backup                           # letzte Läufe
 ```
 
-Danach läuft die App auf <http://localhost:3000>. Die Startseite „Meine Arbeit“ zeigt zugewiesene Aufgaben nach Fälligkeit, lässt sie mit einem Klick abschließen (mit „Rückgängig“), direkt auf heute oder morgen verschieben und neue Aufgaben für dich selbst schnell erfassen. Die Projektübersicht unter `/projects` zeigt alle aktiven Projekte, auf die du Zugriff hast, mit Suche sowie offenen und überfälligen Aufgaben. Der Kalender unter `/calendar` zeigt die Fälligkeiten aller deiner Projekte als Monat, Woche oder Liste – filterbar nach Projekt, eigenen und erledigten Aufgaben; per Drag & Drop verschiebst du einen Termin auf einen anderen Tag. Datumsfelder nehmen getippte Daten wie `15.1.` an oder öffnen einen Kalender mit Schnellwahl. In den Projekteinstellungen speichern sich Änderungen beim Verlassen eines Feldes; dort schließt du ein Projekt über ein Abschluss-Review ab (Kennzahlen, offene Aufgaben, Abschlussnotiz), archivierst es ohne Bericht oder löschst es endgültig (Bestätigung per Kürzel). Archivierte Projekte sind schreibgeschützt, stehen in der Projektübersicht unter „Archiv“ und lassen sich von Owners wiederherstellen. `Strg+K` (Mac: `⌘+K`) öffnet die Suche nach Aufgaben und Projekten. `?` zeigt alle Tastenkürzel; `C` fokussiert die Schnell-Eingabe und `1`/`2`/`3` wechseln im Projekt zwischen Board, Gantt und Liste. Die Liste gruppiert Aufgaben nach Status (Erledigtes eingeklappt), hakt sie per Checkbox ab oder öffnet sie wieder und sucht schon beim Tippen. Ein Klick auf eine Aufgabe öffnet sie als Overlay über der aktuellen Ansicht; `Esc`, ein Klick daneben oder „Schließen“ führen zurück. Auf dem Handy öffnet der Menü-Button die Navigation; Board und Aufgaben-Overlay sind ebenfalls mobil bedienbar. Die Inbox ist unter `/inbox`, die Nutzerverwaltung für Admins unter `/admin`.
+Die Sicherungen enthalten alle Daten im Klartext: `./backups` vor fremdem Zugriff schützen und zusätzlich auf ein anderes Gerät kopieren – eine Sicherung auf demselben Server hilft bei einem Plattendefekt nicht.
+
+**Wiederherstellen** (ersetzt alle aktuellen Daten):
+
+```bash
+docker compose stop app worker
+docker compose exec backup sh /backup.sh restore 2026-10-02_0200   # Ordnername aus ./backups
+docker compose start app worker
+```
+
+Die Datenbank wird zuerst vollständig in eine neue Datenbank eingespielt und erst danach gegen die alte getauscht – bricht das Einspielen ab, bleiben die aktuellen Daten unverändert.
+
+### Funktionen
+
+Die Startseite „Meine Arbeit“ zeigt zugewiesene Aufgaben nach Fälligkeit, lässt sie mit einem Klick abschließen (mit „Rückgängig“), direkt auf heute oder morgen verschieben und neue Aufgaben für dich selbst schnell erfassen. Die Projektübersicht unter `/projects` zeigt alle aktiven Projekte, auf die du Zugriff hast, mit Suche sowie offenen und überfälligen Aufgaben. Der Kalender unter `/calendar` zeigt die Fälligkeiten aller deiner Projekte als Monat, Woche oder Liste – filterbar nach Projekt, eigenen und erledigten Aufgaben; per Drag & Drop verschiebst du einen Termin auf einen anderen Tag. Datumsfelder nehmen getippte Daten wie `15.1.` an oder öffnen einen Kalender mit Schnellwahl. In den Projekteinstellungen speichern sich Änderungen beim Verlassen eines Feldes; dort schließt du ein Projekt über ein Abschluss-Review ab (Kennzahlen, offene Aufgaben, Abschlussnotiz), archivierst es ohne Bericht oder löschst es endgültig (Bestätigung per Kürzel). Archivierte und abgeschlossene Projekte sind schreibgeschützt, stehen unter „Archiv“ (`/projects/archive`) und lassen sich von Owners wiederherstellen. `Strg+K` (Mac: `⌘+K`) öffnet die Suche nach Aufgaben und Projekten. `?` zeigt alle Tastenkürzel; `C` fokussiert die Schnell-Eingabe und `1`/`2`/`3` wechseln im Projekt zwischen Board, Gantt und Liste. Die Liste gruppiert Aufgaben nach Status (Erledigtes eingeklappt), hakt sie per Checkbox ab oder öffnet sie wieder und sucht schon beim Tippen. Ein Klick auf eine Aufgabe öffnet sie als Overlay über der aktuellen Ansicht; `Esc`, ein Klick daneben oder „Schließen“ führen zurück. Auf dem Handy öffnet der Menü-Button die Navigation; Board und Aufgaben-Overlay sind ebenfalls mobil bedienbar. Die Inbox ist unter `/inbox`. Das Zahnrad unten in der Seitenleiste öffnet die Einstellungen (Profil, Passwort, Darstellung) und für Admins die Nutzerverwaltung.
+
+### Mail, SSO und Anmeldeschutz
 
 Der separate `worker`-Container versendet Einladungen, Passwort-Reset-Links und Benachrichtigungs-Digests über den SMTP-Server aus `.env`. Eine Mail, die fünfmal nicht zugestellt werden kann, wird aufgegeben (`mail_outbox.failed_at`, Fehler in `last_error`), ohne andere Mails aufzuhalten.
 
@@ -32,9 +83,11 @@ SMTP-Zugang in `.env` setzen: `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` und bei Beda
 
 Anmeldeschutz: Nach fünf falschen Passwörtern ist ein Konto 15 Minuten gesperrt, nach 20 Fehlversuchen von derselben IP diese IP. Ein Passwort-Reset beendet alle bestehenden Sitzungen; deaktivierte Konten verlieren offene Einladungs- und Reset-Links.
 
+### Hinweise
+
 - Migrationen laufen bei jedem Start automatisch.
 - Bei ungültiger Konfiguration, etwa einem fehlenden oder Platzhalter-`AUTH_SECRET`, bricht der Container ab und nennt die Variable: `docker compose logs app`.
-- Daten liegen in den Volumes `pgdata` (Datenbank) und `uploads` (Anhänge). `docker compose down` lässt sie stehen.
+- Daten liegen in den Volumes `pgdata` (Datenbank), `uploads` (Anhänge) und `caddy_data` (Zertifikate). `docker compose down` lässt sie stehen; `down -v` löscht sie.
 
 ## Entwicklung
 
