@@ -62,3 +62,26 @@ test("remembers the dark theme across reloads", async ({ page }) => {
   await page.reload();
   await expect(page.locator("html")).toHaveClass(/dark/);
 });
+
+test("folds the sidebar project list and remembers it", async ({ page }) => {
+  await login(page);
+  const board = await createProjectViaUi(page, "Einklappen Alpha", "eka");
+  await createProjectViaUi(page, "Einklappen Beta", "ekb");
+  const nav = page.getByRole("navigation", { name: "Hauptnavigation" });
+  const toggle = nav.getByRole("button", { name: /Projekte/ });
+
+  await page.goto("/");
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(nav.getByRole("link", { name: /Einklappen Alpha/ })).toHaveCount(0);
+
+  // Still folded after a reload; the open project stays reachable.
+  await page.goto(board);
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(nav.getByRole("link", { name: /Einklappen Alpha/ })).toBeVisible();
+  await expect(nav.getByRole("link", { name: /Einklappen Beta/ })).toHaveCount(0);
+
+  await toggle.click();
+  await expect(nav.getByRole("link", { name: /Einklappen Beta/ })).toBeVisible();
+});
