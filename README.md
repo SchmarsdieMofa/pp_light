@@ -54,8 +54,10 @@ Caddy setzt Sicherheits-Header und ersetzt `X-Forwarded-For` durch die echte Cli
 
 Der Dienst `backup` sichert täglich um `BACKUP_HOUR` Uhr (Standard 2 Uhr, Zeitzone Europe/Berlin) die Datenbank und alle Anhänge nach `./backups/<Datum_Uhrzeit>/` (`db.dump`, `uploads.tar.gz`) und löscht Sicherungen, die älter als `BACKUP_KEEP_DAYS` Tage sind (Standard 14). Ein anderes Ziel, etwa ein Netzlaufwerk, setzt `BACKUP_DIR`.
 
+Admins starten ein Backup auch in der Weboberfläche: Zahnrad → Einstellungen → „Backups“ → „Jetzt sichern“. Dort stehen auch die letzten Läufe mit Status, Größe und gegebenenfalls Fehlermeldung. Der Backup-Dienst holt solche Aufträge alle 10 Sekunden ab; einen Zugriff der App auf Docker gibt es dafür nicht.
+
 ```bash
-docker compose exec backup sh /backup.sh now         # sofort sichern
+docker compose exec backup sh /backup.sh now         # sofort sichern (Kommandozeile)
 docker compose logs backup                           # letzte Läufe
 ```
 

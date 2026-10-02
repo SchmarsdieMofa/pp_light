@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
+  bigint,
   boolean,
   check,
   date,
@@ -310,4 +311,32 @@ export const oidcAccounts = pgTable(
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.provider, t.subject] }), index("oidc_accounts_user_idx").on(t.userId)],
+);
+
+/**
+ * Backups are run by the separate `backup` container (docker/backup.sh), which polls this table:
+ * the app queues manual runs as "pending", the container claims, runs and finishes them and logs scheduled runs here too.
+ */
+export const backupRuns = pgTable(
+  "backup_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    trigger: text("trigger").notNull().$type<"manual" | "scheduled">(),
+    status: text("status").notNull().default("pending").$type<"pending" | "running" | "done" | "failed">(),
+    requestedBy: uuid("requested_by").references(() => users.id, { onDelete: "set null" }),
+    /** Folder name in the backup directory, e.g. 2026-10-02_0200. */
+    name: text("name"),
+    sizeBytes: bigint("size_bytes", { mode: "number" }),
+    error: text("error"),
+    createdAt: createdAt(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("backup_runs_created_idx").on(t.createdAt),
+    // At most one queued and one running backup – a double click cannot queue two.
+    uniqueIndex("backup_runs_active_idx").on(t.status).where(sql`${t.status} in ('pending', 'running')`),
+    check("backup_runs_trigger_check", sql`${t.trigger} in ('manual', 'scheduled')`),
+    check("backup_runs_status_check", sql`${t.status} in ('pending', 'running', 'done', 'failed')`),
+  ],
 );

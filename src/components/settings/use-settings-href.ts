@@ -4,7 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { buildHref, normalizeSearchParams } from "@/lib/urls";
 
 export const SETTINGS_PARAM = "settings";
-export type SettingsTab = "konto" | "nutzer";
+export type SettingsTab = "konto" | "nutzer" | "backups";
 
 /** Href of the current view with the settings overlay open on `tab` (null closes it). */
 export function useSettingsHref(): (tab: SettingsTab | null) => string {

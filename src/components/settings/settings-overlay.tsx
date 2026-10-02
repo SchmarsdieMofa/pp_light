@@ -12,7 +12,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import type { CardDensity } from "@/lib/enums";
 import { isTypingTarget } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
+import type { BackupRun } from "@/server/backups/service";
 import { PasswordForm, ProfileForm } from "./account-settings";
+import { BackupPanel } from "./backup-panel";
 import { SETTINGS_PARAM, useSettingsHref } from "./use-settings-href";
 
 export type SettingsData = {
@@ -23,6 +25,8 @@ export type SettingsData = {
   cardDensity: CardDensity;
   /** Only for admins. */
   users: UserRow[] | null;
+  /** Only for admins. */
+  backups: BackupRun[] | null;
 };
 
 function Block(props: { title: string; description?: string; children: React.ReactNode }) {
@@ -46,7 +50,8 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
   const searchParams = useSearchParams();
   const hrefFor = useSettingsHref();
   const requested = searchParams.get(SETTINGS_PARAM);
-  const tab = requested === "nutzer" && data.users ? "nutzer" : requested ? "konto" : null;
+  const tab =
+    requested === "nutzer" && data.users ? "nutzer" : requested === "backups" && data.backups ? "backups" : requested ? "konto" : null;
   if (!tab) return null;
 
   function close() {
@@ -58,6 +63,7 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
   const tabs = [
     { value: "konto" as const, label: "Mein Konto" },
     ...(data.users ? [{ value: "nutzer" as const, label: "Nutzerverwaltung" }] : []),
+    ...(data.backups ? [{ value: "backups" as const, label: "Backups" }] : []),
   ];
 
   return (
@@ -137,9 +143,13 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
                   )}
                 </Block>
               </>
-            ) : (
+            ) : tab === "nutzer" ? (
               <Block title="Nutzerverwaltung" description="Personen einladen, Rollen vergeben und Konten deaktivieren.">
                 <AdminUsers users={data.users!} ownId={data.ownId} />
+              </Block>
+            ) : (
+              <Block title="Backups" description="Sicherungen von Datenbank und Anhängen.">
+                <BackupPanel runs={data.backups!} />
               </Block>
             )}
           </ScrollArea>

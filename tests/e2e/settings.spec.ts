@@ -63,3 +63,15 @@ test("admins manage users in the settings overlay; members only see their accoun
   await expect(memberDialog.getByRole("combobox", { name: /Rolle von/ })).toHaveCount(0);
   await context.close();
 });
+
+test("admins queue a backup from the settings", async ({ page }) => {
+  await login(page);
+  await page.goto("/?settings=backups");
+  const dialog = page.getByRole("dialog", { name: "Einstellungen" });
+  await expect(dialog.getByRole("link", { name: "Backups" })).toHaveAttribute("aria-current", "page");
+  // No backup container in tests: the job stays queued – or another test already queued one.
+  const start = dialog.getByRole("button", { name: "Jetzt sichern" });
+  if (await start.isVisible()) await start.click();
+  await expect(dialog.getByRole("button", { name: "Backup läuft…" })).toBeDisabled();
+  await expect(dialog.getByRole("list", { name: "Letzte Backups" })).toContainText("Wartet");
+});
