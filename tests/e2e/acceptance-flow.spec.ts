@@ -31,7 +31,9 @@ test("invitation through Mailpit to project planning and an inbox mention", asyn
   const db = createDb(E2E_DATABASE_URL);
   try {
     await login(page);
+    await page.getByRole("link", { name: "Einstellungen" }).click();
     await page.getByRole("link", { name: "Nutzerverwaltung" }).click();
+    await expect(page).toHaveURL(/\/settings\/users$/);
     await page.getByRole("textbox", { name: "Name" }).fill("Nina Flow");
     await page.getByRole("textbox", { name: "E-Mail" }).fill(email);
     await page.getByRole("button", { name: "Einladen" }).click();

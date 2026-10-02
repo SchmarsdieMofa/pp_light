@@ -11,7 +11,9 @@ test("admin invites a user who sets a password, then resets it", async ({ page }
   const db = createDb(E2E_DATABASE_URL);
   try {
     await login(page);
+    await page.getByRole("link", { name: "Einstellungen" }).click();
     await page.getByRole("link", { name: "Nutzerverwaltung" }).click();
+    await expect(page).toHaveURL(/\/settings\/users$/);
     await page.getByRole("textbox", { name: "Name" }).fill("Nina Example");
     await page.getByRole("textbox", { name: "E-Mail" }).fill(email);
     await page.getByRole("button", { name: "Einladen" }).click();

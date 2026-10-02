@@ -65,7 +65,7 @@ export default async function ArchivePage({ searchParams }: { searchParams: Prom
             </Link>
           ))}
         </nav>
-        <form action="/projects/archive" className="flex min-w-0 flex-1 items-center gap-2">
+        <form action="/projects/archive" className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-1">
           {kind !== "alle" && <input type="hidden" name="art" value={kind} />}
           <label htmlFor="archive-search" className="sr-only">Archiv durchsuchen</label>
           <Input id="archive-search" name="q" type="search" defaultValue={query} placeholder="Name, Kürzel oder Notiz suchen…" className="min-w-0 max-w-sm flex-1" />

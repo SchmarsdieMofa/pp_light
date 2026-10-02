@@ -24,7 +24,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             user={{ name: actor.name, email: actor.email }}
             projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key }))}
             initialUnread={initialUnread}
-            isAdmin={actor.role === "admin"}
           />
         }
       >

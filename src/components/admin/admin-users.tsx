@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { inviteUserAction, revokeInvitationAction, setUserActiveAction } from "@/app/(app)/admin/actions";
+import { inviteUserAction, revokeInvitationAction, setUserActiveAction, setUserRoleAction } from "@/app/(app)/settings/users/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -32,7 +32,17 @@ export function AdminUsers({ users, ownId }: { users: UserRow[]; ownId: string }
     {message && <p role="status" className="text-sm">{message}</p>}
     <ul className="divide-y rounded-md border" aria-label="Nutzer">
       {users.map((user) => <li key={user.id} className="flex items-center justify-between gap-3 p-3">
-        <div className="min-w-0"><p className="truncate font-medium">{user.name}</p><p className="truncate text-sm text-muted-foreground">{user.email} · {user.role === "admin" ? "Admin" : "Mitglied"} · {user.active ? "Aktiv" : "Inaktiv"}</p></div>
+        <div className="min-w-0"><p className="truncate font-medium">{user.name}</p><p className="truncate text-sm text-muted-foreground">{user.email} · {user.id === ownId ? (user.role === "admin" ? "Admin · " : "Mitglied · ") : ""}{user.active ? "Aktiv" : "Inaktiv"}</p></div>
+        {user.id !== ownId && <select aria-label={`Rolle von ${user.name}`} value={user.role} disabled={busy}
+          className="ml-auto h-8 rounded-md border bg-background px-2 text-sm"
+          onChange={async (event) => {
+            const role = event.target.value === "admin" ? "admin" : "member";
+            setBusy(true); try { const result = await setUserRoleAction(user.id, role);
+              if (!result.ok) setMessage(result.error.message); else router.refresh();
+            } finally { setBusy(false); }
+          }}>
+          <option value="member">Mitglied</option><option value="admin">Admin</option>
+        </select>}
         {user.id !== ownId && <Button type="button" size="sm" variant="outline" disabled={busy} onClick={async () => {
           setBusy(true); try { const result = await setUserActiveAction(user.id, !user.active);
             if (!result.ok) setMessage(result.error.message); else router.refresh();

@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, CalendarDays, ChevronRight, FolderKanban, Home, Search, Users } from "lucide-react";
+import { Archive, CalendarDays, ChevronRight, FolderKanban, Home, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
@@ -15,7 +15,7 @@ export type SidebarProject = { id: string; name: string; key: string };
 const navItem = "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent";
 const navActive = "bg-accent font-medium";
 
-export function Sidebar({ user, projects, initialUnread, isAdmin }: { user: { name: string; email: string }; projects: SidebarProject[]; initialUnread: number; isAdmin: boolean }) {
+export function Sidebar({ user, projects, initialUnread }: { user: { name: string; email: string }; projects: SidebarProject[]; initialUnread: number }) {
   const pathname = usePathname();
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r bg-muted/30">
@@ -42,7 +42,9 @@ export function Sidebar({ user, projects, initialUnread, isAdmin }: { user: { na
           <kbd className="ml-auto rounded border bg-background px-1 text-[10px] text-muted-foreground">Strg K</kbd>
         </button>
         <NotificationLink initialUnread={initialUnread} />
-        {isAdmin && <Link href="/admin" className={cn(navItem, pathname === "/admin" && navActive)}><Users className="size-4" /> Nutzerverwaltung</Link>}
+        <Link href="/settings" className={cn(navItem, pathname.startsWith("/settings") && navActive)}>
+          <Settings className="size-4" /> Einstellungen
+        </Link>
         <SidebarProjects projects={projects} pathname={pathname} />
         <NewProjectDialog />
       </nav>
