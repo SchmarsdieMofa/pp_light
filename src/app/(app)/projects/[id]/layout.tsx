@@ -1,3 +1,5 @@
+import { Archive } from "lucide-react";
+import Link from "next/link";
 import { ProjectTabs } from "@/components/shell/project-tabs";
 import { loadProject } from "@/server/projects/loaders";
 
@@ -16,6 +18,21 @@ export default async function ProjectLayout({
         <h1 className="text-lg font-semibold">{project.name}</h1>
         <ProjectTabs projectId={project.id} />
       </header>
+      {project.archivedAt && (
+        <p role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/50 px-6 py-2 text-sm">
+          <Archive className="size-4 text-muted-foreground" aria-hidden />
+          <span>
+            {project.completedAt ? "Abgeschlossen" : "Archiviert"} am{" "}
+            {new Intl.DateTimeFormat("de-DE", { dateStyle: "long", timeZone: "Europe/Berlin" }).format(project.archivedAt)} · schreibgeschützt
+          </span>
+          <Link href={`/projects/${project.id}/review`} className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+            {project.completedAt ? "Abschlussbericht" : "Bericht"}
+          </Link>
+          <Link href={`/projects/${project.id}/settings#projektstatus`} className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+            Wiederherstellen
+          </Link>
+        </p>
+      )}
       <div className="flex min-h-0 flex-1 flex-col p-6">{children}</div>
     </div>
   );

@@ -105,14 +105,16 @@ test("manages status columns", async ({ page }) => {
   await page.getByRole("button", { name: "Spalte hinzufügen" }).click();
   const row = page.getByRole("group", { name: "Spalte Blockiert" });
   await expect(row).toBeVisible();
+  // Renaming saves on Enter – no save button.
   await row.getByLabel("Name").fill("Wartet");
-  await row.getByRole("button", { name: "Speichern" }).click();
+  await row.getByLabel("Name").press("Enter");
   await expect(page.getByRole("group", { name: "Spalte Wartet" })).toBeVisible();
   await page.getByRole("button", { name: "Wartet nach links" }).click();
 
-  const review = page.getByRole("group", { name: "Spalte Review" });
-  await review.getByLabel("Aufgaben verschieben nach").selectOption({ label: "Offen" });
-  await review.getByRole("button", { name: "Spalte löschen" }).click();
+  await page.getByRole("button", { name: "Spalte Review löschen" }).click();
+  const confirm = page.getByRole("dialog", { name: "Spalte „Review“ löschen?" });
+  await confirm.getByLabel("Aufgaben verschieben nach").selectOption({ label: "Offen" });
+  await confirm.getByRole("button", { name: "Spalte löschen" }).click();
   await expect(page.getByRole("group", { name: "Spalte Review" })).toHaveCount(0);
 
   await page.goto(board);

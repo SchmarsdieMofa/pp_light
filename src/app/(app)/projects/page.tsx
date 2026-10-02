@@ -5,11 +5,12 @@ import { Input } from "@/components/ui/input";
 import { todayInZone } from "@/lib/dates";
 import { requireActor } from "@/server/auth/session";
 import { db } from "@/server/db/client";
+import { listArchivedProjects } from "@/server/projects/lifecycle";
 import { listProjectOverview } from "@/server/projects/service";
 
 export default async function ProjectsPage({ searchParams }: { searchParams: Promise<{ q?: string | string[] }> }) {
   const actor = await requireActor();
-  const projects = await listProjectOverview(db(), actor, todayInZone());
+  const [projects, archived] = await Promise.all([listProjectOverview(db(), actor, todayInZone()), listArchivedProjects(db(), actor)]);
   const rawQuery = (await searchParams).q;
   const query = (typeof rawQuery === "string" ? rawQuery : "").trim().slice(0, 100);
   const needle = query.toLocaleLowerCase("de");
@@ -80,6 +81,28 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
           </ul>
         )}
       </section>
+
+      {archived.length > 0 && (
+        <details className="group rounded-lg border">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium">
+            <span className="mr-1 inline-block transition-transform group-open:rotate-90" aria-hidden>›</span>
+            Archiv ({archived.length})
+            <span className="ml-2 font-normal text-muted-foreground">abgeschlossene und archivierte Projekte</span>
+          </summary>
+          <ul aria-label="Archivierte Projekte" className="divide-y border-t">
+            {archived.map((project) => (
+              <li key={project.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm">
+                <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{project.key}</span>
+                <Link href={`/projects/${project.id}/review`} className="min-w-0 flex-1 truncate hover:underline">{project.name}</Link>
+                <span className="text-xs text-muted-foreground">
+                  {project.completedAt ? "Abgeschlossen" : "Archiviert"} am{" "}
+                  {new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeZone: "Europe/Berlin" }).format(project.archivedAt!)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }

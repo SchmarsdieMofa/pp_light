@@ -1,8 +1,7 @@
 "use client";
 
-import { ArrowLeft, ArrowRight } from "lucide-react";
-import { useState, useTransition } from "react";
-import { toast } from "sonner";
+import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
 import {
   createStatusAction,
   deleteStatusAction,
@@ -10,58 +9,22 @@ import {
   updateStatusAction,
 } from "@/app/(app)/projects/actions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { LABEL_COLORS } from "@/lib/labels";
-import type { ActionResult } from "@/server/action-result";
+import { AutosaveInput, ColorPicker, ConfirmAction, useRunner } from "./settings-ui";
 
 type StatusItem = { id: string; name: string; color: string; isDone: boolean };
 
-const selectClass = "h-8 rounded-md border bg-background px-2 text-sm";
+const selectClass = "h-8 w-full rounded-md border bg-background px-2 text-sm";
 
-function useRunner() {
-  const [pending, startTransition] = useTransition();
-  const run = (action: () => Promise<ActionResult<void>>, onOk?: () => void) =>
-    startTransition(async () => {
-      const res = await action();
-      if (!res.ok) {
-        const fieldMessage = res.error.fieldErrors ? Object.values(res.error.fieldErrors).flat()[0] : undefined;
-        toast.error(fieldMessage ?? res.error.message);
-      } else onOk?.();
-    });
-  return { pending, run };
-}
-
-function ColorSelect(props: { id: string; label?: string; value: string; onChange: (v: string) => void; disabled?: boolean }) {
-  // Unknown legacy colors (e.g. the M1 defaults) stay selectable so saving does not silently change them.
-  const known = LABEL_COLORS.some((c) => c.value === props.value);
-  return (
-    <select
-      id={props.id}
-      aria-label={props.label}
-      className={selectClass}
-      value={props.value}
-      disabled={props.disabled}
-      onChange={(e) => props.onChange(e.target.value)}
-    >
-      {!known && <option value={props.value}>Aktuelle Farbe</option>}
-      {LABEL_COLORS.map((c) => (
-        <option key={c.value} value={c.value}>
-          {c.name}
-        </option>
-      ))}
-    </select>
-  );
-}
-
+/** Board columns: rename, recolor and mark as "done" in place – every change saves itself. */
 export function StatusManager(props: { projectId: string; statuses: StatusItem[]; canManage: boolean }) {
   const [name, setName] = useState("");
-  const [color, setColor] = useState<string>(LABEL_COLORS[5].value);
   const { pending, run } = useRunner();
+  const nextColor = LABEL_COLORS[props.statuses.length % LABEL_COLORS.length].value;
 
   return (
     <div className="space-y-3">
-      <ul className="space-y-2">
+      <ul className="divide-y rounded-lg border">
         {props.statuses.map((s, i) => (
           <StatusRow
             key={s.id}
@@ -75,22 +38,23 @@ export function StatusManager(props: { projectId: string; statuses: StatusItem[]
       </ul>
       {props.canManage && (
         <form
-          className="flex flex-wrap items-end gap-2"
+          className="flex items-center gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            run(() => createStatusAction(props.projectId, { name, color, isDone: false }), () => setName(""));
+            if (!name.trim()) return;
+            run(() => createStatusAction(props.projectId, { name, color: nextColor, isDone: false }), () => setName(""));
           }}
         >
-          <div className="space-y-1">
-            <Label htmlFor="new-status-name">Name der neuen Spalte</Label>
-            <Input id="new-status-name" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} className="h-8 w-48" />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="new-status-color">Farbe der neuen Spalte</Label>
-            <ColorSelect id="new-status-color" value={color} onChange={setColor} />
-          </div>
-          <Button type="submit" size="sm" disabled={pending}>
-            Spalte hinzufügen
+          <input
+            aria-label="Name der neuen Spalte"
+            placeholder="Neue Spalte, z. B. „Blockiert“"
+            value={name}
+            maxLength={40}
+            onChange={(e) => setName(e.target.value)}
+            className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          />
+          <Button type="submit" size="sm" variant="outline" disabled={pending || !name.trim()}>
+            <Plus /> Spalte hinzufügen
           </Button>
         </form>
       )}
@@ -100,69 +64,55 @@ export function StatusManager(props: { projectId: string; statuses: StatusItem[]
 
 function StatusRow(props: { status: StatusItem; others: StatusItem[]; first: boolean; last: boolean; canManage: boolean }) {
   const s = props.status;
-  const [name, setName] = useState(s.name);
-  const [color, setColor] = useState(s.color);
-  const [isDone, setIsDone] = useState(s.isDone);
   const [target, setTarget] = useState(props.others[0]?.id ?? "");
   const { pending, run } = useRunner();
-  const disabled = !props.canManage || pending;
+  const save = (patch: Partial<StatusItem>) => updateStatusAction(s.id, { name: s.name, color: s.color, isDone: s.isDone, ...patch });
 
   return (
-    <li role="group" aria-label={`Spalte ${s.name}`} className="flex flex-wrap items-center gap-2 rounded-md border p-2">
-      <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
-      <Input aria-label="Name" value={name} maxLength={40} disabled={disabled} onChange={(e) => setName(e.target.value)} className="h-8 w-40" />
-      <ColorSelect id={`color-${s.id}`} label="Farbe" value={color} onChange={setColor} disabled={disabled} />
-      <label className="flex items-center gap-1 text-xs">
-        <input type="checkbox" checked={isDone} disabled={disabled} onChange={(e) => setIsDone(e.target.checked)} />
-        Gilt als erledigt
+    <li role="group" aria-label={`Spalte ${s.name}`} className="group flex items-center gap-1 px-2 py-1.5">
+      <ColorPicker value={s.color} label={`Farbe von ${s.name}`} disabled={!props.canManage} onChange={(color) => run(() => save({ color }))} />
+      <AutosaveInput value={s.name} label="Name" required maxLength={40} disabled={!props.canManage} onSave={(name) => save({ name })} className="flex-1" />
+      <label className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted">
+        <input
+          type="checkbox"
+          checked={s.isDone}
+          disabled={!props.canManage || pending}
+          onChange={(e) => {
+            const isDone = e.target.checked;
+            run(() => save({ isDone }));
+          }}
+        />
+        Erledigt
       </label>
       {props.canManage && (
-        <>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            disabled={pending}
-            onClick={() => run(() => updateStatusAction(s.id, { name, color, isDone }))}
-          >
-            Speichern
+        <div className="flex shrink-0 items-center opacity-60 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+          <Button type="button" size="icon-sm" variant="ghost" aria-label={`${s.name} nach links`} title="Nach vorne" disabled={pending || props.first}
+            onClick={() => run(() => moveStatusAction(s.id, "left"))}>
+            <ChevronUp />
           </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            aria-label={`${s.name} nach links`}
-            disabled={pending || props.first}
-            onClick={() => run(() => moveStatusAction(s.id, "left"))}
-          >
-            <ArrowLeft className="size-4" />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            aria-label={`${s.name} nach rechts`}
-            disabled={pending || props.last}
-            onClick={() => run(() => moveStatusAction(s.id, "right"))}
-          >
-            <ArrowRight className="size-4" />
+          <Button type="button" size="icon-sm" variant="ghost" aria-label={`${s.name} nach rechts`} title="Nach hinten" disabled={pending || props.last}
+            onClick={() => run(() => moveStatusAction(s.id, "right"))}>
+            <ChevronDown />
           </Button>
           {props.others.length > 0 && (
-            <span className="ml-auto flex items-center gap-1 text-xs">
-              <label htmlFor={`target-${s.id}`}>Aufgaben verschieben nach</label>
-              <select id={`target-${s.id}`} className={selectClass} value={target} onChange={(e) => setTarget(e.target.value)}>
-                {props.others.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              </select>
-              <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => deleteStatusAction(s.id, target))}>
-                Spalte löschen
-              </Button>
-            </span>
+            <ConfirmAction
+              trigger={<Trash2 />}
+              triggerLabel={`Spalte ${s.name} löschen`}
+              title={`Spalte „${s.name}“ löschen?`}
+              description="Aufgaben in dieser Spalte ziehen in eine andere Spalte um. Sonst geht nichts verloren."
+              confirmLabel="Spalte löschen"
+              pending={pending}
+              onConfirm={() => run(() => deleteStatusAction(s.id, target))}
+            >
+              <label className="space-y-1 text-sm">
+                <span className="text-muted-foreground">Aufgaben verschieben nach</span>
+                <select className={selectClass} value={target} onChange={(e) => setTarget(e.target.value)}>
+                  {props.others.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </select>
+              </label>
+            </ConfirmAction>
           )}
-        </>
+        </div>
       )}
     </li>
   );

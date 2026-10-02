@@ -11,6 +11,16 @@ import { db } from "@/server/db/client";
 import { createLabel, deleteLabel } from "@/server/labels/service";
 import { addMemberByEmail, changeMemberRole, removeMember } from "@/server/members/service";
 import { createPhase, deletePhase, movePhase, updatePhase } from "@/server/phases/service";
+import { getEnv } from "@/lib/env";
+import {
+  archiveProject,
+  completeProject,
+  deleteProject,
+  restoreProject,
+  updateProjectDetails,
+  type CloseProjectInput,
+  type ProjectDetailsInput,
+} from "@/server/projects/lifecycle";
 import { createProject } from "@/server/projects/service";
 import { createStatus, deleteStatus, moveStatus, updateStatus } from "@/server/statuses/service";
 
@@ -89,4 +99,24 @@ export async function movePhaseAction(phaseId: string, direction: "left" | "righ
 
 export async function deletePhaseAction(phaseId: string) {
   return mutate((actor) => deletePhase(db(), actor, phaseId));
+}
+
+export async function updateProjectDetailsAction(projectId: string, input: ProjectDetailsInput) {
+  return mutate((actor) => updateProjectDetails(db(), actor, projectId, input));
+}
+
+export async function archiveProjectAction(projectId: string) {
+  return mutate((actor) => archiveProject(db(), actor, projectId));
+}
+
+export async function completeProjectAction(projectId: string, input: CloseProjectInput) {
+  return mutate((actor) => completeProject(db(), actor, projectId, input));
+}
+
+export async function restoreProjectAction(projectId: string) {
+  return mutate((actor) => restoreProject(db(), actor, projectId));
+}
+
+export async function deleteProjectAction(projectId: string, confirmKey: string) {
+  return mutate((actor) => deleteProject(db(), actor, projectId, confirmKey, getEnv().UPLOAD_DIR));
 }
