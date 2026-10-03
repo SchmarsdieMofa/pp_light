@@ -45,7 +45,7 @@ export function Sidebar({ user, projects, initialUnread }: { user: { name: strin
           </button>
           <NotificationLink initialUnread={initialUnread} />
           <SidebarProjects projects={projects} pathname={pathname} />
-          <NewProjectDialog />
+          <NewProjectDialog listen />
         </nav>
       </ScrollArea>
       <div className="border-t p-2">

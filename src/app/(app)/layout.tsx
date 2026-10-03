@@ -5,6 +5,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { CommandCenter } from "@/components/shell/command-center";
 import { Sidebar } from "@/components/shell/sidebar";
 import { ThemeSync } from "@/components/shell/theme-sync";
+import { WelcomeDialog } from "@/components/shell/welcome-dialog";
 import { requireActor } from "@/server/auth/session";
 import { db } from "@/server/db/client";
 import { getPreferences } from "@/server/preferences/service";
@@ -55,6 +56,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         />
       </Suspense>
       <CommandCenter projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key }))} />
+      <Suspense>
+        <WelcomeDialog name={actor.name} isAdmin={isAdmin} onboarded={prefs.onboarded} hasProjects={projects.length > 0} />
+      </Suspense>
     </>
   );
 }

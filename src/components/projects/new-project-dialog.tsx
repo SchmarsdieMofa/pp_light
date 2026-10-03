@@ -2,7 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createProjectAction } from "@/app/(app)/projects/actions";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,17 @@ import { Textarea } from "@/components/ui/textarea";
 
 type FieldErrors = Record<string, string[] | undefined>;
 
-export function NewProjectDialog() {
+/** Opens the dialog from elsewhere (welcome tour); only the instance with `listen` reacts. */
+export const NEW_PROJECT_EVENT = "pp:new-project";
+
+export function NewProjectDialog({ listen = false }: { listen?: boolean }) {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!listen) return;
+    const show = () => setOpen(true);
+    window.addEventListener(NEW_PROJECT_EVENT, show);
+    return () => window.removeEventListener(NEW_PROJECT_EVENT, show);
+  }, [listen]);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [pending, startTransition] = useTransition();
   const router = useRouter();

@@ -75,6 +75,16 @@ export function CommandCenter({ projects }: { projects: { id: string; key: strin
               </div>
             ))}
           </dl>
+          <button
+            type="button"
+            className="justify-self-start text-sm underline underline-offset-4"
+            onClick={() => {
+              setHelpOpen(false);
+              router.push(buildHref(pathname, normalizeSearchParams(Object.fromEntries(searchParams.entries())), { welcome: "1" }), { scroll: false });
+            }}
+          >
+            Einführung ansehen
+          </button>
         </DialogContent>
       </Dialog>
     </>

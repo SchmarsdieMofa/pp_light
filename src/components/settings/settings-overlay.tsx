@@ -3,7 +3,7 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AdminUsers, type UserRow } from "@/components/admin/admin-users";
 import { DensityToggle } from "@/components/board/density-toggle";
 import { ThemeToggle } from "@/components/shell/user-menu";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { CardDensity } from "@/lib/enums";
 import { isTypingTarget } from "@/lib/shortcuts";
+import { buildHref, normalizeSearchParams } from "@/lib/urls";
 import { cn } from "@/lib/utils";
 import type { BackupRun } from "@/server/backups/service";
 import { PasswordForm, ProfileForm } from "./account-settings";
@@ -50,6 +51,7 @@ function Block(props: { title: string; description?: string; children: React.Rea
  */
 export function SettingsOverlay({ data }: { data: SettingsData }) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const hrefFor = useSettingsHref();
   const requested = searchParams.get(SETTINGS_PARAM);
@@ -144,6 +146,16 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
                     <span className="text-muted-foreground">Board-Karten</span>
                     <DensityToggle density={data.cardDensity} />
                   </div>
+                </Block>
+                <Block title="Einführung" description="Der kurze Rundgang durch pp_light.">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push(buildHref(pathname, normalizeSearchParams(Object.fromEntries(searchParams.entries())), { [SETTINGS_PARAM]: null, welcome: "1" }), { scroll: false })}
+                  >
+                    Einführung ansehen
+                  </Button>
                 </Block>
                 <Block title="Passwort">
                   {data.hasPassword ? (

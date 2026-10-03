@@ -12,7 +12,14 @@ export const E2E_MEMBER = {
   name: "Mia Member",
 };
 
+/** New accounts get the welcome tour after their first login; tests about other things just skip it when it is in the way. */
+export async function skipWelcome(page: Page) {
+  const welcome = page.getByRole("dialog").filter({ has: page.getByRole("button", { name: "Überspringen" }) });
+  await page.addLocatorHandler(welcome, (dialog) => dialog.getByRole("button", { name: "Überspringen" }).click());
+}
+
 export async function login(page: Page, email = E2E_ADMIN.email, password = E2E_ADMIN.password) {
+  await skipWelcome(page);
   await page.goto("/login");
   await page.getByLabel("E-Mail").fill(email);
   await page.getByLabel("Passwort").fill(password);
