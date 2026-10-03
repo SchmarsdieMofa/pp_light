@@ -6,7 +6,7 @@ import type { CardDensity, Theme } from "@/lib/enums";
 import { runAction, type ActionResult } from "@/server/action-result";
 import { requireActor } from "@/server/auth/session";
 import { db } from "@/server/db/client";
-import { setCardDensity, setTheme } from "@/server/preferences/service";
+import { markOnboarded, setCardDensity, setTheme } from "@/server/preferences/service";
 
 export async function logoutAction(): Promise<void> {
   await signOut({ redirectTo: "/login" });
@@ -23,4 +23,10 @@ export async function saveCardDensityAction(density: CardDensity): Promise<Actio
     await setCardDensity(db(), actor.id, density);
     revalidatePath("/", "layout");
   });
+}
+
+/** Welcome tour finished or skipped. */
+export async function markOnboardedAction(): Promise<ActionResult<void>> {
+  const actor = await requireActor();
+  return runAction(() => markOnboarded(db(), actor.id));
 }

@@ -101,6 +101,8 @@ export const userPreferences = pgTable("user_preferences", {
   userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
   theme: themePref("theme").notNull().default("system"),
   cardDensity: cardDensity("card_density").notNull().default("medium"),
+  /** When the welcome tour was finished or skipped; null shows it after the next login. */
+  onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
 });
 
 export const tasks = pgTable(
