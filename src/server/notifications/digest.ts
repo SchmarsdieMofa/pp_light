@@ -3,6 +3,7 @@ import type { DB } from "@/server/db/client";
 import { mailOutbox, notificationPreferences, notifications, projectMembers, users } from "@/server/db/schema";
 import { sendMail } from "@/server/mail/service";
 import { openMailBody } from "@/server/mail/crypto";
+import { getBaseUrl } from "@/server/settings/service";
 
 /** One worker may handle a user's digest at a time, even across worker replicas. */
 export async function sendPendingDigests(db: DB, now = new Date()): Promise<number> {
@@ -10,6 +11,8 @@ export async function sendPendingDigests(db: DB, now = new Date()): Promise<numb
     .selectDistinct({ userId: notifications.userId })
     .from(notifications)
     .where(isNull(notifications.emailedAt));
+  if (candidates.length === 0) return 0;
+  const baseUrl = await getBaseUrl(db);
   let sent = 0;
   for (const { userId } of candidates) {
     // One failing recipient must not hold back everyone else; their notices stay pending for the next run.
@@ -55,7 +58,7 @@ export async function sendPendingDigests(db: DB, now = new Date()): Promise<numb
           await sendMail(
             user.email,
             `pp_light: ${enabled.length} neue Benachrichtigungen`,
-            `${enabled.map((notice) => `• ${notice.message}`).join("\n")}\n\n${process.env.APP_URL ?? "http://localhost:3000"}/inbox`,
+            `${enabled.map((notice) => `• ${notice.message}`).join("\n")}\n\n${baseUrl}/inbox`,
           );
           await tx
             .insert(notificationPreferences)

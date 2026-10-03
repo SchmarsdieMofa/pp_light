@@ -7,11 +7,11 @@ import { DomainError } from "@/server/errors";
 import { assertCan, type Actor } from "@/server/permissions";
 import { hashPassword } from "@/server/auth/password";
 import { sealMailBody } from "@/server/mail/crypto";
+import { getBaseUrl } from "@/server/settings/service";
 import { normalizeEmail } from "./service";
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 const newToken = () => randomBytes(32).toString("base64url");
-const baseUrl = () => (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
 export async function listUsers(db: DB, actor: Actor) {
   assertCan(actor, "admin.manageUsers");
@@ -27,6 +27,7 @@ export async function inviteUser(db: DB, actor: Actor, raw: { email: string; nam
     throw new DomainError("VALIDATION", "Ein gültiger Name und eine gültige E-Mail sind erforderlich.");
   }
   const token = newToken();
+  const baseUrl = await getBaseUrl(db);
   await db.transaction(async (tx) => {
     const [existing] = await tx.select().from(users).where(eq(users.email, email));
     if (existing?.active) throw new DomainError("EMAIL_TAKEN", "Dieses Konto ist bereits aktiv.");
@@ -36,7 +37,7 @@ export async function inviteUser(db: DB, actor: Actor, raw: { email: string; nam
     await tx.insert(authTokens).values({ tokenHash: hashToken(token), userId: user.id, kind: "invite",
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60_000) });
     await tx.insert(mailOutbox).values({ toEmail: email, subject: "Einladung zu pp_light",
-      body: sealMailBody(`Hallo ${name},\n\nsetze dein Passwort über diesen Link:\n${baseUrl()}/invite/${token}\n\nDer Link ist sieben Tage gültig.`) });
+      body: sealMailBody(`Hallo ${name},\n\nsetze dein Passwort über diesen Link:\n${baseUrl}/invite/${token}\n\nDer Link ist sieben Tage gültig.`) });
   });
 }
 
@@ -49,12 +50,13 @@ export async function requestPasswordReset(db: DB, rawEmail: string): Promise<vo
       gt(authTokens.createdAt, new Date(Date.now() - 5 * 60_000))));
   if (recent) return;
   const token = newToken();
+  const baseUrl = await getBaseUrl(db);
   await db.transaction(async (tx) => {
     await tx.delete(authTokens).where(and(eq(authTokens.userId, user.id), eq(authTokens.kind, "reset")));
     await tx.insert(authTokens).values({ tokenHash: hashToken(token), userId: user.id, kind: "reset",
       expiresAt: new Date(Date.now() + 60 * 60_000) });
     await tx.insert(mailOutbox).values({ toEmail: email, subject: "Passwort für pp_light zurücksetzen",
-      body: sealMailBody(`Setze dein Passwort über diesen Link:\n${baseUrl()}/reset/${token}\n\nDer Link ist eine Stunde gültig.`) });
+      body: sealMailBody(`Setze dein Passwort über diesen Link:\n${baseUrl}/reset/${token}\n\nDer Link ist eine Stunde gültig.`) });
   });
 }
 

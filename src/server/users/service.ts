@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { GlobalRole } from "@/lib/enums";
 import { hashPassword, verifyPassword } from "@/server/auth/password";
-import type { DB } from "@/server/db/client";
+import type { DB, Executor } from "@/server/db/client";
 import { users } from "@/server/db/schema";
 import { DomainError, isUniqueViolation } from "@/server/errors";
 
@@ -13,7 +13,7 @@ export function normalizeEmail(email: string): string {
 }
 
 export async function createUser(
-  db: DB,
+  db: Executor,
   input: { email: string; name: string; password?: string; role?: GlobalRole },
 ): Promise<User> {
   const passwordHash = input.password ? await hashPassword(input.password) : null;

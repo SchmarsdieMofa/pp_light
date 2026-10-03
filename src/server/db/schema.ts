@@ -340,3 +340,18 @@ export const backupRuns = pgTable(
     check("backup_runs_status_check", sql`${t.status} in ('pending', 'running', 'done', 'failed')`),
   ],
 );
+
+/** Instance-wide settings: exactly one row (id = 1), created on first use. */
+export const appSettings = pgTable(
+  "app_settings",
+  {
+    id: integer("id").primaryKey().default(1),
+    /** Redirect plain HTTP to HTTPS. Only switched on from a request that came in over HTTPS. */
+    httpsOnly: boolean("https_only").notNull().default(false),
+    /** Address used in links in mails, e.g. https://pp.firma.local. Taken from the setup request. */
+    baseUrl: text("base_url"),
+    /** SHA-256 of the one-time setup code while nobody has set the instance up yet. */
+    setupCodeHash: text("setup_code_hash"),
+  },
+  (t) => [check("app_settings_single_row", sql`${t.id} = 1`)],
+);

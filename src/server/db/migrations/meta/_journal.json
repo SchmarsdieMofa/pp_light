@@ -64,6 +64,13 @@
       "when": 1790942835277,
       "tag": "0008_backup_runs",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791000298548,
+      "tag": "0009_app_settings",
+      "breakpoints": true
     }
   ]
 }
