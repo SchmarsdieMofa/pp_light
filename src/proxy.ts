@@ -5,17 +5,19 @@ import { getAppSettings } from "@/server/settings/service";
 import { hasUsers } from "@/server/setup/service";
 
 type State = { setupDone: boolean; httpsOnly: boolean };
-let cached: { state: State; at: number } | undefined;
+let setupDone = false;
+let httpsOnly: { value: boolean; at: number } | undefined;
 
-/** Read at most every 5 s; a finished setup never becomes undone, so that part is not read again. */
+/**
+ * Until the first admin exists every request checks again, so the finished setup takes effect at once; after that
+ * it never becomes undone. HTTPS-only is read at most every 5 s.
+ */
 async function state(): Promise<State> {
-  if (cached && Date.now() - cached.at < 5_000) return cached.state;
-  const [setupDone, settings] = await Promise.all([
-    cached?.state.setupDone || hasUsers(db()),
-    getAppSettings(db()),
-  ]);
-  cached = { state: { setupDone, httpsOnly: settings.httpsOnly }, at: Date.now() };
-  return cached.state;
+  setupDone ||= await hasUsers(db());
+  if (!httpsOnly || Date.now() - httpsOnly.at >= 5_000) {
+    httpsOnly = { value: (await getAppSettings(db())).httpsOnly, at: Date.now() };
+  }
+  return { setupDone, httpsOnly: httpsOnly.value };
 }
 
 /** HTTP→HTTPS redirect when an admin chose „Nur HTTPS“, and the way to /setup on a fresh install. */
