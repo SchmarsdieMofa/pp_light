@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import type { BackupRun } from "@/server/backups/service";
 import { PasswordForm, ProfileForm } from "./account-settings";
 import { BackupPanel } from "./backup-panel";
+import { ServerPanel, type ServerSettings } from "./server-panel";
 import { SETTINGS_PARAM, useSettingsHref } from "./use-settings-href";
 
 export type SettingsData = {
@@ -27,6 +28,8 @@ export type SettingsData = {
   users: UserRow[] | null;
   /** Only for admins. */
   backups: BackupRun[] | null;
+  /** Only for admins. */
+  server: ServerSettings | null;
 };
 
 function Block(props: { title: string; description?: string; children: React.ReactNode }) {
@@ -51,7 +54,13 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
   const hrefFor = useSettingsHref();
   const requested = searchParams.get(SETTINGS_PARAM);
   const tab =
-    requested === "nutzer" && data.users ? "nutzer" : requested === "backups" && data.backups ? "backups" : requested ? "konto" : null;
+    requested === "nutzer" && data.users ? "nutzer" : requested === "backups" && data.backups
+        ? "backups"
+        : requested === "server" && data.server
+          ? "server"
+          : requested
+            ? "konto"
+            : null;
   if (!tab) return null;
 
   function close() {
@@ -64,6 +73,7 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
     { value: "konto" as const, label: "Mein Konto" },
     ...(data.users ? [{ value: "nutzer" as const, label: "Nutzerverwaltung" }] : []),
     ...(data.backups ? [{ value: "backups" as const, label: "Backups" }] : []),
+    ...(data.server ? [{ value: "server" as const, label: "Server" }] : []),
   ];
 
   return (
@@ -147,9 +157,13 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
               <Block title="Nutzerverwaltung" description="Personen einladen, Rollen vergeben und Konten deaktivieren.">
                 <AdminUsers users={data.users!} ownId={data.ownId} />
               </Block>
-            ) : (
+            ) : tab === "backups" ? (
               <Block title="Backups" description="Sicherungen von Datenbank und Anhängen.">
                 <BackupPanel runs={data.backups!} />
+              </Block>
+            ) : (
+              <Block title="Server" description="Wie pp_light im Netz erreichbar ist.">
+                <ServerPanel settings={data.server!} />
               </Block>
             )}
           </ScrollArea>
