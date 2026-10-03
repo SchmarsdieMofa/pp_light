@@ -5,7 +5,7 @@ import { mailOutbox } from "../../src/server/db/schema";
 import { openMailBody } from "../../src/server/mail/crypto";
 import { sendMail } from "../../src/server/mail/service";
 import { E2E_DATABASE_URL } from "../helpers/test-env";
-import { closeTask, createProjectViaUi, dragTo, login, choose } from "./fixtures";
+import { closeTask, createProjectViaUi, dragTo, ganttBar, ganttDayWidth, ganttRow, login, choose } from "./fixtures";
 import { formatDate } from "../../src/lib/dates";
 
 test.setTimeout(180_000);
@@ -119,15 +119,14 @@ test("invitation through Mailpit to project planning and an inbox mention", asyn
     await expect(panel.getByRole("link", { name: /ABF-1 Ausgang/ })).toBeVisible();
 
     await page.goto(board.replace(/\/board$/, "/gantt"));
-    await page.getByRole("button", { name: "Tag" }).click();
-    const bar = page.locator(".wx-bar.wx-task").filter({ hasText: "ABF-1 Ausgang" });
-    const box = await bar.boundingBox();
+    const day = await ganttDayWidth(page);
+    const box = await ganttBar(page, "ABF-1 Ausgang").boundingBox();
     if (!box) throw new Error("Gantt-Balken nicht sichtbar");
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
-    await page.mouse.move(box.x + box.width / 2 + 176, box.y + box.height / 2, { steps: 20 });
+    await page.mouse.move(box.x + box.width / 2 + 4 * day, box.y + box.height / 2, { steps: 20 });
     await page.mouse.up();
-    await expect(page.getByRole("row", { name: /ABF-2 Nachfolger/ })).toContainText("08.10.2026", { timeout: 15_000 });
+    await expect(ganttRow(page, /ABF-2 Nachfolger/)).toContainText("08.10.2026", { timeout: 15_000 });
 
     await page.goto(board);
     await page.getByRole("region", { name: "In Arbeit" }).getByRole("link", { name: /Ausgang/ }).click();

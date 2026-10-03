@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { chartDate, earlierStartIds, exclusiveEnd, inclusiveDue, isoDate, toChartData } from "@/lib/gantt";
+import type { GanttResource } from "@/components/reui/gantt/gantt-types";
+import { chartDate, earlierStartIds, exclusiveEnd, inclusiveDue, initialDate, isoDate, toChartData } from "@/lib/gantt";
 import type { GanttData } from "@/server/gantt/queries";
+
+/** Tree as [id, children] pairs, leaves as plain ids. */
+function tree(nodes: GanttResource[]): unknown[] {
+  return nodes.map((node) => (node.children ? [node.id, tree(node.children)] : node.id));
+}
 
 const data: GanttData = {
   phases: [{ id: "phase-1", name: "Planung", startDate: null, endDate: null, isMilestone: false },
@@ -19,15 +25,16 @@ describe("Gantt adapter", () => {
     expect(inclusiveDue(chartDate("2026-10-03"))).toBe("2026-10-02");
   });
 
-  it("groups dated tasks, keeps undated tasks separate and shows milestone and link", () => {
+  it("groups dated tasks, keeps undated tasks separate and shows milestone and dependency", () => {
     const chart = toChartData(data, "DEMO");
-    expect(chart.tasks.map((task) => [task.id, task.parent, task.type])).toEqual([
-      ["phase:phase-1", undefined, "summary"],
-      ["a", "phase:phase-1", "task"],
-      ["b", "phase:phase-1", "task"],
-      ["phase:phase-2", undefined, "milestone"],
-    ]);
-    expect(chart.links).toEqual([{ id: "a:b", source: "a", target: "b", type: "e2s" }]);
+    expect(tree(chart.resources)).toEqual([["phase:phase-1", ["a", "b"]], "phase:phase-2"]);
+    const byId = new Map(chart.events.map((event) => [event.id, event]));
+    expect(byId.get("b")?.dependencies).toEqual(["a"]);
+    expect(byId.get("a")?.title).toBe("DEMO-1 Konzept");
+    expect([isoDate(byId.get("a")!.start), isoDate(byId.get("a")!.end)]).toEqual(["2026-10-01", "2026-10-03"]);
+    const milestone = byId.get("phase:phase-2")!;
+    expect([milestone.data?.kind, milestone.readOnly, milestone.start.getTime() === milestone.end.getTime()]).toEqual(["milestone", true, true]);
+    expect(chart.rows.get("b")).toEqual({ kind: "task", startLabel: "06.10.2026", dueLabel: "07.10.2026", hint: "Könnte früher starten" });
     expect(chart.unscheduled.map((task) => task.id)).toEqual(["c"]);
   });
 
@@ -50,11 +57,6 @@ const t = (over: Partial<GanttData["tasks"][number]> & { id: string }): GanttDat
 });
 
 describe("Gantt adapter details", () => {
-  it("keeps collapsed phases closed", () => {
-    const chart = toChartData(data, "DEMO", new Set(["phase:phase-1"]));
-    expect(chart.tasks.find((task) => task.id === "phase:phase-1")?.open).toBe(false);
-  });
-
   it("lets subtasks inherit the parent's phase and nests them under the parent", () => {
     const chart = toChartData(
       {
@@ -64,11 +66,7 @@ describe("Gantt adapter details", () => {
       },
       "K",
     );
-    expect(chart.tasks.map((task) => [task.id, task.parent])).toEqual([
-      ["phase:p", undefined],
-      ["parent", "phase:p"],
-      ["child", "parent"],
-    ]);
+    expect(tree(chart.resources)).toEqual([["phase:p", [["parent", ["child"]]]]]);
   });
 
   it("shows a milestone phase that has tasks as summary with a milestone child", () => {
@@ -80,11 +78,8 @@ describe("Gantt adapter details", () => {
       },
       "K",
     );
-    expect(chart.tasks.map((task) => [task.id, task.type])).toEqual([
-      ["phase:m", "summary"],
-      ["milestone:m", "milestone"],
-      ["a", "task"],
-    ]);
+    expect(tree(chart.resources)).toEqual([["phase:m", ["milestone:m", "a"]]]);
+    expect(chart.events.find((event) => event.id === "milestone:m")?.data?.kind).toBe("milestone");
   });
 
   it("falls back to the phase's own dates and groups tasks without phase", () => {
@@ -96,9 +91,9 @@ describe("Gantt adapter details", () => {
       },
       "K",
     );
-    const empty = chart.tasks.find((task) => task.id === "phase:e")!;
-    expect([isoDate(empty.start as Date), isoDate(empty.end as Date)]).toEqual(["2026-11-02", "2026-11-07"]);
-    expect(chart.tasks.find((task) => task.id === "free")?.parent).toBe("phase:unassigned");
+    const empty = chart.events.find((event) => event.id === "phase:e")!;
+    expect([isoDate(empty.start), isoDate(empty.end), empty.readOnly]).toEqual(["2026-11-02", "2026-11-07", true]);
+    expect(tree(chart.resources)).toEqual(["phase:e", ["phase:unassigned", ["free"]]]);
   });
 
   it("drops links to undated tasks", () => {
@@ -106,7 +101,7 @@ describe("Gantt adapter details", () => {
       { phases: [], tasks: [t({ id: "a" }), t({ id: "b", startDate: null, dueDate: null })], links: [{ blockerId: "a", blockedId: "b", lagDays: 0 }] },
       "K",
     );
-    expect(chart.links).toEqual([]);
+    expect(chart.events.find((event) => event.id === "a")?.dependencies).toBeUndefined();
   });
 
   it("uses the latest required start of several blockers and ignores done tasks", () => {
@@ -136,5 +131,18 @@ describe("Gantt adapter details", () => {
       expect(inclusiveDue(exclusiveEnd(due))).toBe(due);
     }
     expect(isoDate(exclusiveEnd("2026-12-31"))).toBe("2027-01-01");
+  });
+});
+
+describe("Gantt opening position", () => {
+  const events = [{ start: chartDate("2026-10-05"), end: chartDate("2026-10-20") }];
+
+  it("opens on today while today lies inside the plan", () => {
+    const now = chartDate("2026-10-10");
+    expect(initialDate(events, now)).toBe(now);
+  });
+
+  it("opens on the first planned day when today is outside the plan", () => {
+    expect(isoDate(initialDate(events, chartDate("2027-01-01")))).toBe("2026-10-05");
   });
 });

@@ -1,61 +1,40 @@
 "use client";
 
-import { Gantt, Willow, WillowDark, type IApi, type IColumnConfig, type IScaleConfig } from "@svar-ui/react-gantt";
+import { de } from "date-fns/locale";
+import { CalendarOffIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { undoScheduleAction, updateTaskAction } from "@/app/(app)/tasks/actions";
+import { Gantt, type GanttColumn } from "@/components/reui/gantt/gantt";
+import {
+  GanttDatePicker,
+  GanttNav,
+  GanttNavNext,
+  GanttNavPrev,
+  GanttNavToday,
+  GanttScaleSwitcher,
+  GanttTitle,
+} from "@/components/reui/gantt/gantt-nav";
+import type { GanttProposedUpdate, GanttScale } from "@/components/reui/gantt/gantt-types";
+import { GanttView as GanttTimeline } from "@/components/reui/gantt/gantt-view";
 import { Button } from "@/components/ui/button";
-import { inclusiveDue, isoDate, toChartData } from "@/lib/gantt";
-import type { GanttData } from "@/server/gantt/queries";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { useTaskHref } from "@/components/tasks/use-task-href";
-import "@svar-ui/react-gantt/all.css";
-import "./gantt.css";
+import { type BarData, inclusiveDue, initialDate, isoDate, toChartData } from "@/lib/gantt";
+import type { GanttData } from "@/server/gantt/queries";
+import { ganttI18nDe } from "./gantt-i18n-de";
 
-type Zoom = "Tag" | "Woche" | "Monat";
 type Notice = { kind: "saved"; movedCount: number; groupId: string | null } | { kind: "error"; message: string } | { kind: "undone" };
 const noticeKey = "pp-light:gantt-notice";
-const zoomKey = "pp-light:gantt-zoom";
+const scaleKey = "pp-light:gantt-scale";
+// "day" is an hourly axis – project plans work in whole days, so it is not offered.
+const scales: GanttScale[] = ["week", "month", "quarter", "year"];
 const subscribe = () => () => {};
 const clientSnapshot = () => true;
 const serverSnapshot = () => false;
-
-const columns: IColumnConfig[] = [
-  { id: "text", header: "Aufgabe", width: 250, sort: false },
-  { id: "startLabel", header: "Start", width: 100, sort: false },
-  { id: "dueLabel", header: "Fällig", width: 100, sort: false },
-  { id: "hint", header: "Hinweis", width: 155, sort: false },
-];
-
-const month = new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" });
-const year = new Intl.DateTimeFormat("de-DE", { year: "numeric" });
-const day = new Intl.DateTimeFormat("de-DE", { day: "2-digit" });
-
-function isoWeek(date: Date): number {
-  const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  utc.setUTCDate(utc.getUTCDate() + 4 - (utc.getUTCDay() || 7));
-  const first = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
-  return Math.ceil(((utc.getTime() - first.getTime()) / 86_400_000 + 1) / 7);
-}
-
-function scalesFor(zoom: Zoom): { scales: IScaleConfig[]; cellWidth: number } {
-  if (zoom === "Tag") return { scales: [
-    { unit: "month", step: 1, format: (date) => month.format(date) },
-    { unit: "day", step: 1, format: (date) => day.format(date) },
-  ], cellWidth: 44 };
-  if (zoom === "Woche") return { scales: [
-    { unit: "month", step: 1, format: (date) => month.format(date) },
-    { unit: "week", step: 1, format: (date) => `KW ${isoWeek(date)}` },
-    { unit: "day", step: 1, format: (date) => date.getDay() === 1 ? day.format(date) : "" },
-  ], cellWidth: 20 };
-  return { scales: [
-    { unit: "year", step: 1, format: (date) => year.format(date) },
-    { unit: "month", step: 1, format: (date) => month.format(date) },
-    { unit: "day", step: 1, format: () => "" },
-  ], cellWidth: 10 };
-}
 
 /** sessionStorage can be blocked (privacy mode, policies) – the chart must still work without it. */
 function readStorage(key: string): string | null {
@@ -86,35 +65,24 @@ function showNotice(notice: Notice) {
 
 export function GanttView({ data, projectKey, canEdit }: { data: GanttData; projectKey: string; canEdit: boolean }) {
   const mounted = useSyncExternalStore(subscribe, clientSnapshot, serverSnapshot);
-  const [zoom, setZoom] = useState<Zoom>(() => {
-    const stored = readStorage(zoomKey);
-    return stored === "Tag" || stored === "Monat" ? stored : "Woche";
+  const [scale, setScale] = useState<GanttScale>(() => {
+    const stored = readStorage(scaleKey) as GanttScale | null;
+    return stored && scales.includes(stored) ? stored : "month";
   });
   const [saving, setSaving] = useState(false);
   const busy = useRef(false);
-  const { resolvedTheme } = useTheme();
   const router = useRouter();
   const taskHref = useTaskHref();
-  // Every RSC render delivers a new `data` object. SVAR rebuilds its store (re-expanding collapsed phases)
-  // whenever its config changes, so the chart input only changes when the content does.
+  // Every RSC render delivers a new `data` object; the chart input only changes when the content does.
   const dataKey = JSON.stringify(data);
   const stableData = useMemo(() => JSON.parse(dataKey) as GanttData, [dataKey]);
-  // Collapse state is ours, not SVAR's: SVAR may rebuild its store (resize, panel, data) and would reopen everything.
   const collapseKey = `pp-light:gantt-collapsed:${projectKey}`;
   const [collapsed, setCollapsed] = useState<string[]>(() => {
     try { return JSON.parse(readStorage(collapseKey) ?? "[]") as string[]; } catch { return []; }
   });
-  const chart = useMemo(() => toChartData(stableData, projectKey, new Set(collapsed)), [stableData, projectKey, collapsed]);
+  const chart = useMemo(() => toChartData(stableData, projectKey), [stableData, projectKey]);
   const taskById = useMemo(() => new Map(stableData.tasks.map((task) => [task.id, task])), [stableData]);
-  const scale = useMemo(() => scalesFor(zoom), [zoom]);
-  const [today] = useState(() => isoDate(new Date()));
-  const Theme = resolvedTheme === "dark" ? WillowDark : Willow;
-
-  // SVAR calls `init` once; its handlers read the latest server data and rights through these refs.
-  const live = useRef({ taskById, canEdit, taskHref, router, collapseKey });
-  useEffect(() => {
-    live.current = { taskById, canEdit, taskHref, router, collapseKey };
-  });
+  const [anchor] = useState(() => initialDate(chart.events));
 
   useEffect(() => {
     const raw = readStorage(noticeKey);
@@ -124,13 +92,18 @@ export function GanttView({ data, projectKey, canEdit }: { data: GanttData; proj
     }
   }, []);
 
-  function changeZoom(value: Zoom) {
-    setZoom(value);
-    writeStorage(zoomKey, value);
-  }
+  const changeScale = useCallback((value: GanttScale) => {
+    setScale(value);
+    writeStorage(scaleKey, value);
+  }, []);
+
+  const changeCollapsed = useCallback((ids: string[]) => {
+    setCollapsed(ids);
+    writeStorage(collapseKey, JSON.stringify(ids));
+  }, [collapseKey]);
 
   const saveDates = useCallback(async (id: string, start: Date, end: Date) => {
-    const original = live.current.taskById.get(id);
+    const original = taskById.get(id);
     if (!original || busy.current) return;
     const startDate = isoDate(start);
     const dueDate = inclusiveDue(end);
@@ -146,96 +119,127 @@ export function GanttView({ data, projectKey, canEdit }: { data: GanttData; proj
     } catch {
       notice = { kind: "error", message: "Speichern fehlgeschlagen – bitte erneut versuchen." };
     }
+    // Moving one task can shift its successors server-side, so the whole plan is reloaded.
     writeStorage(noticeKey, JSON.stringify(notice));
     window.location.reload();
-  }, []);
+  }, [taskById]);
 
-  const init = useCallback((ganttApi: IApi) => {
-    for (const action of ["add-task", "delete-task", "move-task", "add-link", "delete-link", "copy-task", "indent-task", "reorder-task"]) {
-      ganttApi.intercept(action, () => false);
-    }
-    ganttApi.intercept("drag-task", (event) => {
-      if (!live.current.canEdit || busy.current || String(event.id).startsWith("phase:") || String(event.id).startsWith("milestone:")) return false;
-      if (event.top !== undefined) return false;
-    });
-    ganttApi.intercept("update-task", (event) => {
-      if (!live.current.taskById.has(String(event.id))) return event.eventSource === "update-task" ? undefined : false;
-      if (!live.current.canEdit || busy.current) return false;
-      if (!event.task.start && !event.task.end) return false;
-    });
-    ganttApi.on("open-task", (event) => {
-      const id = String(event.id);
-      setCollapsed((previous) => {
-        const next = event.mode ? previous.filter((item) => item !== id) : [...new Set([...previous, id])];
-        writeStorage(live.current.collapseKey, JSON.stringify(next));
-        return next;
-      });
-    });
-    ganttApi.on("update-task", (event) => {
-      if (event.inProgress || !live.current.taskById.has(String(event.id))) return;
-      const task = ganttApi.getTask(event.id);
-      if (task.start instanceof Date && task.end instanceof Date) void saveDates(String(event.id), task.start, task.end);
-    });
-  }, [saveDates]);
+  // Bars only move in time: a drop onto another row, on a phase or milestone, or while saving is refused.
+  const canDrop = useCallback((update: GanttProposedUpdate<BarData>) =>
+    canEdit && !busy.current && update.event.data?.kind === "task"
+      && (update.resourceId === undefined || update.resourceId === update.event.resourceId), [canEdit]);
 
-  const highlightTime = useCallback(
-    (date: Date, unit: string) =>
-      unit === "day"
-        ? [[0, 6].includes(date.getDay()) ? "wx-weekend" : "", isoDate(date) === today ? "pp-gantt-today" : ""].filter(Boolean).join(" ")
-        : "",
-    [today],
-  );
+  const onEventUpdate = useCallback((update: GanttProposedUpdate<BarData>) => {
+    if (!canDrop(update)) return false;
+    void saveDates(update.event.id, update.start, update.end);
+    return true;
+  }, [canDrop, saveDates]);
 
-  const onSelectTask = useCallback((event: { id: string | number }) => {
-    const id = String(event.id);
-    if (live.current.taskById.has(id)) live.current.router.push(live.current.taskHref(id));
-  }, []);
+  const openTask = useCallback((id: string) => {
+    if (taskById.has(id)) router.push(taskHref(id));
+  }, [router, taskById, taskHref]);
 
-  if (!mounted) return <div className="rounded-md border p-6 text-sm text-muted-foreground">Zeitplan wird geladen…</div>;
+  const columns = useMemo<GanttColumn[]>(() => [
+    { id: "start", title: "Start", width: 84, render: ({ resource }) => chart.rows.get(resource.id)?.startLabel },
+    { id: "due", title: "Fällig", width: 84, render: ({ resource }) => chart.rows.get(resource.id)?.dueLabel },
+    { id: "hint", title: "Hinweis", width: 140, render: ({ resource }) => {
+      const hint = chart.rows.get(resource.id)?.hint;
+      return hint ? <span className="truncate text-amber-600 dark:text-amber-400">{hint}</span> : null;
+    } },
+  ], [chart.rows]);
+
+  if (!mounted) return <div className="rounded-lg border p-6 text-sm text-muted-foreground">Zeitplan wird geladen…</div>;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold">Zeitplan</h2>
-          <p className="text-xs text-muted-foreground">Aufgaben ziehen oder am Rand verlängern. Termine folgen Arbeitstagen.</p>
+          <p className="text-xs text-muted-foreground">
+            {canEdit ? "Aufgaben ziehen oder am Rand verlängern. Termine folgen Arbeitstagen." : "Nur Ansicht – Termine können hier nicht geändert werden."}
+          </p>
         </div>
-        <div className="flex items-center gap-1" role="group" aria-label="Gantt-Zoom">
-          {(["Tag", "Woche", "Monat"] as const).map((value) => (
-            <Button key={value} size="sm" variant={zoom === value ? "default" : "outline"} aria-pressed={zoom === value}
-              onClick={() => changeZoom(value)}>{value}</Button>
-          ))}
-        </div>
+        {saving && <p role="status" className="text-sm text-muted-foreground">Termin wird gespeichert…</p>}
       </div>
-      {saving && <p role="status" className="text-sm">Termin wird gespeichert…</p>}
-      <div className="md:hidden rounded-md border p-4 text-sm text-muted-foreground">
-        Der Zeitplan ist ab Tablet-Breite verfügbar. Die Aufgaben findest du in der Listenansicht.
-      </div>
-      <div className="hidden md:block">
-        {chart.tasks.length ? (
-          <div className="pp-gantt overflow-hidden rounded-lg border" style={{ height: Math.min(570, Math.max(280, 145 + chart.tasks.length * 38)) }} aria-label="Gantt-Zeitplan">
-            <Theme fonts={false}>
-              <Gantt key={zoom} tasks={chart.tasks} links={chart.links} columns={columns} scales={scale.scales}
-                cellWidth={scale.cellWidth} gridWidth={610} zoom={false} readonly={!canEdit}
-                highlightTime={highlightTime}
-                init={init}
-                onSelectTask={onSelectTask} />
-            </Theme>
+      <Gantt<BarData>
+        aria-label="Gantt-Zeitplan"
+        className="min-h-0 flex-1 overflow-hidden rounded-lg border bg-card"
+        events={chart.events}
+        resources={chart.resources}
+        scale={scale}
+        onScaleChange={changeScale}
+        defaultDate={anchor}
+        locale={de}
+        i18n={ganttI18nDe}
+        interactions={{ drag: canEdit, resize: canEdit, selectSlot: false }}
+        canDropEvent={canDrop}
+        onEventUpdate={onEventUpdate}
+        onEventClick={(occurrence) => openTask(occurrence.event.id)}
+        onResourceClick={({ resource }) => openTask(resource.id)}
+        collapsedGroups={collapsed}
+        onCollapsedGroupsChange={changeCollapsed}
+        scheduleMode="single"
+        rowCheckboxes={false}
+        offDays
+        barLabel="auto"
+        timelineLines="both"
+        columns={columns}
+        treePanel={{ width: 520, nameColumnWidth: 240, maxWidth: 760 }}
+        navButtonVariant="outline"
+      >
+        <GanttNav>
+          <TooltipProvider delay={600} closeDelay={0} timeout={300}>
+            <GanttNavToday />
+            <div className="flex items-center gap-1">
+              <GanttNavPrev />
+              <GanttNavNext />
+            </div>
+            <GanttDatePicker />
+            <GanttTitle />
+            <div className="grow" />
+            {chart.unscheduled.length > 0 && (
+              <UnscheduledTasks tasks={chart.unscheduled} projectKey={projectKey} taskHref={taskHref} />
+            )}
+            <GanttScaleSwitcher scales={scales} />
+          </TooltipProvider>
+        </GanttNav>
+        {chart.resources.length > 0 ? <GanttTimeline /> : (
+          <div className="flex flex-1 flex-col items-center justify-center gap-1 p-6 text-center">
+            <p className="text-sm font-medium">Noch keine Aufgaben mit Start und Fälligkeit.</p>
+            <p className="text-xs text-muted-foreground">Sobald eine Aufgabe beide Termine hat, erscheint sie hier im Zeitplan.</p>
           </div>
-        ) : <div className="rounded-md border p-6 text-sm text-muted-foreground">Noch keine Aufgaben mit Start und Fälligkeit.</div>}
-      </div>
-      {chart.unscheduled.length > 0 && (
-        <section className="space-y-2">
-          <h3 className="text-sm font-medium">Ohne vollständigen Termin</h3>
-          <ul className="flex flex-wrap gap-2">
-            {chart.unscheduled.map((task) => <li key={task.id}>
-              <Link href={taskHref(task.id)} className="inline-block rounded-md border px-3 py-1.5 text-sm hover:bg-accent">
+        )}
+      </Gantt>
+    </div>
+  );
+}
+
+/** Tasks without start or due date cannot be drawn; they stay one click away instead of pushing the chart down. */
+function UnscheduledTasks({ tasks, projectKey, taskHref }: {
+  tasks: GanttData["tasks"];
+  projectKey: string;
+  taskHref: (id: string) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger render={<Button variant="outline" size="sm" />}>
+        <CalendarOffIcon aria-hidden="true" />
+        Ohne Termin ({tasks.length})
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80 p-2">
+        <p className="px-2 pt-1 pb-2 text-xs text-muted-foreground">Ohne vollständigen Termin</p>
+        <ul className="max-h-72 overflow-y-auto">
+          {tasks.map((task) => (
+            <li key={task.id}>
+              <Link href={taskHref(task.id)} onClick={() => setOpen(false)}
+                className="block truncate rounded-md px-2 py-1.5 text-sm hover:bg-accent">
                 {projectKey}-{task.number} {task.title}
               </Link>
-            </li>)}
-          </ul>
-        </section>
-      )}
-    </div>
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
   );
 }

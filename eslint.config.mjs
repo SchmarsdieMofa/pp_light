@@ -19,6 +19,8 @@ const eslintConfig = defineConfig([
     "dist/**",
     "playwright-report/**",
     "test-results/**",
+    // Vendored ReUI gantt (registry code, kept close to upstream for updates):
+    "src/components/reui/**",
   ]),
 ]);
 

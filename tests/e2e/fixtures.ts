@@ -66,3 +66,22 @@ export async function choose(trigger: Locator, option: string) {
   const escaped = option.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   await trigger.page().getByRole("option", { name: new RegExp(`^${escaped}`) }).first().click();
 }
+
+/** A row of the gantt's tree panel (name, start, due, hint). */
+export function ganttRow(page: Page, name: string | RegExp) {
+  return page.locator('[data-slot="gantt-tree-pane"] [data-slot="gantt-row-group"]').filter({ hasText: name });
+}
+
+/** A bar on the timeline; its accessible name starts with the bar title. */
+export function ganttBar(page: Page, title: string) {
+  return page.locator(`[data-slot="gantt-bar"][aria-label^="${title}"]`).first();
+}
+
+/** Width of one day on a day-unit scale (week, month): the most common gap between the timeline's grid lines. */
+export async function ganttDayWidth(page: Page) {
+  await expect(page.locator('[data-slot="gantt-grid-line"]').first()).toBeVisible();
+  const xs = await page.locator('[data-slot="gantt-grid-line"]').evaluateAll((lines) =>
+    lines.map((line) => Math.round(line.getBoundingClientRect().x)).sort((a, b) => a - b));
+  const gaps = xs.slice(1).map((x, i) => x - xs[i]).filter((gap) => gap > 0).sort((a, b) => a - b);
+  return gaps[Math.floor(gaps.length / 2)];
+}
