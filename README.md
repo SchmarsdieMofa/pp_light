@@ -9,7 +9,7 @@ Stack: Next.js 16 · TypeScript · PostgreSQL 17 + Drizzle · Auth.js · Tailwin
 
 ## Betrieb (Produktion)
 
-Gedacht für den Betrieb im lokalen Netz: ein Server mit Docker und Compose, davor Caddy für HTTPS. Die App selbst ist nur über Caddy erreichbar, nicht direkt.
+Gedacht für den Betrieb im lokalen Netz: ein Server mit Docker und Compose, davor Caddy für HTTP und HTTPS. Die App selbst ist nur über Caddy erreichbar, nicht direkt.
 
 ### Einrichten
 
@@ -24,15 +24,35 @@ Gedacht für den Betrieb im lokalen Netz: ein Server mit Docker und Compose, dav
    node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"
    ```
 
-   In `.env` außerdem `PP_DOMAIN=pp.firma.local` und die SMTP-Zugangsdaten eintragen (siehe unten). `APP_URL` und `AUTH_URL` setzt Compose daraus automatisch auf `https://<PP_DOMAIN>`.
-3. **Starten und ersten Admin anlegen:**
+   In `.env` außerdem `PP_DOMAIN=pp.firma.local` und die SMTP-Zugangsdaten eintragen (siehe unten).
+3. **Starten:**
 
    ```bash
    docker compose up -d --build
-   docker compose exec app node scripts/create-admin.mjs --email admin@firma.de --name "Vorname Nachname" --password "<mind. 10 Zeichen>"
+   docker compose logs app        # zeigt den Einrichtungscode
    ```
 
-Die App ist dann unter `https://pp.firma.local` erreichbar. Port 80 leitet auf HTTPS um; Ports 80 und 443 müssen auf dem Server frei sein.
+4. **Einrichten im Browser:** `https://pp.firma.local` öffnen (oder `http://…`). Solange es kein Konto gibt, öffnet sich die Einrichtung: Einrichtungscode aus dem Log, Name, E-Mail und Passwort eintragen – das wird das erste Admin-Konto. Danach öffnen sich die Server-Einstellungen (siehe „Zugriff“). Der Code entsteht bei jedem Start neu, solange niemand eingerichtet hat; nur wer ins Server-Log schauen kann, wird so Admin.
+
+   Alternativ ohne Browser: `docker compose exec app node scripts/create-admin.mjs --email admin@firma.de --name "Vorname Nachname" --password "<mind. 10 Zeichen>"`
+
+Ports 80 und 443 müssen auf dem Server frei sein.
+
+### Zugriff: HTTP oder nur HTTPS
+
+Caddy nimmt HTTP (Port 80, jeder Hostname) und HTTPS (Port 443, `PP_DOMAIN`) an und leitet selbst nicht um. Ob HTTP erlaubt ist, legt ein Admin in pp_light fest: Zahnrad → Einstellungen → „Server“.
+
+- **HTTP und HTTPS** (Standard): beides funktioniert. Richtig, wenn vor dem Server schon ein Proxy oder Load-Balancer HTTPS übernimmt und per HTTP an Port 80 weitergibt – es entsteht keine Umleitungsschleife.
+- **Nur HTTPS:** HTTP wird auf HTTPS umgeleitet. Lässt sich nur einschalten, während man pp_light über HTTPS geöffnet hat. Damit ist bewiesen, dass HTTPS bis zur App durchkommt; hinter einem Proxy, der per HTTP weitergibt, bleibt die Option gesperrt.
+
+Dort steht auch die **Adresse** für Links in E-Mails (Einladungen, Passwort-Reset, Benachrichtigungen). Bei der Einrichtung wird die Adresse übernommen, unter der man sie gerade geöffnet hat.
+
+Notausgang, falls doch einmal niemand mehr hineinkommt:
+
+```bash
+docker compose exec app node scripts/access-mode.mjs http    # HTTP wieder erlauben
+docker compose exec app node scripts/access-mode.mjs         # aktuellen Stand anzeigen
+```
 
 ### HTTPS-Zertifikat
 
@@ -47,7 +67,7 @@ Die App ist dann unter `https://pp.firma.local` erreichbar. Port 80 leitet auf H
   Die CA liegt im Volume `caddy_data` – nicht löschen, sonst entsteht eine neue und alle Clients brauchen das neue Root-Zertifikat.
 - **Eigenes Zertifikat** (z. B. von der Firmen-CA): `cert.pem` (inkl. Zwischenzertifikaten) und `key.pem` nach `./certs/` legen und `PP_TLS=/certs/cert.pem /certs/key.pem` setzen. Erneuern: Dateien austauschen, `docker compose restart caddy`.
 
-Caddy setzt Sicherheits-Header und ersetzt `X-Forwarded-For` durch die echte Client-Adresse, damit die IP-Sperre beim Login greift.
+Caddy setzt Sicherheits-Header und ersetzt `X-Forwarded-For` und `X-Forwarded-Proto` durch das, was es selbst gesehen hat: Die IP-Sperre beim Login greift, und die App weiß, ob eine Anfrage wirklich über HTTPS kam.
 
 ### Backups
 
@@ -80,7 +100,7 @@ Die Startseite „Meine Arbeit“ zeigt zugewiesene Aufgaben nach Fälligkeit, l
 
 Der separate `worker`-Container versendet Einladungen, Passwort-Reset-Links und Benachrichtigungs-Digests über den SMTP-Server aus `.env`. Eine Mail, die fünfmal nicht zugestellt werden kann, wird aufgegeben (`mail_outbox.failed_at`, Fehler in `last_error`), ohne andere Mails aufzuhalten.
 
-SMTP-Zugang in `.env` setzen: `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` und bei Bedarf `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`. Mailpit gehört nur in die Entwicklung (`docker-compose.dev.yml`): Es zeigt Reset- und Einladungslinks ohne Anmeldung an und darf nie öffentlich erreichbar sein. Optionales SSO benötigt `OIDC_ISSUER`, `OIDC_CLIENT_ID` und `OIDC_CLIENT_SECRET`. Die Redirect-URI beim Provider lautet `<APP_URL>/api/auth/callback/oidc`. Mit `OIDC_ALLOWED_DOMAINS=firma.de,partner.de` dürfen verifizierte Adressen dieser Domains ein neues Konto erhalten; sonst braucht ein neues Konto eine Einladung. Konten werden nur über eine vom Provider bestätigte E-Mail-Adresse verknüpft (`email_verified`). Microsoft Entra ID sendet dieses Feld nicht; dort `OIDC_TRUST_EMAIL=true` setzen, aber nur für einen eigenen Tenant als Issuer (nicht `common`), denn dann vertraut pp_light jeder Adresse, die dieser Issuer meldet.
+SMTP-Zugang in `.env` setzen: `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` und bei Bedarf `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`. Mailpit gehört nur in die Entwicklung (`docker-compose.dev.yml`): Es zeigt Reset- und Einladungslinks ohne Anmeldung an und darf nie öffentlich erreichbar sein. Optionales SSO benötigt `OIDC_ISSUER`, `OIDC_CLIENT_ID` und `OIDC_CLIENT_SECRET`. Die Redirect-URI beim Provider lautet `<Adresse>/api/auth/callback/oidc`, mit der Adresse, unter der Nutzer pp_light öffnen (z. B. `https://pp.firma.local`). Mit `OIDC_ALLOWED_DOMAINS=firma.de,partner.de` dürfen verifizierte Adressen dieser Domains ein neues Konto erhalten; sonst braucht ein neues Konto eine Einladung. Konten werden nur über eine vom Provider bestätigte E-Mail-Adresse verknüpft (`email_verified`). Microsoft Entra ID sendet dieses Feld nicht; dort `OIDC_TRUST_EMAIL=true` setzen, aber nur für einen eigenen Tenant als Issuer (nicht `common`), denn dann vertraut pp_light jeder Adresse, die dieser Issuer meldet.
 
 Anmeldeschutz: Nach fünf falschen Passwörtern ist ein Konto 15 Minuten gesperrt, nach 20 Fehlversuchen von derselben IP diese IP. Ein Passwort-Reset beendet alle bestehenden Sitzungen; deaktivierte Konten verlieren offene Einladungs- und Reset-Links.
 

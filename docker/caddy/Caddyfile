@@ -1,9 +1,14 @@
-# HTTPS in front of pp_light, for the internal network only. PP_DOMAIN and PP_TLS come from .env.
-#   PP_TLS=internal              Caddy's own CA (default, for the local network – clients must trust its root certificate)
+# pp_light in the internal network. PP_DOMAIN and PP_TLS come from .env.
+#   PP_TLS=internal                         Caddy's own CA (default – clients must trust its root certificate)
 #   PP_TLS=/certs/cert.pem /certs/key.pem   own certificate, e.g. from the company CA (mount ./certs, see README)
-# Plain HTTP on port 80 redirects to HTTPS automatically.
-{$PP_DOMAIN} {
-	tls {$PP_TLS:internal}
+# Port 80 (HTTP, any host name) and port 443 (HTTPS for PP_DOMAIN) both reach the app. Caddy does not redirect:
+# whether plain HTTP is allowed is chosen by an admin in pp_light (Einstellungen → Server), and the app redirects.
+# That way a proxy in front that handles HTTPS itself and forwards HTTP cannot end up in a redirect loop.
+{
+	auto_https disable_redirects
+}
+
+(app) {
 	encode zstd gzip
 
 	header {
@@ -13,6 +18,16 @@
 		-Server
 	}
 
-	# Caddy replaces X-Forwarded-For from clients with the real address, so the app's per-IP login lock cannot be dodged.
+	# Caddy replaces X-Forwarded-For/-Proto from clients with what it saw itself: the app's per-IP login lock cannot be
+	# dodged, and the app knows whether the request really came in over HTTPS.
 	reverse_proxy app:3000
+}
+
+http:// {
+	import app
+}
+
+https://{$PP_DOMAIN} {
+	tls {$PP_TLS:internal}
+	import app
 }

@@ -19,10 +19,8 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      # Links in mails point to the HTTPS address in front of the app.
-      APP_URL: https://${PP_DOMAIN:?PP_DOMAIN in .env setzen}
-      # Auth.js builds its redirects from this, not from the container's own address.
-      AUTH_URL: https://${PP_DOMAIN:?PP_DOMAIN in .env setzen}
+      # No AUTH_URL: Auth.js takes scheme and host from Caddy's forwarded headers, so HTTP and HTTPS both work.
+      # Links in mails use the address from the setup (Einstellungen → Server).
     # No published port: only Caddy talks to the app.
     expose:
       - "3000"

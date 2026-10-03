@@ -15,7 +15,7 @@
     "seed:admin": "tsx --env-file=.env.local scripts/create-admin.ts",
     "seed:demo": "tsx --env-file=.env.local scripts/seed-demo.ts",
     "worker": "tsx --env-file=.env.local scripts/worker.ts",
-    "build:scripts": "esbuild scripts/migrate.ts scripts/create-admin.ts scripts/worker.ts --bundle --platform=node --target=node24 --format=esm --outdir=dist/scripts --out-extension:.js=.mjs --external:@node-rs/argon2 --external:pg-native --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\""
+    "build:scripts": "esbuild scripts/migrate.ts scripts/create-admin.ts scripts/setup-code.ts scripts/access-mode.ts scripts/worker.ts --bundle --platform=node --target=node24 --format=esm --outdir=dist/scripts --out-extension:.js=.mjs --external:@node-rs/argon2 --external:pg-native --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\""
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
