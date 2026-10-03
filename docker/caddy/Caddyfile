@@ -1,7 +1,6 @@
-# HTTPS in front of pp_light (PP_MODE=direct, the default). PP_DOMAIN and PP_TLS come from .env.
+# HTTPS in front of pp_light, for the internal network only. PP_DOMAIN and PP_TLS come from .env.
 #   PP_TLS=internal              Caddy's own CA (default, for the local network – clients must trust its root certificate)
 #   PP_TLS=/certs/cert.pem /certs/key.pem   own certificate, e.g. from the company CA (mount ./certs, see README)
-#   PP_TLS=admin@firma.de        Let's Encrypt – only if PP_DOMAIN is publicly reachable
 # Plain HTTP on port 80 redirects to HTTPS automatically.
 {$PP_DOMAIN} {
 	tls {$PP_TLS:internal}
