@@ -20,7 +20,8 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       # No AUTH_URL: Auth.js takes scheme and host from Caddy's forwarded headers, so HTTP and HTTPS both work.
-      # Links in mails use the address from the setup (Einstellungen → Server).
+      # Links in mails use the address from the setup (Einstellungen → Server); this is only the fallback.
+      APP_URL: https://${PP_DOMAIN:?PP_DOMAIN in .env setzen}
     # No published port: only Caddy talks to the app.
     expose:
       - "3000"
@@ -43,6 +44,8 @@ services:
       # Mail goes to the SMTP server configured in .env (SMTP_HOST, SMTP_PORT, …).
       # No Mailpit here: it would expose reset and invitation links without authentication.
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Fallback for links in mails when no address is stored yet (see app).
+      APP_URL: https://${PP_DOMAIN:?PP_DOMAIN in .env setzen}
     depends_on:
       app:
         condition: service_healthy
