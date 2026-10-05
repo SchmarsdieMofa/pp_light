@@ -67,6 +67,8 @@ test("shows grouped tasks and saves a dragged date with dependency cascade", asy
 
   const ausgang = ganttBar(page, "GAN-1 Ausgang");
   const day = await ganttDayWidth(page);
+  // Keep the drag point on the visible bar, rather than behind the tree pane.
+  await ausgang.scrollIntoViewIfNeeded();
   const box = await ausgang.boundingBox();
   if (!box) throw new Error("Gantt-Balken nicht sichtbar");
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);

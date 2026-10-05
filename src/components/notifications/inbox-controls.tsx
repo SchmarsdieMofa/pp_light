@@ -35,7 +35,7 @@ export function InboxControls({ notificationId, disabled }: { notificationId?: s
   );
 
   return (
-    <div className="flex flex-wrap justify-end gap-2">
+    <div className="flex min-w-0 flex-wrap justify-start gap-2 sm:justify-end">
       <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void run(markAllReadAction)}>Alle als gelesen markieren</Button>
       <Button type="button" size="sm" variant="outline" aria-expanded={showSettings} onClick={() => setShowSettings(!showSettings)}>E-Mail-Einstellungen</Button>
       {showSettings && <fieldset className="w-full space-y-2 rounded-md border p-4 text-sm">

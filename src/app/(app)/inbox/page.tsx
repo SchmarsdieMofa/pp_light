@@ -12,15 +12,15 @@ export default async function InboxPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <h1 className="text-xl font-semibold">Benachrichtigungen</h1>
         <InboxControls disabled={disabled} />
       </div>
       {items.length === 0 ? <p className="text-sm text-muted-foreground">Noch keine Benachrichtigungen.</p> : (
         <ul className="divide-y rounded-md border" aria-label="Benachrichtigungen">
           {items.map((item) => (
-            <li key={item.id} className={`flex items-start justify-between gap-4 p-4 ${item.readAt ? "" : "bg-primary/5"}`}>
-              <div className="min-w-0 space-y-1">
+            <li key={item.id} className={`flex flex-col items-start justify-between gap-4 p-4 sm:flex-row ${item.readAt ? "" : "bg-primary/5"}`}>
+              <div className="min-w-0 space-y-1 [overflow-wrap:anywhere]">
                 {item.taskId && item.projectId ? (
                   <Link className="font-medium hover:underline" href={`/tasks/${item.taskId}`}>{item.message}</Link>
                 ) : <span className="font-medium">{item.message}</span>}

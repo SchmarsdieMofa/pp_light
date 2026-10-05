@@ -107,7 +107,7 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
             <div className="min-w-0 flex-1">
               <Dialog.Title className="text-base font-semibold">Einstellungen</Dialog.Title>
               {tabs.length > 1 ? (
-                <nav aria-label="Einstellungsbereiche" className="mt-2 flex gap-1">
+                <nav aria-label="Einstellungsbereiche" className="mt-2 flex flex-wrap gap-x-1">
                   {tabs.map((t) => (
                     <Link
                       key={t.value}
@@ -116,7 +116,7 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
                       scroll={false}
                       aria-current={tab === t.value ? "page" : undefined}
                       className={cn(
-                        "-mb-px border-b-2 border-transparent px-2 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground",
+                        "-mb-px whitespace-nowrap border-b-2 border-transparent px-2 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground",
                         tab === t.value && "border-foreground font-medium text-foreground",
                       )}
                     >

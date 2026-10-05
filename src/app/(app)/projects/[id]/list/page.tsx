@@ -45,7 +45,7 @@ export default async function ListPage(props: {
             text={hasFilters ? "Kein Eintrag passt zu den Filtern." : "Lege oben die erste Aufgabe an."}
           />
         ) : (
-          <div className="overflow-x-auto rounded-lg border">
+          <div className="relative overflow-x-auto rounded-lg border">
             <TaskTable
               // A new filter set starts with fresh groups: matches inside a collapsed "done" group must show.
               key={JSON.stringify(filters)}

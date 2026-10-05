@@ -18,7 +18,7 @@ export function AdminUsers({ users, ownId }: { users: UserRow[]; ownId: string }
   const [inviteRole, setInviteRole] = useState<UserRow["role"]>("member");
 
   return <div className="space-y-6">
-    <form className="grid gap-3 rounded-md border p-4 sm:grid-cols-[1fr_1fr_auto_auto]" onSubmit={async (event) => {
+    <form className="grid gap-3 rounded-md border p-4 sm:grid-cols-2" onSubmit={async (event) => {
       event.preventDefault(); setBusy(true); setMessage("");
       const formElement = event.currentTarget;
       const form = new FormData(formElement);
@@ -30,14 +30,21 @@ export function AdminUsers({ users, ownId }: { users: UserRow[]; ownId: string }
     }}>
       <Input name="name" placeholder="Name" aria-label="Name" required />
       <Input name="email" type="email" placeholder="E-Mail" aria-label="E-Mail" required />
-      <Select name="role" aria-label="Rolle" className="h-9 sm:w-32" value={inviteRole} options={ROLE_OPTIONS} onValueChange={(next) => setInviteRole(next as UserRow["role"])} />
-      <Button type="submit" disabled={busy}>Einladen</Button>
+      <div className="flex flex-wrap items-center justify-end gap-2 sm:col-span-2">
+        <Select name="role" aria-label="Rolle" className="h-9 w-32" value={inviteRole} options={ROLE_OPTIONS} onValueChange={(next) => setInviteRole(next as UserRow["role"])} />
+        <Button type="submit" disabled={busy}>Einladen</Button>
+      </div>
     </form>
     {message && <p role="status" className="text-sm">{message}</p>}
     <ul className="divide-y rounded-md border" aria-label="Nutzer">
-      {users.map((user) => <li key={user.id} className="flex items-center justify-between gap-3 p-3">
-        <div className="min-w-0"><p className="truncate font-medium">{user.name}</p><p className="truncate text-sm text-muted-foreground">{user.email} · {user.id === ownId ? (user.role === "admin" ? "Admin · " : "Mitglied · ") : ""}{user.active ? "Aktiv" : "Inaktiv"}</p></div>
-        {user.id !== ownId && <Select aria-label={`Rolle von ${user.name}`} value={user.role} disabled={busy} className="ml-auto w-28" options={ROLE_OPTIONS}
+      {users.map((user) => <li key={user.id} className="space-y-3 p-3">
+        <div className="min-w-0 space-y-0.5">
+          <p className="font-medium [overflow-wrap:anywhere]">{user.name}</p>
+          <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">{user.email}</p>
+          <p className="text-xs text-muted-foreground">{user.id === ownId ? (user.role === "admin" ? "Admin · " : "Mitglied · ") : ""}{user.active ? "Aktiv" : "Inaktiv"}</p>
+        </div>
+        {(user.id !== ownId || !user.active) && <div className="flex flex-wrap items-center gap-2">
+        {user.id !== ownId && <Select aria-label={`Rolle von ${user.name}`} value={user.role} disabled={busy} className="w-28" options={ROLE_OPTIONS}
           onValueChange={async (next) => {
             const role = next === "admin" ? "admin" : "member";
             setBusy(true); try { const result = await setUserRoleAction(user.id, role);
@@ -54,6 +61,7 @@ export function AdminUsers({ users, ownId }: { users: UserRow[]; ownId: string }
             setMessage(result.ok ? `Einladung für ${user.email} zurückgezogen.` : result.error.message);
           } finally { setBusy(false); }
         }}>Einladung zurückziehen</Button>}
+        </div>}
       </li>)}
     </ul>
   </div>;

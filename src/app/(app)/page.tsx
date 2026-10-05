@@ -78,7 +78,7 @@ export default async function HomePage(props: { searchParams: Promise<Record<str
             ) : (
               <ul className="divide-y text-sm">
                 {unread.map((n) => (
-                  <li key={n.id} className="px-4 py-2.5">
+                  <li key={n.id} className="px-4 py-2.5 [overflow-wrap:anywhere]">
                     {n.taskId ? <Link href={`/?task=${n.taskId}`} scroll={false} className="line-clamp-2 hover:underline">{n.message}</Link> : n.message}
                   </li>
                 ))}

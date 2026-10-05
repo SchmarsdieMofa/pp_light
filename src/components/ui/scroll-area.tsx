@@ -23,7 +23,12 @@ export function ScrollArea({ children, className, contentClassName, orientation 
           viewportClassName,
         )}
       >
-        <Primitive.Content className={contentClassName}>{children}</Primitive.Content>
+        <Primitive.Content
+          className={contentClassName}
+          // Base UI defaults to min-width: fit-content, which lets long text push
+          // vertical-only content beyond its viewport and hide dialog actions.
+          style={orientation === "vertical" ? { minWidth: 0 } : undefined}
+        >{children}</Primitive.Content>
       </Primitive.Viewport>
       {orientation !== "horizontal" && <ScrollBar orientation="vertical" />}
       {orientation !== "vertical" && <ScrollBar orientation="horizontal" />}

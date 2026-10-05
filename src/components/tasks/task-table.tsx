@@ -58,7 +58,7 @@ export function TaskTable(props: {
     { label: "Erledigt", className: "w-9" },
     { field: "number", label: "Nr.", className: "hidden w-20 sm:table-cell" },
     { field: "title", label: "Titel" },
-    ...(props.grouped ? [] : [{ field: "status" as const, label: "Status", className: "w-32" }]),
+    ...(props.grouped ? [] : [{ field: "status" as const, label: "Status", className: "hidden w-32 sm:table-cell" }]),
     { label: "Zuständig", className: "hidden w-24 sm:table-cell" },
     { field: "priority", label: "Priorität", className: "hidden w-20 sm:table-cell" },
     { field: "dueDate", label: "Fällig", className: "w-24" },
@@ -73,7 +73,7 @@ export function TaskTable(props: {
     : [{ status: null, rows: props.rows }];
 
   return (
-    <table aria-label="Aufgaben" className="w-full table-auto text-sm sm:table-fixed">
+    <table aria-label="Aufgaben" className="w-full table-fixed text-sm">
       <thead>
         <tr className="border-b text-left text-xs text-muted-foreground">
           {columns.map((col) => {
@@ -100,30 +100,33 @@ export function TaskTable(props: {
       </thead>
       {groups.map(({ status, rows }) => {
         const isCollapsed = !!status && collapsed.has(status.id);
+        const heading = status && (
+          <button
+            type="button"
+            aria-expanded={!isCollapsed}
+            onClick={() =>
+              setCollapsed((current) => {
+                const next = new Set(current);
+                if (next.has(status.id)) next.delete(status.id);
+                else next.add(status.id);
+                return next;
+              })
+            }
+            className="inline-flex items-center gap-2 rounded px-1 text-sm font-medium hover:bg-muted"
+          >
+            <ChevronRight className={cn("size-3.5 text-muted-foreground transition-transform", !isCollapsed && "rotate-90")} aria-hidden />
+            <span className="size-2 rounded-full" style={{ backgroundColor: status.color }} aria-hidden />
+            {status.name}
+            <span className="text-xs font-normal text-muted-foreground">{rows.length}</span>
+          </button>
+        );
         return (
           <tbody key={status?.id ?? "all"}>
             {status && (
               <tr className="bg-muted/30">
-                <th scope="colgroup" colSpan={columns.length} className="px-2 py-1.5 text-left font-normal">
-                  <button
-                    type="button"
-                    aria-expanded={!isCollapsed}
-                    onClick={() =>
-                      setCollapsed((current) => {
-                        const next = new Set(current);
-                        if (next.has(status.id)) next.delete(status.id);
-                        else next.add(status.id);
-                        return next;
-                      })
-                    }
-                    className="inline-flex items-center gap-2 rounded px-1 text-sm font-medium hover:bg-muted"
-                  >
-                    <ChevronRight className={cn("size-3.5 text-muted-foreground transition-transform", !isCollapsed && "rotate-90")} aria-hidden />
-                    <span className="size-2 rounded-full" style={{ backgroundColor: status.color }} aria-hidden />
-                    {status.name}
-                    <span className="text-xs font-normal text-muted-foreground">{rows.length}</span>
-                  </button>
-                </th>
+                {/* Hidden desktop columns must not create empty mobile columns via colspan. */}
+                <th scope="colgroup" colSpan={3} className="px-2 py-1.5 text-left font-normal sm:hidden">{heading}</th>
+                <th scope="colgroup" colSpan={columns.length} className="hidden px-2 py-1.5 text-left font-normal sm:table-cell">{heading}</th>
               </tr>
             )}
             {!isCollapsed &&
@@ -197,9 +200,15 @@ function TaskRow(props: {
             )}
           </span>
         </div>
+        {!props.grouped && (
+          <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground sm:hidden">
+            <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: row.status.color }} />
+            <span className="min-w-0 [overflow-wrap:anywhere]">{row.status.name}</span>
+          </span>
+        )}
       </td>
       {!props.grouped && (
-        <td className="px-2 py-2">
+        <td className="hidden px-2 py-2 sm:table-cell">
           <span className="inline-flex max-w-full items-center gap-1.5 text-xs">
             <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: row.status.color }} />
             <span className="truncate">{row.status.name}</span>

@@ -95,8 +95,8 @@ export default async function ReviewPage(props: {
                 {report.milestones.map((m) => (
                   <li key={m.name} className="flex items-center gap-2">
                     {m.reached ? <CheckCircle2 className="size-4 text-emerald-500" aria-label="erreicht" /> : <Circle className="size-4 text-muted-foreground" aria-label="offen" />}
-                    <span className="flex-1">{m.name}</span>
-                    <span className="text-xs text-muted-foreground tabular-nums">{m.date ? formatDate(m.date) : "ohne Datum"}</span>
+                    <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{m.name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{m.date ? formatDate(m.date) : "ohne Datum"}</span>
                   </li>
                 ))}
               </ul>
@@ -106,13 +106,13 @@ export default async function ReviewPage(props: {
             <ul className="space-y-1.5 text-sm">
               {report.members.map((m) => (
                 <li key={m.id} className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate">{m.name} <span className="text-xs text-muted-foreground">{ROLE_LABELS[m.role]}</span></span>
-                  <span className="text-xs text-muted-foreground tabular-nums">{m.done}/{m.assigned} erledigt</span>
+                  <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{m.name} <span className="text-xs text-muted-foreground">{ROLE_LABELS[m.role]}</span></span>
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{m.done}/{m.assigned} erledigt</span>
                 </li>
               ))}
             </ul>
-            <p className="mt-3 flex items-center gap-1.5 border-t pt-2 text-xs text-muted-foreground">
-              <MessageSquare className="size-3" aria-hidden /> {report.comments} {report.comments === 1 ? "Kommentar" : "Kommentare"} · {report.attachments} {report.attachments === 1 ? "Datei" : "Dateien"}
+            <p className="mt-3 border-t pt-2 text-xs text-muted-foreground">
+              <MessageSquare className="mr-1 inline size-3" aria-hidden /> {report.comments} {report.comments === 1 ? "Kommentar" : "Kommentare"} · {report.attachments} {report.attachments === 1 ? "Datei" : "Dateien"}
               {report.lastDueDate && ` · letzter Termin ${formatDate(report.lastDueDate)}`}
             </p>
           </Card>
@@ -144,14 +144,14 @@ function Stat(props: { label: string; value: string; hint: string; tone?: "dange
     <div className="rounded-xl border bg-card p-3">
       <p className="text-xs text-muted-foreground">{props.label}</p>
       <p className={cn("text-2xl font-semibold tabular-nums", props.tone === "danger" && "text-destructive")}>{props.value}</p>
-      <p className="truncate text-xs text-muted-foreground">{props.hint}</p>
+      <p className="text-xs text-muted-foreground">{props.hint}</p>
     </div>
   );
 }
 
 function Card(props: { title: string; children: React.ReactNode }) {
   return (
-    <section aria-label={props.title} className="rounded-xl border bg-card px-4 py-3">
+    <section aria-label={props.title} className="min-w-0 rounded-xl border bg-card px-4 py-3">
       <h3 className="mb-2 text-sm font-medium">{props.title}</h3>
       {props.children}
     </section>

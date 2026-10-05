@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { setAssigneesAction, setLabelsAction, undoScheduleAction, updateTaskAction } from "@/app/(app)/tasks/actions";
 import { Select } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { TASK_PRIORITIES, type TaskPriority } from "@/lib/enums";
 import { PRIORITY_LABELS } from "@/lib/priority";
 import type { TaskPatch } from "@/lib/schemas/task";
@@ -181,13 +181,14 @@ function TextField(props: {
   }
 
   return (
-    <Input
+    <Textarea
       aria-label={props.label}
       value={value}
       disabled={props.disabled}
       maxLength={200}
-      className={props.large ? "h-auto border-transparent bg-transparent px-2 py-1 -mx-2 text-xl font-semibold shadow-none hover:border-input focus-visible:border-ring md:text-xl dark:bg-transparent" : undefined}
-      onChange={(e) => setValue(e.target.value)}
+      rows={1}
+      className={props.large ? "min-h-0 resize-none border-transparent bg-transparent px-2 py-1 -mx-2 text-xl font-semibold shadow-none hover:border-input focus-visible:border-ring md:text-xl dark:bg-transparent" : undefined}
+      onChange={(e) => setValue(e.target.value.replace(/[\r\n]+/g, " "))}
       onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === "Enter") {

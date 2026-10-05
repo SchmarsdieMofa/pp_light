@@ -120,7 +120,10 @@ test("invitation through Mailpit to project planning and an inbox mention", asyn
 
     await page.goto(board.replace(/\/board$/, "/gantt"));
     const day = await ganttDayWidth(page);
-    const box = await ganttBar(page, "ABF-1 Ausgang").boundingBox();
+    const bar = ganttBar(page, "ABF-1 Ausgang");
+    // The initial timeline can clip an earlier task behind the tree pane.
+    await bar.scrollIntoViewIfNeeded();
+    const box = await bar.boundingBox();
     if (!box) throw new Error("Gantt-Balken nicht sichtbar");
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();

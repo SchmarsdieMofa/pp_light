@@ -11,13 +11,13 @@ import { Label } from "@/components/ui/label";
 
 export function ProfileForm(props: { name: string; email: string }) {
   return (
-    <dl className="grid gap-3 text-sm sm:grid-cols-[8rem_1fr] sm:items-center">
+    <dl className="grid gap-3 text-sm sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center">
       <dt><label htmlFor="own-name" className="text-muted-foreground">Name</label></dt>
       <dd className="-mx-2">
         <AutosaveInput id="own-name" label="Name" value={props.name} required maxLength={100} onSave={updateOwnNameAction} />
       </dd>
       <dt className="text-muted-foreground">E-Mail</dt>
-      <dd>{props.email}</dd>
+      <dd className="min-w-0 [overflow-wrap:anywhere]">{props.email}</dd>
     </dl>
   );
 }

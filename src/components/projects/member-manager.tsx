@@ -31,16 +31,16 @@ export function MemberManager(props: { projectId: string; members: MemberItem[];
     <div className="space-y-3">
       <ul aria-label="Mitglieder" className="divide-y rounded-lg border">
         {props.members.map((m) => (
-          <li key={m.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+          <li key={m.id} className="grid grid-cols-[2rem_minmax(0,1fr)] items-start gap-3 px-3 py-2 text-sm sm:grid-cols-[2rem_minmax(0,1fr)_auto] sm:items-center">
             <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
               {initials(m.name)}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate font-medium">{m.name}</span>
-              <span className="block truncate text-xs text-muted-foreground">{m.email}</span>
+              <span className="block font-medium [overflow-wrap:anywhere]">{m.name}</span>
+              <span className="block text-xs text-muted-foreground [overflow-wrap:anywhere]">{m.email}</span>
             </span>
             {props.canManage ? (
-              <>
+              <div className="col-start-2 flex flex-wrap items-center gap-2 sm:col-start-auto">
                 <Select
                   aria-label={`Rolle von ${m.name}`}
                   className="w-28"
@@ -58,9 +58,9 @@ export function MemberManager(props: { projectId: string; members: MemberItem[];
                   pending={pending}
                   onConfirm={() => run(() => removeMemberAction(props.projectId, m.id))}
                 />
-              </>
+              </div>
             ) : (
-              <span className="text-xs text-muted-foreground">{ROLE_LABELS[m.role]}</span>
+              <span className="col-start-2 text-xs text-muted-foreground sm:col-start-auto">{ROLE_LABELS[m.role]}</span>
             )}
           </li>
         ))}
