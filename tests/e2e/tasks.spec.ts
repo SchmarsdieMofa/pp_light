@@ -94,7 +94,7 @@ test("completes and reopens tasks with one click and searches live", async ({ pa
 
 test("picks dates from the calendar, by quick choice or by typing", async ({ page }) => {
   await login(page);
-  const board = await createProjectViaUi(page, "Datum-Test", "dtm");
+  const board = await createProjectViaUi(page, "Datum-Test", `dt${crypto.randomUUID().slice(0, 6)}`);
   await openList(page, board);
   await quickAdd(page, "Termin");
   await page.getByRole("table", { name: "Aufgaben" }).getByRole("link", { name: "Termin" }).click();
@@ -104,18 +104,38 @@ test("picks dates from the calendar, by quick choice or by typing", async ({ pag
 
   await due.locator("..").getByRole("button", { name: "Kalender öffnen" }).click();
   const picker = page.getByRole("dialog", { name: "Fällig wählen" });
+  const tomorrowSaved = page.waitForResponse((response) => response.request().method() === "POST"
+    && Boolean(response.request().headers()["next-action"])
+    && Boolean(response.request().postData()?.includes("dueDate")));
   await picker.getByRole("button", { name: "Morgen" }).click();
+  await tomorrowSaved;
   await expect(picker).toBeHidden();
   await expect(due).toHaveValue(formatDate(addDays(today, 1)));
 
   await panel.getByLabel("Start").locator("..").getByRole("button", { name: "Kalender öffnen" }).click();
   const startPicker = page.getByRole("dialog", { name: "Start wählen" });
-  await startPicker.getByRole("button", { name: "Nächster Monat" }).click();
-  await startPicker.getByRole("gridcell").getByRole("button").nth(14).click();
-  await expect(panel.getByLabel("Start")).not.toHaveValue("");
+  // Pick a start before tomorrow's due date; a start in the next month is correctly rejected.
+  await startPicker.getByRole("button", { name: "Vorheriger Monat" }).click();
+  const day = startPicker.getByRole("gridcell").getByRole("button").nth(14);
+  const selectedStart = await day.getAttribute("data-day");
+  expect(selectedStart).toBeTruthy();
+  const startSaved = page.waitForResponse((response) => response.request().method() === "POST"
+    && Boolean(response.request().headers()["next-action"])
+    && Boolean(response.request().postData()?.includes("startDate")));
+  await day.click();
+  await startSaved;
+  await expect(startPicker).toBeHidden();
+  await expect(panel.getByLabel("Start")).toHaveValue(formatDate(selectedStart!));
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect(panel.getByLabel("Start")).toHaveValue(formatDate(selectedStart!));
 
   await due.fill("24.12.");
+  const typedDateSaved = page.waitForResponse((response) => response.request().method() === "POST"
+    && Boolean(response.request().headers()["next-action"])
+    && Boolean(response.request().postData()?.includes("dueDate")));
   await due.press("Enter");
+  await typedDateSaved;
   await expect(due).toHaveValue(`24.12.${today.slice(0, 4)}`);
   await page.waitForLoadState("networkidle");
   await page.reload();
