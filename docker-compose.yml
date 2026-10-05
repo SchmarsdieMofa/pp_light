@@ -1,4 +1,13 @@
 name: pp_light
+x-proxy-env: &proxy-env
+  HTTP_PROXY: ${HTTP_PROXY:-}
+  HTTPS_PROXY: ${HTTPS_PROXY:-}
+  http_proxy: ${HTTP_PROXY:-}
+  https_proxy: ${HTTPS_PROXY:-}
+  # Node's HTTP(S) clients and fetch read proxy variables at process startup.
+  NODE_USE_ENV_PROXY: "1"
+  NO_PROXY: &no-proxy "localhost,127.0.0.1,::1,postgres,app,worker,caddy,backup${NO_PROXY_EXTRA:+,${NO_PROXY_EXTRA}}"
+  no_proxy: *no-proxy
 services:
   postgres:
     image: postgres:17-alpine
@@ -18,6 +27,7 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
+      <<: *proxy-env
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       # No AUTH_URL: Auth.js takes scheme and host from Caddy's forwarded headers, so HTTP and HTTPS both work.
       # Links in mails use the address from the setup (Einstellungen → Server); this is only the fallback.
@@ -41,6 +51,7 @@ services:
     command: ["worker"]
     env_file: .env
     environment:
+      <<: *proxy-env
       # Mail goes to the SMTP server configured in .env (SMTP_HOST, SMTP_PORT, …).
       # No Mailpit here: it would expose reset and invitation links without authentication.
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
@@ -55,6 +66,15 @@ services:
     environment:
       PP_DOMAIN: ${PP_DOMAIN:?PP_DOMAIN in .env setzen}
       PP_TLS: ${PP_TLS:-internal}
+      # Internal/own certificates need no outgoing proxy. See README for ACME.
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      http_proxy: ""
+      https_proxy: ""
+      ALL_PROXY: ""
+      all_proxy: ""
+      NO_PROXY: *no-proxy
+      no_proxy: *no-proxy
     ports:
       - "80:80"
       - "443:443"

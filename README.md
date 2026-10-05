@@ -100,9 +100,63 @@ Nach der ersten Anmeldung führt eine kurze Einführung durch die wichtigsten Fu
 
 Der separate `worker`-Container versendet Einladungen, Passwort-Reset-Links und Benachrichtigungs-Digests über den SMTP-Server aus `.env`. Eine Mail, die fünfmal nicht zugestellt werden kann, wird aufgegeben (`mail_outbox.failed_at`, Fehler in `last_error`), ohne andere Mails aufzuhalten.
 
-SMTP-Zugang in `.env` setzen: `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` und bei Bedarf `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`. Mailpit gehört nur in die Entwicklung (`docker-compose.dev.yml`): Es zeigt Reset- und Einladungslinks ohne Anmeldung an und darf nie öffentlich erreichbar sein. Optionales SSO benötigt `OIDC_ISSUER`, `OIDC_CLIENT_ID` und `OIDC_CLIENT_SECRET`. Die Redirect-URI beim Provider lautet `<Adresse>/api/auth/callback/oidc`, mit der Adresse, unter der Nutzer pp_light öffnen (z. B. `https://pp.firma.local`). Mit `OIDC_ALLOWED_DOMAINS=firma.de,partner.de` dürfen verifizierte Adressen dieser Domains ein neues Konto erhalten; sonst braucht ein neues Konto eine Einladung. Konten werden nur über eine vom Provider bestätigte E-Mail-Adresse verknüpft (`email_verified`). Microsoft Entra ID sendet dieses Feld nicht; dort `OIDC_TRUST_EMAIL=true` setzen, aber nur für einen eigenen Tenant als Issuer (nicht `common`), denn dann vertraut pp_light jeder Adresse, die dieser Issuer meldet.
+SMTP-Zugang in `.env` setzen: `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` und bei Bedarf `SMTP_USER`, `SMTP_PASSWORD`. Mailpit gehört nur in die Entwicklung (`docker-compose.dev.yml`): Es zeigt Reset- und Einladungslinks ohne Anmeldung an und darf nie öffentlich erreichbar sein. Optionales SSO benötigt `OIDC_ISSUER`, `OIDC_CLIENT_ID` und `OIDC_CLIENT_SECRET`. Die Redirect-URI beim Provider lautet `<Adresse>/api/auth/callback/oidc`, mit der Adresse, unter der Nutzer pp_light öffnen (z. B. `https://pp.firma.local`). Mit `OIDC_ALLOWED_DOMAINS=firma.de,partner.de` dürfen verifizierte Adressen dieser Domains ein neues Konto erhalten; sonst braucht ein neues Konto eine Einladung. Konten werden nur über eine vom Provider bestätigte E-Mail-Adresse verknüpft (`email_verified`). Microsoft Entra ID sendet dieses Feld nicht; dort `OIDC_TRUST_EMAIL=true` setzen, aber nur für einen eigenen Tenant als Issuer (nicht `common`), denn dann vertraut pp_light jeder Adresse, die dieser Issuer meldet.
 
 Anmeldeschutz: Nach fünf falschen Passwörtern ist ein Konto 15 Minuten gesperrt, nach 20 Fehlversuchen von derselben IP diese IP. Ein Passwort-Reset beendet alle bestehenden Sitzungen; deaktivierte Konten verlieren offene Einladungs- und Reset-Links.
+
+### SMTP-Verschlüsselung und Diagnose
+
+Alle Optionen werden zur Laufzeit gelesen. Nach Änderungen an `.env` die Container mit `docker compose up -d --force-recreate app worker` neu erstellen; ein Rebuild ist für spätere Konfigurationsänderungen nicht nötig. `restart` allein übernimmt keine geänderten Compose-Umgebungsvariablen.
+
+| Variable | Bedeutung / Standard |
+|---|---|
+| `SMTP_HOST`, `SMTP_PORT` | Mailserver und Port; Port bleibt aus Kompatibilitätsgründen `1025` (Mailpit), in Produktion meist `25`, `587` oder `465` explizit setzen. |
+| `SMTP_FROM` | Absender, Standard `pp_light <no-reply@localhost>`. |
+| `SMTP_USER`, `SMTP_PASSWORD` | Optionale Anmeldung; ohne Benutzer keine Anmeldung. `SMTP_PASS` ist ein Alias für das Passwort; `SMTP_PASSWORD` hat Vorrang. |
+| `SMTP_TLS_MODE` | `auto` (Standard): STARTTLS, wenn angeboten; ohne Angebot Klartext. `starttls` und `required`: STARTTLS erzwingen, bei fehlendem Angebot oder fehlerhaftem Handshake abbrechen. `ssl`: TLS direkt beim Verbindungsaufbau. `none`: STARTTLS auch bei Angebot abschalten. |
+| `SMTP_TLS_REJECT_UNAUTHORIZED` | `true` (Standard): Zertifikat und Hostname prüfen. `false` akzeptiert ungültige Zertifikate und schwächt die Authentizität. |
+| `SMTP_TLS_CA_FILE` | Zusätzliche CA-Datei (PEM), im Container lesbarer Pfad; leer = normaler Truststore. |
+| `SMTP_TLS_MIN_VERSION` | `TLSv1.2` (Standard); außerdem `TLSv1.3`, `TLSv1.1`, `TLSv1`. Alte Protokolle nur als bewusster Notbehelf. |
+| `SMTP_TLS_CIPHERS` | OpenSSL-Cipher-String; leer = Node-Defaults. `DEFAULT@SECLEVEL=0` erlaubt schwache Altsysteme, einschließlich DHE-1024. |
+| `SMTP_SECURE` | Kompatibilität mit bestehenden Installationen: `true` entspricht `ssl`, solange `SMTP_TLS_MODE` nicht gesetzt ist. Ein expliziter neuer Modus hat Vorrang. |
+
+`none`, deaktivierte Zertifikatsprüfung und schwache Ciphers nur bewusst in vertrauenswürdigen internen Netzen einsetzen; vorzugsweise den Mailserver korrigieren. Der Worker warnt beim Start bei `none` und deaktivierter Zertifikatsprüfung. Ungültige TLS-Modi, Versions-, Boolean- oder Port-Werte sowie nicht lesbare CA-Dateien führen zum Startabbruch. Die TLS-Einstellungen gelten nur für SMTP, ohne prozessweite TLS-Abschwächung über `NODE_OPTIONS`.
+
+Interne CA bevorzugen: z. B. `./certs/smtp-ca.pem` ablegen und mit einer `docker-compose.override.yml` in App und Worker einbinden (der Benutzer im Container muss die Datei lesen können):
+
+```yaml
+services:
+  app:
+    volumes:
+      - ./certs/smtp-ca.pem:/certs/smtp-ca.pem:ro
+  worker:
+    volumes:
+      - ./certs/smtp-ca.pem:/certs/smtp-ca.pem:ro
+```
+
+Dazu `SMTP_TLS_CA_FILE=/certs/smtp-ca.pem` in `.env` setzen. Die zusätzliche CA ergänzt den normalen Truststore; sie behebt keine abgelaufenen Zertifikate.
+
+```bash
+docker compose run --rm --no-deps worker smtp:check
+# Lokal: lädt .env und, falls vorhanden, .env.local (hat Vorrang); Prozess-Env hat Vorrang vor beiden
+npm run smtp:check
+```
+
+Der Check zeigt DNS, Erreichbarkeit, EHLO/STARTTLS-Angebot, TLS-Protokoll, Cipher, ephemeren Schlüssel samt DH-Bitlänge und Zertifikat (Subject, Issuer, Ablauf, Ketten-/Hostnamenprüfung). Zur Zertifikatsinspektion akzeptiert eine separate Verbindung ungültige Zertifikate, ohne Anmeldung oder Versand. Das abschließende `transporter.verify()` verwendet die tatsächlichen TLS- und Zugangseinstellungen; es prüft Verbindung und Anmeldung, aber nicht die Annahme einer Mail durch den Server. Fehler liefern Exitcode 1. Es wird keine Mail gesendet. Bei einem nicht verhandelbaren TLS-Handshake sind Cipher und Zertifikat nicht verfügbar; für eine erneute Diagnose ggf. bewusst die SMTP-spezifischen Optionen anpassen. Ein externes `openssl` im App-Image ist dafür nicht nötig.
+
+| Fehler | Mögliche Ursache | Abhilfe |
+|---|---|---|
+| `dh key too small` | DH-Parameter des Servers zu klein, z. B. 1024 Bit | Server korrigieren; Notbehelf `SMTP_TLS_CIPHERS=DEFAULT@SECLEVEL=0`. |
+| `handshake failure` (Alert 40) | Keine gemeinsame Cipher/TLS-Version | Server korrigieren; gezielt `SMTP_TLS_MIN_VERSION` / `SMTP_TLS_CIPHERS` anpassen. |
+| `certificate has expired` | Abgelaufenes Zertifikat | Zertifikat erneuern; Notbehelf `SMTP_TLS_REJECT_UNAUTHORIZED=false`. |
+| `self-signed certificate in chain` | Interne CA unbekannt | Root-CA über `SMTP_TLS_CA_FILE` einbinden. |
+| `ETIMEDOUT` bei internen HTTP-Zielen | Proxy-Ausnahme fehlt oder Netzwerk blockiert | `NO_PROXY_EXTRA` ergänzen, DNS/Firewall prüfen. SMTP/Postgres verwenden direkte TCP-Verbindungen. |
+
+### Betrieb hinter einem ausgehenden Proxy
+
+`HTTP_PROXY` und `HTTPS_PROXY` in `.env` setzen (z. B. `http://proxy.example.org:3128`), sonst leer lassen. App und Worker erhalten Groß- und Kleinschreibung identisch; Node 24 nutzt diese Werte für HTTP(S) und `fetch` über `NODE_USE_ENV_PROXY=1`. `NO_PROXY_EXTRA` ergänzt kommaseparierte Ausnahmen für Hosts, Domains oder IPs. Loopback und `postgres`, `app`, `worker`, `caddy`, `backup` sind immer ausgenommen. CIDR-Ausnahmen werden nicht von jedem Client unterstützt; bei Node einzelne IPs oder unterstützte IP-Bereiche verwenden. SMTP und PostgreSQL verbinden sich direkt per TCP; ein HTTP-Proxy aus diesen Variablen tunnelt sie nicht automatisch.
+
+Caddy erhält ausdrücklich leere Proxy-Variablen und verbindet sich direkt mit der App. Für `PP_TLS=internal` und eigene Zertifikate benötigt er keinen ausgehenden Proxy. Eine individuell eingerichtete öffentliche ACME-Zertifikatsausstellung benötigt dagegen Internetzugriff: In einem Netz mit Proxy-Pflicht die Proxy-Variablen für Caddy über eine lokale Compose-Override setzen und seine `NO_PROXY`-Ausnahmen behalten. Proxy-Einstellungen für Docker-Image-Pulls und Build-Downloads sind separat in Docker Desktop bzw. im Docker-Daemon/Build zu konfigurieren; die Runtime-Variablen der Dienste steuern diese nicht.
 
 ### Hinweise
 
@@ -137,6 +191,7 @@ Dann unter <http://localhost:3000> als `demo@pp-light.local` anmelden. Das Demo-
 | `npm test` | Unit- und Integrationstests (Vitest, gegen DB `pp_light_test`) |
 | `npm run test:e2e` | Browser-Tests (Playwright, Port 3100, DB `pp_light_e2e`, Mailpit auf Port 8025). Die Vorschau auf Port 3000 kann weiterlaufen. |
 | `npm run typecheck` / `npm run lint` | Statische Prüfung |
+| `npm run test:smtp` | SMTP-Modi, TLS und Diagnose gegen lokale Testserver, ohne Datenbank |
 | `npm run db:generate` | Migration aus `src/server/db/schema.ts` erzeugen |
 
 Bei jedem Push und Pull Request führt [GitHub Actions](.github/workflows/checks.yml) Typecheck, Lint, Unit- und Browser-Tests sowie den Produktions-Build mit frischem Postgres und Mailpit aus.

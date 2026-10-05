@@ -2,8 +2,10 @@ import { PgBoss } from "pg-boss";
 import { createDb } from "../src/server/db/client";
 import { sendPendingDigests, sendPendingOutbox } from "../src/server/notifications/digest";
 import { createDueReminders } from "../src/server/notifications/service";
+import { validateMailConfiguration } from "../src/server/mail/transport";
 
 async function main() {
+  validateMailConfiguration();
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL fehlt.");
   const db = createDb(url);

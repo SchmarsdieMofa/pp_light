@@ -41,6 +41,9 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: SMTP tests
+        run: npm run test:smtp
+
       - name: Production build
         run: npm run build
         env:
