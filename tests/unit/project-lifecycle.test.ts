@@ -79,13 +79,13 @@ describe("project lifecycle", () => {
     expect((await getProjectForUser(testDb, ada, p.project.id))?.role).toBe("owner");
   });
 
-  it("archives without review and blocks even admins from editing until restored", async () => {
+  it("archives without review and hides it from admins without membership", async () => {
     const { ada, p } = await setup();
     const root = await makeActor("root@example.com", "admin");
     await archiveProject(testDb, ada, p.project.id);
     const [row] = await testDb.select().from(projects).where(eq(projects.id, p.project.id));
     expect(row.completedAt).toBeNull();
-    await expect(createTask(testDb, root, { projectId: p.project.id, title: "Neu" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(createTask(testDb, root, { projectId: p.project.id, title: "Neu" })).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
   it("lists archived projects with final progress and who may restore them", async () => {
@@ -98,7 +98,7 @@ describe("project lifecycle", () => {
     // Top-level tasks only: three tasks, one done; the subtask does not count.
     expect(forAda).toMatchObject({ key: "LIF", taskTotal: 3, taskDone: 1, canRestore: true });
     expect((await listArchivedProjects(testDb, mia))[0].canRestore).toBe(false);
-    expect((await listArchivedProjects(testDb, root))[0].canRestore).toBe(true);
+    expect(await listArchivedProjects(testDb, root)).toEqual([]);
     expect(await listArchivedProjects(testDb, other)).toEqual([]);
   });
 

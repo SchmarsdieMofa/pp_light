@@ -90,12 +90,12 @@ export function CalendarView(props: {
     <div className="flex h-full min-h-0 flex-col gap-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-xl font-semibold tabular-nums">{title}</h1>
           <nav aria-label="Zeitraum" className="flex items-center gap-1">
             <Link href={href({ date: prevDate })} aria-label="Zurück" className={navButton}><ChevronLeft className="size-4" /></Link>
             <Link href={href({ date: null })} className={cn(navButton, "w-auto px-3 text-sm")}>Heute</Link>
             <Link href={href({ date: nextDate })} aria-label="Weiter" className={navButton}><ChevronRight className="size-4" /></Link>
           </nav>
+          <h1 className="text-xl font-semibold tabular-nums">{title}</h1>
         </div>
         <nav aria-label="Ansicht" className="flex items-center gap-1 rounded-lg border bg-background p-1">
           {([["month", "Monat", CalendarDays], ["week", "Woche", Rows3], ["list", "Liste", List]] as const).map(([mode, label, Icon]) => (

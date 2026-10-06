@@ -43,7 +43,8 @@ describe("calendar", () => {
     expect(titles(rows)).toEqual(["Drin", "Anderes Projekt"]);
     expect(rows[0]).toMatchObject({ key: "CLA", dueDate: "2026-10-05", canEdit: true });
     expect(rows[1]).toMatchObject({ key: "CLB", canEdit: false });
-    expect(titles(await listCalendarTasks(testDb, root, range))).toEqual(["Drin", "Geheim", "Anderes Projekt"]);
+    // A global admin without membership sees nothing.
+    expect(await listCalendarTasks(testDb, root, range)).toEqual([]);
   });
 
   it("filters by project, assignee and done state", async () => {

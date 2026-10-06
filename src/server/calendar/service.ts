@@ -65,14 +65,14 @@ export async function listCalendarTasks(db: DB, actor: Actor, filter: CalendarFi
       statusName: statuses.name,
       isDone: statuses.isDone,
       updatedAt: tasks.updatedAt,
-      canEdit: actor.role === "admin" ? sql<boolean>`true` : sql<boolean>`exists(${editorMembership})`,
+      canEdit: sql<boolean>`exists(${editorMembership})`,
     })
     .from(tasks)
     .innerJoin(statuses, eq(statuses.id, tasks.statusId))
     .innerJoin(projects, eq(projects.id, tasks.projectId))
     .where(and(
       isNull(projects.archivedAt),
-      actor.role === "admin" ? undefined : exists(membership),
+      exists(membership),
       dateCondition,
       filter.projectIds?.length ? inArray(tasks.projectId, filter.projectIds) : undefined,
       filter.includeDone ? undefined : eq(statuses.isDone, false),

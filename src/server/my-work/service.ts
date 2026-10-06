@@ -23,17 +23,14 @@ export type MyWorkTask = {
   updatedAt: string;
 };
 
-/** Open tasks assigned to me in projects I can still see (membership is re-checked, admins see all). */
+/** Open tasks assigned to me in projects I can still see (membership is re-checked, admins get no special access). */
 export async function listMyWork(db: DB, actor: Actor): Promise<MyWorkTask[]> {
-  const visible =
-    actor.role === "admin"
-      ? sql`true`
-      : exists(
-          db
-            .select({ one: sql`1` })
-            .from(projectMembers)
-            .where(and(eq(projectMembers.projectId, tasks.projectId), eq(projectMembers.userId, actor.id))),
-        );
+  const visible = exists(
+    db
+      .select({ one: sql`1` })
+      .from(projectMembers)
+      .where(and(eq(projectMembers.projectId, tasks.projectId), eq(projectMembers.userId, actor.id))),
+  );
   const rows = await db
     .select({
       id: tasks.id,

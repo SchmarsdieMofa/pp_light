@@ -6,8 +6,16 @@ const member: Actor = { id: "u1", role: "member", name: "Mia", email: "mia@examp
 const admin: Actor = { id: "a1", role: "admin", name: "Ada", email: "ada@example.com" };
 
 describe("can", () => {
-  it("lets admins do everything, even without project membership", () => {
-    for (const action of ALL_ACTIONS) expect(can(admin, action)).toBe(true);
+  it("gives admins user management and project creation, but no project rights without membership", () => {
+    for (const action of ALL_ACTIONS) {
+      expect(can(admin, action)).toBe(action === "admin.manageUsers" || action === "project.create");
+    }
+  });
+
+  it("limits an admin who is a project member to the membership role", () => {
+    expect(can(admin, "task.update", { projectRole: "member" })).toBe(true);
+    expect(can(admin, "project.update", { projectRole: "member" })).toBe(false);
+    expect(can(admin, "project.update", { projectRole: "owner" })).toBe(true);
   });
 
   it("lets only admins manage users", () => {

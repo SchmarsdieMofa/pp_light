@@ -26,13 +26,12 @@ export const ALL_ACTIONS: readonly Action[] = [
 /** `readOnly`: the project is archived – it can be viewed, but nobody (not even an admin) may change it. */
 export type PermissionContext = { projectRole?: ProjectRole | null; isAuthor?: boolean; readOnly?: boolean };
 
-/** The actor's standing in a project: a membership role, "admin" (admin without membership) or "readonly" (archived project). */
-export type AccessRole = ProjectRole | "admin" | "readonly";
+/** The actor's standing in a project: a membership role or "readonly" (archived project). Being a global admin grants no project access. */
+export type AccessRole = ProjectRole | "readonly";
 
 export function can(actor: Actor, action: Action, ctx: PermissionContext = {}): boolean {
   if (ctx.readOnly) return action === "project.view";
-  if (actor.role === "admin") return true;
-  if (action === "admin.manageUsers") return false;
+  if (action === "admin.manageUsers") return actor.role === "admin";
   if (action === "project.create") return true;
 
   const role = ctx.projectRole;
@@ -51,5 +50,5 @@ export function assertCan(actor: Actor, action: Action, ctx: PermissionContext =
 /** Permission context for a role as returned by getProjectForUser / loadTaskAccess. */
 export function projectCtx(role: AccessRole | null): PermissionContext {
   if (role === "readonly") return { projectRole: null, readOnly: true };
-  return { projectRole: role === "admin" ? null : role };
+  return { projectRole: role };
 }

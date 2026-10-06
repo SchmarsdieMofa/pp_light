@@ -13,7 +13,6 @@ export type SearchResult = {
 const taskDocument = sql`to_tsvector('german', ${tasks.title} || ' ' || ${tasks.description})`;
 
 function visibleProject(db: DB, actor: Actor, projectId: typeof projects.id | typeof tasks.projectId): SQL {
-  if (actor.role === "admin") return sql`true`;
   return exists(
     db
       .select({ one: sql`1` })

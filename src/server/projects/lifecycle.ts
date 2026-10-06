@@ -179,7 +179,7 @@ export type ArchivedProject = Project & { taskTotal: number; taskDone: number; c
 export async function listArchivedProjects(db: DB, actor: Actor): Promise<ArchivedProject[]> {
   const member = and(eq(projectMembers.projectId, projects.id), eq(projectMembers.userId, actor.id));
   const base = db.select({ project: projects, role: projectMembers.role }).from(projects);
-  const rows = await (actor.role === "admin" ? base.leftJoin(projectMembers, member) : base.innerJoin(projectMembers, member))
+  const rows = await base.innerJoin(projectMembers, member)
     .where(isNotNull(projects.archivedAt))
     .orderBy(desc(projects.archivedAt));
   if (rows.length === 0) return [];

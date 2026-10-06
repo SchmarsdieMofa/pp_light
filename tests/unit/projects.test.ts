@@ -61,7 +61,7 @@ describe("projects service", () => {
     expect(rejected.reason).toMatchObject({ code: "KEY_TAKEN" });
   });
 
-  it("lists only projects the user is a member of; admins see all", async () => {
+  it("lists only projects the user is a member of; admins get no special access", async () => {
     const ada = await actor("ada@example.com");
     const bob = await actor("bob@example.com");
     const root = await actor("root@example.com", "admin");
@@ -71,7 +71,7 @@ describe("projects service", () => {
 
     expect((await listProjectsForUser(testDb, ada)).map((p) => p.name)).toEqual(["Alpha", "Beta"]);
     expect((await listProjectsForUser(testDb, bob)).map((p) => p.name)).toEqual(["Bobs"]);
-    expect((await listProjectsForUser(testDb, root)).map((p) => p.name)).toEqual(["Alpha", "Beta", "Bobs"]);
+    expect(await listProjectsForUser(testDb, root)).toEqual([]);
   });
 
   it("counts open and overdue tasks only for visible projects", async () => {
@@ -92,8 +92,7 @@ describe("projects service", () => {
 
     expect((await listProjectOverview(testDb, ada, "2026-10-02")).map((p) => [p.key, p.openTaskCount, p.overdueTaskCount]))
       .toEqual([["ALP", 2, 1]]);
-    expect((await listProjectOverview(testDb, root, "2026-10-02")).map((p) => [p.key, p.openTaskCount, p.overdueTaskCount]))
-      .toEqual([["ALP", 2, 1], ["BET", 1, 1]]);
+    expect(await listProjectOverview(testDb, root, "2026-10-02")).toEqual([]);
   });
 
   it("hides projects from non-members and tolerates malformed ids", async () => {
@@ -105,6 +104,6 @@ describe("projects service", () => {
     expect(await getProjectForUser(testDb, bob, project.id)).toBeNull();
     expect(await getProjectForUser(testDb, ada, "abc")).toBeNull();
     expect(await getProjectForUser(testDb, ada, "00000000-0000-4000-8000-000000000000")).toBeNull();
-    expect((await getProjectForUser(testDb, root, project.id))?.role).toBe("admin");
+    expect(await getProjectForUser(testDb, root, project.id)).toBeNull();
   });
 });

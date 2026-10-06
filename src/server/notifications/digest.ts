@@ -51,7 +51,7 @@ export async function sendPendingDigests(db: DB, now = new Date()): Promise<numb
         if (pending.length === 0) return;
         const enabled = pending.filter(
           (notice) =>
-            (user.role === "admin" || !notice.projectId || notice.memberId) &&
+            (!notice.projectId || notice.memberId) &&
             !prefs?.disabledEmailTypes.includes(notice.type),
         );
         if (enabled.length > 0) {

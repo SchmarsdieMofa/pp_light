@@ -32,7 +32,7 @@ export async function loadTaskAccess(
     .limit(1);
   const [row] = opts.forUpdate ? await query.for("update", { of: tasks }) : await query;
   if (!row) throw notFound();
-  const role: ProjectRole | "admin" | null = row.role ?? (actor.role === "admin" ? "admin" : null);
+  const role: ProjectRole | null = row.role;
   if (!role) throw notFound();
   return { task: row.task, role: row.archivedAt ? "readonly" : role };
 }

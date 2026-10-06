@@ -15,7 +15,7 @@ export type Status = typeof statuses.$inferSelect;
  * `role` is what the actor may do now ("readonly" while the project is archived); `memberRole` is the
  * unmasked role, which decides who may restore, complete or delete the project.
  */
-export type ProjectAccess = { project: Project; role: AccessRole; memberRole: ProjectRole | "admin" };
+export type ProjectAccess = { project: Project; role: AccessRole; memberRole: ProjectRole };
 
 const DEFAULT_STATUSES = [
   { name: "Offen", color: "#94a3b8", isDone: false },
@@ -49,9 +49,6 @@ export async function createProject(db: DB, actor: Actor, rawInput: CreateProjec
 }
 
 export async function listProjectsForUser(db: DB, actor: Actor): Promise<Project[]> {
-  if (actor.role === "admin") {
-    return db.select().from(projects).where(isNull(projects.archivedAt)).orderBy(asc(projects.name));
-  }
   const rows = await db
     .select({ project: projects })
     .from(projects)
@@ -76,10 +73,6 @@ export async function listProjectOverview(db: DB, actor: Actor, today: string) {
     .where(and(
       inArray(tasks.projectId, visible.map((project) => project.id)),
       isNull(tasks.parentId),
-      actor.role === "admin" ? undefined : exists(
-        db.select({ one: sql`1` }).from(projectMembers)
-          .where(and(eq(projectMembers.projectId, tasks.projectId), eq(projectMembers.userId, actor.id))),
-      ),
     ))
     .groupBy(tasks.projectId);
   const byId = new Map(counts.map((row) => [row.projectId, row]));
@@ -103,7 +96,7 @@ export async function getProjectForUser(db: DB, actor: Actor, projectId: string)
     .where(eq(projects.id, projectId))
     .limit(1);
   if (!row) return null;
-  const memberRole = row.role ?? (actor.role === "admin" ? "admin" : null);
+  const memberRole = row.role;
   if (!memberRole) return null;
   return { project: row.project, role: row.project.archivedAt ? "readonly" : memberRole, memberRole };
 }

@@ -29,12 +29,6 @@ export function Sidebar({ user, projects, initialUnread }: { user: { name: strin
           <Link href="/projects" className={cn(navItem, pathname === "/projects" && navActive)}>
             <FolderKanban className="size-4" /> Projektübersicht
           </Link>
-          <Link href="/projects/archive" className={cn(navItem, pathname === "/projects/archive" && navActive)}>
-            <Archive className="size-4" /> Archiv
-          </Link>
-          <Link href="/calendar" className={cn(navItem, pathname === "/calendar" && navActive)}>
-            <CalendarDays className="size-4" /> Kalender
-          </Link>
           <button
             type="button"
             className={cn(navItem, "text-left")}
@@ -43,12 +37,18 @@ export function Sidebar({ user, projects, initialUnread }: { user: { name: strin
             <Search className="size-4" /> Suchen
             <kbd className="ml-auto rounded border bg-background px-1 text-[10px] text-muted-foreground">Strg K</kbd>
           </button>
+          <Link href="/calendar" className={cn(navItem, pathname === "/calendar" && navActive)}>
+            <CalendarDays className="size-4" /> Kalender
+          </Link>
           <NotificationLink initialUnread={initialUnread} />
           <SidebarProjects projects={projects} pathname={pathname} />
           <NewProjectDialog listen />
         </nav>
       </ScrollArea>
-      <div className="border-t p-2">
+      <div className="flex flex-col gap-1 border-t p-2">
+        <Link href="/projects/archive" className={cn(navItem, pathname === "/projects/archive" && navActive)}>
+          <Archive className="size-4" /> Archiv
+        </Link>
         <UserMenu user={user} />
       </div>
     </aside>

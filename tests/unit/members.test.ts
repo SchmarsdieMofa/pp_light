@@ -66,7 +66,7 @@ describe("members", () => {
     const { project } = await makeProject(ada, "PER");
     await addMemberByEmail(testDb, ada, project.id, "mia@example.com", "member");
     await expect(addMemberByEmail(testDb, mia, project.id, "root@example.com", "member")).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await addMemberByEmail(testDb, root, project.id, "root@example.com", "guest");
+    await expect(addMemberByEmail(testDb, root, project.id, "root@example.com", "guest")).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(changeMemberRole(testDb, ada, project.id, "kaputt", "member")).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(changeMemberRole(testDb, ada, project.id, mia.id, "boss" as "member")).rejects.toMatchObject({ code: "VALIDATION" });
   });
