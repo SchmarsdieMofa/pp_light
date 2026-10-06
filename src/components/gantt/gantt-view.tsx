@@ -234,7 +234,7 @@ function UnscheduledTasks({ tasks, projectKey, taskHref }: {
             <li key={task.id}>
               <Link href={taskHref(task.id)} onClick={() => setOpen(false)}
                 className="block truncate rounded-md px-2 py-1.5 text-sm hover:bg-accent">
-                {projectKey}-{task.number} {task.title}
+                {projectKey}-{task.path} {task.title}
               </Link>
             </li>
           ))}

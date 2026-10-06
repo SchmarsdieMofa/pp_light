@@ -1,3 +1,4 @@
+import { MAX_TASK_DEPTH, taskDepth } from "@/lib/task-path";
 import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
@@ -55,21 +56,30 @@ export async function createTask(db: DB, actor: Actor, raw: CreateTaskInput): Pr
   assertCan(actor, "task.create", projectCtx(access.role));
 
   return db.transaction(async (tx) => {
+    // Top-level tasks count up per project; a subtask counts up among its siblings and extends the parent's path.
+    // The row lock (project or parent) serializes concurrent creations → unique, gapless numbers.
+    let number: number;
+    let path: string;
     if (input.parentId) {
-      const [parent] = await tx.select().from(tasks).where(eq(tasks.id, input.parentId)).limit(1);
+      const [parent] = await tx.select().from(tasks).where(eq(tasks.id, input.parentId)).limit(1).for("update");
       if (!parent || parent.projectId !== input.projectId) {
         throw new DomainError("VALIDATION", "Übergeordnete Aufgabe nicht gefunden.");
       }
-      if (parent.parentId) {
-        throw new DomainError("VALIDATION", "Unteraufgaben können keine eigenen Unteraufgaben haben.");
+      if (taskDepth(parent.path) >= MAX_TASK_DEPTH) {
+        throw new DomainError("VALIDATION", `Unteraufgaben lassen sich höchstens ${MAX_TASK_DEPTH - 1} Ebenen tief verschachteln.`);
       }
+      const [last] = await tx.select({ max: sql<number>`coalesce(max(${tasks.number}), 0)::int` }).from(tasks).where(eq(tasks.parentId, parent.id));
+      number = last.max + 1;
+      path = `${parent.path}.${number}`;
+    } else {
+      const [{ taskCounter }] = await tx
+        .update(projects)
+        .set({ taskCounter: sql`${projects.taskCounter} + 1` })
+        .where(eq(projects.id, input.projectId))
+        .returning({ taskCounter: projects.taskCounter });
+      number = taskCounter;
+      path = String(taskCounter);
     }
-    // Row lock on the project serializes concurrent creations → unique, gapless numbers.
-    const [{ taskCounter }] = await tx
-      .update(projects)
-      .set({ taskCounter: sql`${projects.taskCounter} + 1` })
-      .where(eq(projects.id, input.projectId))
-      .returning({ taskCounter: projects.taskCounter });
     const status = await resolveStatus(tx, input.projectId, input.statusId);
 
     const [task] = await tx
@@ -77,7 +87,8 @@ export async function createTask(db: DB, actor: Actor, raw: CreateTaskInput): Pr
       .values({
         projectId: input.projectId,
         parentId: input.parentId ?? null,
-        number: taskCounter,
+        number,
+        path,
         title: input.title,
         statusId: status.id,
         position: await nextPosition(tx, status.id),

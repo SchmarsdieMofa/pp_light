@@ -72,7 +72,7 @@ export default async function ReviewPage(props: {
                 return (
                   <li key={t.id}>
                     <Link href={`?task=${t.id}`} scroll={false} className="flex items-center gap-3 py-2 hover:bg-muted/50">
-                      <span className="w-16 shrink-0 text-xs text-muted-foreground tabular-nums">{project.key}-{t.number}</span>
+                      <span className="w-16 shrink-0 text-xs text-muted-foreground tabular-nums">{project.key}-{t.path}</span>
                       <span className="min-w-0 flex-1 truncate">{t.title}</span>
                       <span className="hidden w-24 shrink-0 truncate text-xs text-muted-foreground sm:block">{t.statusName}</span>
                       <span className={cn("w-20 shrink-0 text-right text-xs tabular-nums", overdue ? "font-medium text-destructive" : "text-muted-foreground")}>

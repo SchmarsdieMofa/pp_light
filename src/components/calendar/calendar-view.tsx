@@ -49,7 +49,7 @@ export function CalendarView(props: {
 
   const needle = query.trim().toLocaleLowerCase("de");
   const visible = needle
-    ? tasks.filter((t) => `${t.key}-${t.number} ${t.title} ${t.projectName}`.toLocaleLowerCase("de").includes(needle))
+    ? tasks.filter((t) => `${t.key}-${t.path} ${t.title} ${t.projectName}`.toLocaleLowerCase("de").includes(needle))
     : tasks;
   const byDay = useMemo(() => {
     const map = new Map<string, CalendarTask[]>();
@@ -70,7 +70,7 @@ export function CalendarView(props: {
         return;
       }
       const moved = res.data.movedCount;
-      toast.success(`${task.key}-${task.number} fällig am ${formatDate(day)}${moved > 0 ? ` · ${moved} abhängige verschoben` : ""}`);
+      toast.success(`${task.key}-${task.path} fällig am ${formatDate(day)}${moved > 0 ? ` · ${moved} abhängige verschoben` : ""}`);
     });
   }
 
@@ -291,7 +291,7 @@ function TaskChip({ task, colorOf, today, detailed }: { task: CalendarTask; deta
         event.dataTransfer.setData(TASK_MIME, task.id);
         event.dataTransfer.effectAllowed = "move";
       }}
-      title={`${task.key}-${task.number} ${task.title}\n${task.projectName} · ${task.statusName}${overdue ? " · überfällig" : ""}`}
+      title={`${task.key}-${task.path} ${task.title}\n${task.projectName} · ${task.statusName}${overdue ? " · überfällig" : ""}`}
       className={cn(
         "group block rounded-md border-l-[3px] px-1.5 py-0.5 text-xs transition-[background-color,box-shadow] hover:shadow-sm",
         task.canEdit && "cursor-grab active:cursor-grabbing",
@@ -305,7 +305,7 @@ function TaskChip({ task, colorOf, today, detailed }: { task: CalendarTask; deta
       </span>
       {detailed && (
         <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <span className="tabular-nums">{task.key}-{task.number}</span>
+          <span className="tabular-nums">{task.key}-{task.path}</span>
           <span className="truncate">{task.statusName}</span>
         </span>
       )}
@@ -476,7 +476,7 @@ function AgendaGroup(props: { heading: string; tasks: CalendarTask[]; day?: stri
               className="flex items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-muted/50"
             >
               <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: props.colorOf(task.projectId) }} aria-hidden />
-              <span className="w-16 shrink-0 text-xs text-muted-foreground tabular-nums">{task.key}-{task.number}</span>
+              <span className="w-16 shrink-0 text-xs text-muted-foreground tabular-nums">{task.key}-{task.path}</span>
               <span className={cn("min-w-0 flex-1 truncate font-medium", task.isDone && "text-muted-foreground line-through")}>{task.title}</span>
               {props.tone === "danger" && <span className="shrink-0 text-xs font-medium text-destructive tabular-nums">{formatDate(task.dueDate)}</span>}
               <span className="hidden w-40 shrink-0 truncate text-xs text-muted-foreground sm:block">{task.projectName}</span>

@@ -19,12 +19,12 @@ function refresh() {
   revalidatePath("/", "layout");
 }
 
-export async function createTaskAction(input: CreateTaskInput): Promise<ActionResult<{ id: string; number: number }>> {
+export async function createTaskAction(input: CreateTaskInput): Promise<ActionResult<{ id: string; path: string }>> {
   const actor = await requireActor();
   return runAction(async () => {
     const task = await createTask(db(), actor, input);
     refresh();
-    return { id: task.id, number: task.number };
+    return { id: task.id, path: task.path };
   });
 }
 

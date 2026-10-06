@@ -5,3 +5,8 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 export function byPosition(column: AnyPgColumn): SQL {
   return sql`${column} collate "C"`;
 }
+
+/** Natural order of task paths: 1, 1.1, 1.2, 1.10, 2 (not "1", "1.10", "1.2"). */
+export function byPath(column: AnyPgColumn): SQL {
+  return sql`string_to_array(${column}, '.')::int[]`;
+}

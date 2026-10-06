@@ -1,7 +1,7 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import type { DB } from "@/server/db/client";
 import { phases, statuses, taskDependencies, tasks } from "@/server/db/schema";
-import { byPosition } from "@/server/db/order";
+import { byPosition, byPath } from "@/server/db/order";
 
 export type GanttPhase = {
   id: string;
@@ -15,7 +15,7 @@ export type GanttTask = {
   id: string;
   parentId: string | null;
   phaseId: string | null;
-  number: number;
+  path: string;
   title: string;
   startDate: string | null;
   dueDate: string | null;
@@ -39,14 +39,14 @@ export async function getGanttData(db: DB, projectId: string): Promise<GanttData
       id: tasks.id,
       parentId: tasks.parentId,
       phaseId: tasks.phaseId,
-      number: tasks.number,
+      path: tasks.path,
       title: tasks.title,
       startDate: tasks.startDate,
       dueDate: tasks.dueDate,
       updatedAt: tasks.updatedAt,
       isDone: statuses.isDone,
     }).from(tasks).innerJoin(statuses, eq(tasks.statusId, statuses.id))
-      .where(eq(tasks.projectId, projectId)).orderBy(asc(tasks.number)),
+      .where(eq(tasks.projectId, projectId)).orderBy(asc(byPath(tasks.path))),
   ]);
   const ids = taskRows.map((task) => task.id);
   const links = ids.length === 0 ? [] : await db.select({

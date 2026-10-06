@@ -2,7 +2,7 @@ import { and, eq, inArray, or } from "drizzle-orm";
 import type { Executor } from "@/server/db/client";
 import { taskDependencies, tasks } from "@/server/db/schema";
 
-export type TaskLink = { id: string; number: number; title: string; lagDays: number };
+export type TaskLink = { id: string; path: string; title: string; lagDays: number };
 
 export async function listTaskLinks(ex: Executor, projectId: string, taskId: string): Promise<{ blockers: TaskLink[]; successors: TaskLink[] }> {
   const edges = await ex.select().from(taskDependencies).where(or(
@@ -10,7 +10,7 @@ export async function listTaskLinks(ex: Executor, projectId: string, taskId: str
   ));
   if (edges.length === 0) return { blockers: [], successors: [] };
   const linkedIds = edges.map((edge) => edge.blockerId === taskId ? edge.blockedId : edge.blockerId);
-  const linked = await ex.select({ id: tasks.id, number: tasks.number, title: tasks.title }).from(tasks)
+  const linked = await ex.select({ id: tasks.id, path: tasks.path, title: tasks.title }).from(tasks)
     .where(and(eq(tasks.projectId, projectId), inArray(tasks.id, linkedIds)));
   const byId = new Map(linked.map((task) => [task.id, task]));
   const asLink = (id: string, lagDays: number): TaskLink | null => {

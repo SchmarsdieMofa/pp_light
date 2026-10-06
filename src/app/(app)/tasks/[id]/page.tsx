@@ -19,7 +19,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
           <span className="truncate">{detail.projectName}</span>
         </Link>
         <ChevronRight className="size-3.5 shrink-0 opacity-60" aria-hidden />
-        <span className="shrink-0 font-medium tabular-nums text-foreground">{detail.key}-{detail.number}</span>
+        <span className="shrink-0 font-medium tabular-nums text-foreground">{detail.key}-{detail.path}</span>
       </nav>
       <TaskEditor key={detail.id} detail={detail} />
     </div>

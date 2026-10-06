@@ -117,7 +117,7 @@ function Palette(props: {
         ...(result?.tasks ?? []).map((t) => ({
           id: t.id,
           label: t.title,
-          hint: `${t.key}-${t.number} · ${t.projectName}`,
+          hint: `${t.key}-${t.path} · ${t.projectName}`,
           href: `/tasks/${t.id}`,
           icon: "task" as const,
         })),

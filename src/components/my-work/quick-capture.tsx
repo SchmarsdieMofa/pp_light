@@ -44,7 +44,7 @@ export function QuickCapture({ projects, today }: { projects: Project[]; today: 
         return;
       }
       const project = projects.find((p) => p.id === projectId);
-      toast.success(`${project?.key}-${res.data.number} angelegt`);
+      toast.success(`${project?.key}-${res.data.path} angelegt`);
       setTitle("");
       try {
         localStorage.setItem(LAST_PROJECT_KEY, projectId);

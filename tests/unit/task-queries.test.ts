@@ -41,10 +41,10 @@ describe("listProjectTasks", () => {
   it("lists tasks and subtasks with status, assignees, labels, parent and progress", async () => {
     const { project, mia, logo: logoTask } = await setup();
     const rows = await listProjectTasks(testDb, project.id);
-    expect(rows.map((r) => r.title)).toEqual(["Logo 100% fertig", "Header_bauen", "Footer", "Unter", "Unter 2"]);
-    const [logo, header, , sub] = rows;
+    expect(rows.map((r) => r.title)).toEqual(["Logo 100% fertig", "Unter", "Unter 2", "Header_bauen", "Footer"]);
+    const [logo, sub, , header] = rows;
     expect(logo.parent).toBeNull();
-    expect(sub.parent).toEqual({ id: logoTask.id, number: logoTask.number, title: "Logo 100% fertig" });
+    expect(sub.parent).toEqual({ id: logoTask.id, path: logoTask.path, title: "Logo 100% fertig" });
     expect(logo.key).toBe("QRY");
     expect(logo.subtasks).toEqual({ done: 1, total: 2 });
     expect(logo.checklist).toEqual({ done: 1, total: 2 });
@@ -101,7 +101,7 @@ describe("listProjectTasks", () => {
     expect((await listProjectTasks(testDb, project.id, { phaseId: planning.id })).map((row) => row.title)).toEqual(["Header_bauen"]);
     const sorted = await listProjectTasks(testDb, project.id, {}, { field: "phase", dir: "asc" });
     expect(sorted.map((row) => [row.title, row.phase?.name])).toEqual([
-      ["Logo 100% fertig", "Lieferung"], ["Header_bauen", "Planung"], ["Footer", undefined], ["Unter", undefined], ["Unter 2", undefined],
+      ["Logo 100% fertig", "Lieferung"], ["Header_bauen", "Planung"], ["Unter", undefined], ["Unter 2", undefined], ["Footer", undefined],
     ]);
     expect((await getTaskDetail(testDb, ada, logo.id))?.phases.map((phase) => phase.name)).toEqual(["Planung", "Lieferung"]);
   });
@@ -116,7 +116,7 @@ describe("getTaskDetail", () => {
     expect(detail).toMatchObject({
       id: logo.id,
       key: "QRY",
-      number: 1,
+      path: "1",
       projectName: project.name,
       canEdit: true,
       parent: null,
@@ -136,7 +136,7 @@ describe("getTaskDetail", () => {
   it("shows the parent for subtasks and the done hint once all subtasks are done", async () => {
     const { ada, logo, sub, done } = await setup();
     const subDetail = await getTaskDetail(testDb, ada, sub.id);
-    expect(subDetail?.parent).toMatchObject({ id: logo.id, number: 1 });
+    expect(subDetail?.parent).toMatchObject({ id: logo.id, path: "1" });
     const second = (await getTaskDetail(testDb, ada, logo.id))!.subtasks[1];
     const secondTask = await getTaskDetail(testDb, ada, second.id);
     await updateTask(testDb, ada, second.id, secondTask!.updatedAt, { statusId: done.id });

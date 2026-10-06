@@ -12,9 +12,9 @@ const data: GanttData = {
   phases: [{ id: "phase-1", name: "Planung", startDate: null, endDate: null, isMilestone: false },
     { id: "phase-2", name: "Freigabe", startDate: "2026-10-09", endDate: "2026-10-09", isMilestone: true }],
   tasks: [
-    { id: "a", parentId: null, phaseId: "phase-1", number: 1, title: "Konzept", startDate: "2026-10-01", dueDate: "2026-10-02", updatedAt: "2026-10-01T00:00:00.000Z", isDone: false },
-    { id: "b", parentId: null, phaseId: "phase-1", number: 2, title: "Prüfung", startDate: "2026-10-06", dueDate: "2026-10-07", updatedAt: "2026-10-01T00:00:00.000Z", isDone: false },
-    { id: "c", parentId: null, phaseId: null, number: 3, title: "Ohne Termin", startDate: null, dueDate: null, updatedAt: "2026-10-01T00:00:00.000Z", isDone: false },
+    { id: "a", parentId: null, phaseId: "phase-1", path: "1", title: "Konzept", startDate: "2026-10-01", dueDate: "2026-10-02", updatedAt: "2026-10-01T00:00:00.000Z", isDone: false },
+    { id: "b", parentId: null, phaseId: "phase-1", path: "2", title: "Prüfung", startDate: "2026-10-06", dueDate: "2026-10-07", updatedAt: "2026-10-01T00:00:00.000Z", isDone: false },
+    { id: "c", parentId: null, phaseId: null, path: "3", title: "Ohne Termin", startDate: null, dueDate: null, updatedAt: "2026-10-01T00:00:00.000Z", isDone: false },
   ],
   links: [{ blockerId: "a", blockedId: "b", lagDays: 0 }],
 };
@@ -47,7 +47,7 @@ describe("Gantt adapter", () => {
 const t = (over: Partial<GanttData["tasks"][number]> & { id: string }): GanttData["tasks"][number] => ({
   parentId: null,
   phaseId: null,
-  number: 1,
+  path: "1",
   title: over.id,
   startDate: "2026-10-05",
   dueDate: "2026-10-06",
@@ -61,7 +61,7 @@ describe("Gantt adapter details", () => {
     const chart = toChartData(
       {
         phases: [{ id: "p", name: "P", startDate: null, endDate: null, isMilestone: false }],
-        tasks: [t({ id: "parent", phaseId: "p" }), t({ id: "child", parentId: "parent", number: 2 })],
+        tasks: [t({ id: "parent", phaseId: "p" }), t({ id: "child", parentId: "parent", path: "2" })],
         links: [],
       },
       "K",

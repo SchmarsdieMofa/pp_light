@@ -36,6 +36,16 @@ describe("searchEverything", () => {
     expect(titles(await searchEverything(testDb, ada, "OPS-1"))).toEqual(["Server Logo tauschen"]);
   });
 
+  it("finds subtasks by their hierarchical number", async () => {
+    const { ada, web } = await setup();
+    const [header] = (await searchEverything(testDb, ada, "WEB-1")).tasks;
+    const sub = await createTask(testDb, ada, { projectId: web.project.id, title: "Teilstück", parentId: header.id });
+    await createTask(testDb, ada, { projectId: web.project.id, title: "Unterteilstück", parentId: sub.id });
+    expect(titles(await searchEverything(testDb, ada, "WEB-1.1"))).toEqual(["Teilstück"]);
+    expect(titles(await searchEverything(testDb, ada, "web-1.1.1"))).toEqual(["Unterteilstück"]);
+    expect(titles(await searchEverything(testDb, ada, "1.2"))).toEqual([]);
+  });
+
   it("finds projects by name or key", async () => {
     const { ada } = await setup();
     expect((await searchEverything(testDb, ada, "ops")).projects.map((p) => p.key)).toEqual(["OPS"]);

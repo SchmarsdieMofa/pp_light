@@ -102,7 +102,7 @@ export function toChartData(data: GanttData, key: string): ChartData {
     const childrenOf = (parentId: string | null): GanttResource[] => members
       .filter((task) => (task.parentId && memberIds.has(task.parentId) ? task.parentId : null) === parentId)
       .map((task) => {
-        const title = `${key}-${task.number} ${task.title}`;
+        const title = `${key}-${task.path} ${task.title}`;
         events.push({
           id: task.id,
           title,

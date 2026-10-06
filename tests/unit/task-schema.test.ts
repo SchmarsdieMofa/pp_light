@@ -18,7 +18,7 @@ describe("task schema", () => {
 
   it("stores a task with defaults and millisecond updated_at", async () => {
     const { base } = await seed();
-    const [task] = await testDb.insert(tasks).values({ ...base, number: 1, title: "T" }).returning();
+    const [task] = await testDb.insert(tasks).values({ ...base, number: 1, path: "1", title: "T" }).returning();
     expect(task.priority).toBe("none");
     expect(task.description).toBe("");
     expect(task.startDate).toBeNull();
@@ -28,14 +28,14 @@ describe("task schema", () => {
 
   it("keeps task numbers unique per project", async () => {
     const { base } = await seed();
-    await testDb.insert(tasks).values({ ...base, number: 1, title: "A" });
-    await expect(testDb.insert(tasks).values({ ...base, number: 1, title: "B" })).rejects.toThrow();
+    await testDb.insert(tasks).values({ ...base, number: 1, path: "1", title: "A" });
+    await expect(testDb.insert(tasks).values({ ...base, number: 1, path: "1", title: "B" })).rejects.toThrow();
   });
 
   it("rejects a start date after the due date", async () => {
     const { base } = await seed();
     await expect(
-      testDb.insert(tasks).values({ ...base, number: 1, title: "A", startDate: "2026-10-10", dueDate: "2026-10-01" }),
+      testDb.insert(tasks).values({ ...base, number: 1, path: "1", title: "A", startDate: "2026-10-10", dueDate: "2026-10-01" }),
     ).rejects.toThrow();
   });
 

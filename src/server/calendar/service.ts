@@ -1,3 +1,4 @@
+import { byPath } from "@/server/db/order";
 import { and, asc, eq, exists, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import type { TaskPriority } from "@/lib/enums";
 import type { DB } from "@/server/db/client";
@@ -9,7 +10,7 @@ export type CalendarTask = {
   projectId: string;
   projectName: string;
   key: string;
-  number: number;
+  path: string;
   title: string;
   dueDate: string;
   priority: TaskPriority;
@@ -58,7 +59,7 @@ export async function listCalendarTasks(db: DB, actor: Actor, filter: CalendarFi
       projectId: tasks.projectId,
       projectName: projects.name,
       key: projects.key,
-      number: tasks.number,
+      path: tasks.path,
       title: tasks.title,
       dueDate: tasks.dueDate,
       priority: tasks.priority,
@@ -81,7 +82,7 @@ export async function listCalendarTasks(db: DB, actor: Actor, filter: CalendarFi
             .where(and(eq(taskAssignees.taskId, tasks.id), eq(taskAssignees.userId, actor.id))))
         : undefined,
     ))
-    .orderBy(asc(tasks.dueDate), asc(projects.key), asc(tasks.number));
+    .orderBy(asc(tasks.dueDate), asc(projects.key), asc(byPath(tasks.path)));
 
   return rows.map((row) => ({ ...row, dueDate: row.dueDate!, updatedAt: row.updatedAt.toISOString() }));
 }

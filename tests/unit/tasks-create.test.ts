@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 import { listActivity } from "@/server/activity/service";
+import { MAX_TASK_DEPTH } from "@/lib/task-path";
 import { createTask } from "@/server/tasks/service";
 import { resetDb, testDb } from "../helpers/db";
 import { addMember, makeActor, makeProject } from "../helpers/fixtures";
@@ -24,6 +25,41 @@ describe("createTask", () => {
     expect((await listActivity(testDb, t1.id)).map((e) => e.action)).toEqual(["task.created"]);
   });
 
+  it("numbers subtasks hierarchically without using up top-level numbers", async () => {
+    const ada = await makeActor("ada@example.com");
+    const { project } = await makeProject(ada, "HIE");
+    const make = (title: string, parentId?: string) => createTask(testDb, ada, { projectId: project.id, title, parentId });
+    const one = await make("Eins");
+    const oneOne = await make("Eins-Eins", one.id);
+    const oneTwo = await make("Eins-Zwei", one.id);
+    const deep = await make("Tief", oneOne.id);
+    const deeper = await make("Tiefer", deep.id);
+    const two = await make("Zwei");
+    expect([one, oneOne, oneTwo, deep, deeper, two].map((t) => t.path)).toEqual(["1", "1.1", "1.2", "1.1.1", "1.1.1.1", "2"]);
+    expect(two.number).toBe(2);
+  });
+
+  it("limits how deep subtasks nest", async () => {
+    const ada = await makeActor("ada@example.com");
+    const { project } = await makeProject(ada, "DEP");
+    let task = await createTask(testDb, ada, { projectId: project.id, title: "Ebene 1" });
+    for (let level = 2; level <= MAX_TASK_DEPTH; level++) {
+      task = await createTask(testDb, ada, { projectId: project.id, title: `Ebene ${level}`, parentId: task.id });
+    }
+    expect(task.path).toBe("1.1.1.1.1.1");
+    await expect(createTask(testDb, ada, { projectId: project.id, title: "Zu tief", parentId: task.id })).rejects.toMatchObject({ code: "VALIDATION" });
+  });
+
+  it("numbers sibling subtasks uniquely under concurrency", async () => {
+    const ada = await makeActor("ada@example.com");
+    const { project } = await makeProject(ada, "SIB");
+    const parent = await createTask(testDb, ada, { projectId: project.id, title: "Eltern" });
+    const kids = await Promise.all(
+      Array.from({ length: 6 }, (_, i) => createTask(testDb, ada, { projectId: project.id, title: `K${i}`, parentId: parent.id })),
+    );
+    expect(kids.map((t) => t.path).sort()).toEqual(["1.1", "1.2", "1.3", "1.4", "1.5", "1.6"]);
+  });
+
   it("hands out unique, gapless numbers under concurrency", async () => {
     const ada = await makeActor("ada@example.com");
     const { project } = await makeProject(ada, "CON");
@@ -40,16 +76,15 @@ describe("createTask", () => {
     expect(task.completedAt).not.toBeNull();
   });
 
-  it("creates subtasks one level deep only", async () => {
+  it("creates subtasks and lets them have subtasks of their own", async () => {
     const ada = await makeActor("ada@example.com");
     const { project } = await makeProject(ada, "SUB");
     const parent = await createTask(testDb, ada, { projectId: project.id, title: "Parent" });
     const child = await createTask(testDb, ada, { projectId: project.id, title: "Kind", parentId: parent.id });
     expect(child.parentId).toBe(parent.id);
     expect((await listActivity(testDb, child.id)).map((e) => e.action)).toEqual(["subtask.created"]);
-    await expect(
-      createTask(testDb, ada, { projectId: project.id, title: "Enkel", parentId: child.id }),
-    ).rejects.toMatchObject({ code: "VALIDATION" });
+    const grandchild = await createTask(testDb, ada, { projectId: project.id, title: "Enkel", parentId: child.id });
+    expect([parent.path, child.path, grandchild.path]).toEqual(["1", "1.1", "1.1.1"]);
   });
 
   it("rejects a parent or status from another project", async () => {

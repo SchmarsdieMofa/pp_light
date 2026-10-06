@@ -101,7 +101,7 @@ function DependencyList(props: {
             searchable
             searchPlaceholder="Aufgabe suchen…"
             value={selected}
-            options={available.map((option) => ({ value: option.id, label: `${props.detail.key}-${option.number} ${option.title}` }))}
+            options={available.map((option) => ({ value: option.id, label: `${props.detail.key}-${option.path} ${option.title}` }))}
             onValueChange={(value) => { setSelected(value); setMoves(null); }}
           />
           {/* Lag and submit only matter once a task is picked. */}
@@ -122,7 +122,7 @@ function DependencyList(props: {
           <ul className="space-y-0.5">
             {moves.map((move) => (
               <li key={move.id}>
-                {move.key}-{move.number} {move.title}: {formatDate(move.before.startDate)} – {formatDate(move.before.dueDate)} → <strong>{formatDate(move.after.startDate)} – {formatDate(move.after.dueDate)}</strong>
+                {move.key}-{move.path} {move.title}: {formatDate(move.before.startDate)} – {formatDate(move.before.dueDate)} → <strong>{formatDate(move.after.startDate)} – {formatDate(move.after.dueDate)}</strong>
               </li>
             ))}
           </ul>
@@ -147,7 +147,7 @@ function DependencyRow(props: { detail: TaskDetail; link: TaskLink; isBlockerLis
   return (
     <li className="flex flex-wrap items-center gap-2 text-xs">
       <Link href={props.href(props.link.id)} className="hover:underline">
-        {props.detail.key}-{props.link.number} {props.link.title}
+        {props.detail.key}-{props.link.path} {props.link.title}
       </Link>
       {props.detail.canEdit ? (
         <>

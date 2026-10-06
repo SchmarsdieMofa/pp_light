@@ -33,7 +33,7 @@ describe("my work", () => {
   it("lists my open assigned tasks across projects", async () => {
     const { mia } = await setup();
     const rows = await listMyWork(testDb, mia);
-    expect(rows.map((r) => [`${r.key}-${r.number}`, r.title, r.dueDate])).toEqual([
+    expect(rows.map((r) => [`${r.key}-${r.path}`, r.title, r.dueDate])).toEqual([
       ["MWA-1", "Eins", "2026-10-14"],
       ["MWB-1", "Zwei", null],
     ]);

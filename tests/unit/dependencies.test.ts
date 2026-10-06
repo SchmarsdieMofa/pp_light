@@ -57,6 +57,8 @@ describe("task dependencies", () => {
     const child = await createTask(testDb, actor, { projectId: project.id, title: "Kind", parentId: parent.id });
     await expect(addDependency(testDb, actor, child.id, parent.id, 0)).rejects.toMatchObject({ code: "VALIDATION" });
     await expect(addDependency(testDb, actor, parent.id, child.id, 0)).rejects.toMatchObject({ code: "VALIDATION" });
+    const grandchild = await createTask(testDb, actor, { projectId: project.id, title: "Enkel", parentId: child.id });
+    await expect(addDependency(testDb, actor, grandchild.id, parent.id, 0)).rejects.toMatchObject({ code: "VALIDATION" });
   });
 
   it("rejects cycles, duplicates and cross-project edges", async () => {

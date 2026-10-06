@@ -9,7 +9,7 @@ import { listChecklist } from "@/server/checklists/service";
 import { listComments } from "@/server/comments/service";
 import { listTaskLinks, type TaskLink } from "@/server/dependencies/queries";
 import type { DB } from "@/server/db/client";
-import { byPosition } from "@/server/db/order";
+import { byPosition, byPath } from "@/server/db/order";
 import {
   checklistItems,
   comments,
@@ -31,11 +31,11 @@ import { loadTaskAccess } from "./access";
 
 export type TaskListRow = {
   id: string;
-  number: number;
+  path: string;
   key: string;
   title: string;
   /** Set for subtasks: the task they belong to. */
-  parent: { id: string; number: number; title: string } | null;
+  parent: { id: string; path: string; title: string } | null;
   descriptionExcerpt: string;
   priority: TaskPriority;
   startDate: string | null;
@@ -53,29 +53,29 @@ export function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
-/** "QRY-12" or "12" → 12 */
-function parseTaskNumber(q: string): number | undefined {
-  const match = /^(?:[a-z][a-z0-9]*-)?(\d{1,9})$/i.exec(q);
-  return match ? Number(match[1]) : undefined;
+/** "QRY-12", "12" → "12"; "QRY-1.2.3" → "1.2.3" */
+function parseTaskPath(q: string): string | undefined {
+  const match = /^(?:[a-z][a-z0-9]*-)?(\d{1,9}(?:\.\d{1,9}){0,5})$/i.exec(q);
+  return match?.[1];
 }
 
 function orderFor(sort: TaskSort): SQL[] {
   const dir = sort.dir === "desc" ? desc : asc;
   switch (sort.field) {
     case "title":
-      return [dir(sql`lower(${tasks.title})`), asc(tasks.number)];
+      return [dir(sql`lower(${tasks.title})`), asc(byPath(tasks.path))];
     case "status":
-      return [dir(byPosition(statuses.position)), asc(tasks.number)];
+      return [dir(byPosition(statuses.position)), asc(byPath(tasks.path))];
     case "phase":
-      return [sql`lower(${phases.name}) ${sql.raw(sort.dir === "desc" ? "desc" : "asc")} nulls last`, asc(tasks.number)];
+      return [sql`lower(${phases.name}) ${sql.raw(sort.dir === "desc" ? "desc" : "asc")} nulls last`, asc(byPath(tasks.path))];
     case "priority":
-      return [dir(tasks.priority), asc(tasks.number)];
+      return [dir(tasks.priority), asc(byPath(tasks.path))];
     case "dueDate":
-      return [sql`${tasks.dueDate} ${sql.raw(sort.dir === "desc" ? "desc" : "asc")} nulls last`, asc(tasks.number)];
+      return [sql`${tasks.dueDate} ${sql.raw(sort.dir === "desc" ? "desc" : "asc")} nulls last`, asc(byPath(tasks.path))];
     case "position":
-      return [byPosition(statuses.position), byPosition(tasks.position), asc(tasks.number)];
+      return [byPosition(statuses.position), byPosition(tasks.position), asc(byPath(tasks.path))];
     default:
-      return [dir(tasks.number)];
+      return [dir(byPath(tasks.path))];
   }
 }
 
@@ -111,20 +111,20 @@ export async function listProjectTasks(
     );
   }
   if (filters.q) {
-    const number = parseTaskNumber(filters.q);
+    const path = parseTaskPath(filters.q);
     conditions.push(
-      or(ilike(tasks.title, `%${escapeLike(filters.q)}%`), number !== undefined ? eq(tasks.number, number) : undefined),
+      or(ilike(tasks.title, `%${escapeLike(filters.q)}%`), path !== undefined ? eq(tasks.path, path) : undefined),
     );
   }
 
   const base = await db
     .select({
       id: tasks.id,
-      number: tasks.number,
+      path: tasks.path,
       key: projects.key,
       title: tasks.title,
       parentId: parent.id,
-      parentNumber: parent.number,
+      parentPath: parent.path,
       parentTitle: parent.title,
       descriptionExcerpt: sql<string>`left(${tasks.description}, 140)`,
       priority: tasks.priority,
@@ -180,12 +180,12 @@ export async function listProjectTasks(
       .from(comments).where(inArray(comments.taskId, ids)).groupBy(comments.taskId),
   ]);
 
-  return base.map(({ phaseId, phaseName, parentId, parentNumber, parentTitle, ...t }) => {
+  return base.map(({ phaseId, phaseName, parentId, parentPath, parentTitle, ...t }) => {
     const sub = subtaskRows.find((r) => r.parentId === t.id);
     const check = checklistRows.find((r) => r.taskId === t.id);
     return {
       ...t,
-      parent: parentId && parentNumber !== null && parentTitle !== null ? { id: parentId, number: parentNumber, title: parentTitle } : null,
+      parent: parentId && parentPath !== null && parentTitle !== null ? { id: parentId, path: parentPath, title: parentTitle } : null,
       phase: phaseId && phaseName ? { id: phaseId, name: phaseName } : null,
       assignees: assigneeRows.filter((r) => r.taskId === t.id).map(({ id, name }) => ({ id, name })),
       labels: labelRows.filter((r) => r.taskId === t.id).map(({ id, name, color }) => ({ id, name, color })),
@@ -202,7 +202,7 @@ export type TaskDetail = {
   projectId: string;
   projectName: string;
   key: string;
-  number: number;
+  path: string;
   title: string;
   description: string;
   priority: TaskPriority;
@@ -212,17 +212,17 @@ export type TaskDetail = {
   phaseId: string | null;
   updatedAt: string;
   canEdit: boolean;
-  parent: { id: string; number: number; title: string } | null;
+  parent: { id: string; path: string; title: string } | null;
   statuses: { id: string; name: string; color: string; isDone: boolean }[];
   members: { id: string; name: string }[];
   labels: { id: string; name: string; color: string }[];
   phases: { id: string; name: string; isMilestone: boolean }[];
-  taskOptions: { id: string; number: number; title: string }[];
+  taskOptions: { id: string; path: string; title: string }[];
   blockers: TaskLink[];
   successors: TaskLink[];
   assigneeIds: string[];
   labelIds: string[];
-  subtasks: { id: string; number: number; title: string; isDone: boolean }[];
+  subtasks: { id: string; path: string; title: string; isDone: boolean }[];
   checklist: { id: string; text: string; done: boolean }[];
   hintAllSubtasksDone: boolean;
   canComment: boolean;
@@ -250,20 +250,20 @@ export async function getTaskDetail(db: DB, actor: Actor, taskId: string): Promi
       listMembers(db, task.projectId),
       listLabels(db, task.projectId),
       listPhases(db, task.projectId),
-      db.select({ id: tasks.id, number: tasks.number, title: tasks.title }).from(tasks)
-        .where(eq(tasks.projectId, task.projectId)).orderBy(asc(tasks.number)),
+      db.select({ id: tasks.id, path: tasks.path, title: tasks.title }).from(tasks)
+        .where(eq(tasks.projectId, task.projectId)).orderBy(asc(byPath(tasks.path))),
       listTaskLinks(db, task.projectId, task.id),
       db.select({ userId: taskAssignees.userId }).from(taskAssignees).where(eq(taskAssignees.taskId, task.id)),
       db.select({ labelId: taskLabels.labelId }).from(taskLabels).where(eq(taskLabels.taskId, task.id)),
       db
-        .select({ id: tasks.id, number: tasks.number, title: tasks.title, isDone: statuses.isDone })
+        .select({ id: tasks.id, path: tasks.path, title: tasks.title, isDone: statuses.isDone })
         .from(tasks)
         .innerJoin(statuses, eq(statuses.id, tasks.statusId))
         .where(eq(tasks.parentId, task.id))
-        .orderBy(asc(tasks.number)),
+        .orderBy(asc(byPath(tasks.path))),
       listChecklist(db, task.id),
       task.parentId
-        ? db.select({ id: tasks.id, number: tasks.number, title: tasks.title }).from(tasks).where(eq(tasks.id, task.parentId))
+        ? db.select({ id: tasks.id, path: tasks.path, title: tasks.title }).from(tasks).where(eq(tasks.id, task.parentId))
         : Promise.resolve([]),
       listComments(db, task.id),
       listAttachments(db, task.id),
@@ -280,7 +280,7 @@ export async function getTaskDetail(db: DB, actor: Actor, taskId: string): Promi
     statuses: new Map(statusList.map((status) => [status.id, status.name])),
     phases: new Map(phaseList.map((phase) => [phase.id, phase.name])),
     labels: new Map(projectLabels.map((label) => [label.id, label.name])),
-    tasks: new Map(taskOptions.map((option) => [option.id, `${project.key}-${option.number} ${option.title}`])),
+    tasks: new Map(taskOptions.map((option) => [option.id, `${project.key}-${option.path} ${option.title}`])),
   };
   return {
     id: task.id,
@@ -288,7 +288,7 @@ export async function getTaskDetail(db: DB, actor: Actor, taskId: string): Promi
     projectId: task.projectId,
     projectName: project.name,
     key: project.key,
-    number: task.number,
+    path: task.path,
     title: task.title,
     description: task.description,
     priority: task.priority,

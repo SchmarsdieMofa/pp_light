@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { MAX_TASK_DEPTH, taskDepth } from "@/lib/task-path";
 import type { TaskDetail } from "@/server/tasks/queries";
 import { QuickAdd } from "./quick-add";
 import { useTaskHref } from "./use-task-href";
@@ -19,7 +20,7 @@ export function TaskSubtasks({ detail }: { detail: TaskDetail }) {
             <span aria-hidden>{s.isDone ? "☑" : "☐"}</span>
             <Link href={href(s.id)} className={s.isDone ? "text-muted-foreground line-through" : "hover:underline"}>
               <span className="text-xs text-muted-foreground">
-                {detail.key}-{s.number}
+                {detail.key}-{s.path}
               </span>{" "}
               {s.title}
             </Link>
@@ -31,7 +32,7 @@ export function TaskSubtasks({ detail }: { detail: TaskDetail }) {
           Alle Unteraufgaben sind erledigt – Aufgabe abschließen?
         </p>
       )}
-      {detail.canEdit && (
+      {detail.canEdit && taskDepth(detail.path) < MAX_TASK_DEPTH && (
         <QuickAdd projectId={detail.projectId} parentId={detail.id} label="Neue Unteraufgabe" placeholder="Unteraufgabe hinzufügen… (Enter)" />
       )}
     </section>

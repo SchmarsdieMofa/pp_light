@@ -50,7 +50,7 @@ export function TaskTable(props: {
       setDone({ id: row.id, done });
       const res = done ? await completeTaskAction(row.id) : await reopenTaskAction(row.id);
       if (!res.ok) toast.error(res.error.message);
-      else toast.success(`${row.key}-${row.number} ${done ? "erledigt" : "wieder geöffnet"}`);
+      else toast.success(`${row.key}-${row.path} ${done ? "erledigt" : "wieder geöffnet"}`);
     });
   }
 
@@ -170,12 +170,12 @@ function TaskRow(props: {
         <Checkbox
           checked={props.done}
           disabled={!props.canEdit}
-          aria-label={`${row.key}-${row.number} ${row.title} ${props.done ? "wieder öffnen" : "erledigen"}`}
+          aria-label={`${row.key}-${row.path} ${row.title} ${props.done ? "wieder öffnen" : "erledigen"}`}
           onCheckedChange={props.onToggle}
           className="align-middle"
         />
       </td>
-      <td className="hidden truncate px-2 py-2 text-xs text-muted-foreground tabular-nums sm:table-cell">{row.key}-{row.number}</td>
+      <td className="hidden truncate px-2 py-2 text-xs text-muted-foreground tabular-nums sm:table-cell">{row.key}-{row.path}</td>
       <td className="px-2 py-2">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <Link href={props.href} scroll={false} className={cn("min-w-0 truncate font-medium hover:underline", props.done && "text-muted-foreground line-through")}>
@@ -189,8 +189,8 @@ function TaskRow(props: {
           ))}
           {row.phase && <span className="text-[11px] text-muted-foreground">· {row.phase.name}</span>}
           {row.parent && (
-            <span className="max-w-full truncate text-[11px] text-muted-foreground" title={`Unteraufgabe von ${row.key}-${row.parent.number} ${row.parent.title}`}>
-              ↳ {row.key}-{row.parent.number} {row.parent.title}
+            <span className="max-w-full truncate text-[11px] text-muted-foreground" title={`Unteraufgabe von ${row.key}-${row.parent.path} ${row.parent.title}`}>
+              ↳ {row.key}-{row.parent.path} {row.parent.title}
             </span>
           )}
           <span className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums">

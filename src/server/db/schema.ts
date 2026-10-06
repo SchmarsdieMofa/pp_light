@@ -112,7 +112,10 @@ export const tasks = pgTable(
     projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
     phaseId: uuid("phase_id").references(() => phases.id, { onDelete: "set null" }),
     parentId: uuid("parent_id").references((): AnyPgColumn => tasks.id, { onDelete: "cascade" }),
+    /** Top-level: the project's running number. Subtask: its position among its siblings. */
     number: integer("number").notNull(),
+    /** Display number: "3" for a top-level task, "3.1" / "3.1.2" for its subtasks. Never changes. */
+    path: text("path").notNull(),
     title: text("title").notNull(),
     description: text("description").notNull().default(""),
     statusId: uuid("status_id").notNull().references(() => statuses.id),
@@ -126,7 +129,7 @@ export const tasks = pgTable(
     completedAt: timestamp("completed_at", { withTimezone: true }),
   },
   (t) => [
-    uniqueIndex("tasks_project_number_uq").on(t.projectId, t.number),
+    uniqueIndex("tasks_project_path_uq").on(t.projectId, t.path),
     index("tasks_project_idx").on(t.projectId),
     index("tasks_parent_idx").on(t.parentId),
     index("tasks_phase_idx").on(t.phaseId),

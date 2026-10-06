@@ -4,7 +4,7 @@ import { and, asc, count, desc, eq, inArray, isNotNull, sql } from "drizzle-orm"
 import { z } from "zod";
 import type { ProjectRole } from "@/lib/enums";
 import type { DB } from "@/server/db/client";
-import { byPosition } from "@/server/db/order";
+import { byPosition, byPath } from "@/server/db/order";
 import { attachments, comments, phases, projectMembers, projects, statuses, taskAssignees, tasks, users } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { assertCan, can, projectCtx, type Actor } from "@/server/permissions";
@@ -94,7 +94,7 @@ export type ProjectReport = {
   project: Project;
   tasks: { total: number; done: number; open: number; overdue: number; subtasks: number };
   byStatus: { name: string; color: string; isDone: boolean; count: number }[];
-  openTasks: { id: string; number: number; title: string; dueDate: string | null; statusName: string }[];
+  openTasks: { id: string; path: string; title: string; dueDate: string | null; statusName: string }[];
   milestones: { name: string; date: string | null; reached: boolean }[];
   members: { id: string; name: string; role: ProjectRole; assigned: number; done: number }[];
   comments: number;
@@ -120,11 +120,11 @@ export async function getProjectReport(db: DB, actor: Actor, projectId: string, 
       .groupBy(statuses.id)
       .orderBy(byPosition(statuses.position)),
     db
-      .select({ id: tasks.id, number: tasks.number, title: tasks.title, dueDate: tasks.dueDate, statusName: statuses.name })
+      .select({ id: tasks.id, path: tasks.path, title: tasks.title, dueDate: tasks.dueDate, statusName: statuses.name })
       .from(tasks)
       .innerJoin(statuses, eq(statuses.id, tasks.statusId))
       .where(and(eq(tasks.projectId, projectId), eq(statuses.isDone, false), sql`${tasks.parentId} is null`))
-      .orderBy(sql`${tasks.dueDate} asc nulls last`, asc(tasks.number))
+      .orderBy(sql`${tasks.dueDate} asc nulls last`, asc(byPath(tasks.path)))
       .limit(50),
     db
       .select({ name: phases.name, startDate: phases.startDate, endDate: phases.endDate })

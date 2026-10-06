@@ -160,7 +160,7 @@ test("manages subtasks, checklist, labels and filters", async ({ page }) => {
   const subInput = panel.getByLabel("Neue Unteraufgabe");
   await subInput.fill("Entwurf");
   await subInput.press("Enter");
-  await expect(panel.getByRole("region", { name: "Unteraufgaben" })).toContainText("STR-3");
+  await expect(panel.getByRole("region", { name: "Unteraufgaben" })).toContainText("STR-1.1");
 
   const checkInput = panel.getByLabel("Neuer Checklisten-Punkt");
   await checkInput.fill("Farben festlegen");

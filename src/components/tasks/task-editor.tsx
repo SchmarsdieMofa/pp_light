@@ -81,7 +81,7 @@ export function TaskEditor({ detail }: { detail: TaskDetail }) {
           <p className="text-xs text-muted-foreground">
             {"Teil von "}
             <Link href={href(detail.parent.id)} className="hover:text-foreground hover:underline">
-              {detail.key}-{detail.parent.number} {detail.parent.title}
+              {detail.key}-{detail.parent.path} {detail.parent.title}
             </Link>
           </p>
         )}
@@ -145,7 +145,7 @@ export function TaskEditor({ detail }: { detail: TaskDetail }) {
 
         <div className="min-w-0 space-y-6 md:col-start-1 md:row-span-2 md:row-start-1">
           <TaskDescription initial={detail.description} canEdit={!disabled} save={(description) => save({ description })} />
-          {!detail.parent && <TaskSubtasks detail={detail} />}
+          <TaskSubtasks detail={detail} />
           <TaskChecklist detail={detail} />
           <TaskComments detail={detail} />
           <TaskActivity entries={detail.activity} />

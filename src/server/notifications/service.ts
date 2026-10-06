@@ -29,7 +29,7 @@ export async function notifyActivity(ex: Executor, event: Event): Promise<void> 
   if (!relevant.includes(event.action)) return;
   if (event.action === "task.updated" && !Object.hasOwn(event.diff, "statusId")) return;
 
-  const [task] = await ex.select({ title: tasks.title, number: tasks.number, createdBy: tasks.createdBy, key: projects.key })
+  const [task] = await ex.select({ title: tasks.title, path: tasks.path, createdBy: tasks.createdBy, key: projects.key })
     .from(tasks).innerJoin(projects, eq(projects.id, tasks.projectId))
     .where(eq(tasks.id, event.taskId)).limit(1);
   if (!task) return;
@@ -54,7 +54,7 @@ export async function notifyActivity(ex: Executor, event: Event): Promise<void> 
     .innerJoin(projectMembers, eq(projectMembers.userId, users.id))
     .where(and(eq(users.active, true), eq(projectMembers.projectId, event.projectId), inArray(users.id, [...recipients.keys()])));
   const [actor] = await ex.select({ name: users.name }).from(users).where(eq(users.id, event.actorId)).limit(1);
-  const taskName = `${task.key}-${task.number} ${task.title}`;
+  const taskName = `${task.key}-${task.path} ${task.title}`;
   const verb: Record<NotificationType, string> = {
     assigned: "hat dir die Aufgabe zugewiesen", mentioned: "hat dich erwähnt", comment: "hat kommentiert",
     status: "hat den Status geändert", schedule: "hat den Termin verschoben",
@@ -125,7 +125,7 @@ export async function createDueReminders(db: DB, now = new Date()): Promise<numb
   const next = new Date(`${today}T12:00:00Z`);
   next.setUTCDate(next.getUTCDate() + 1);
   const tomorrow = next.toISOString().slice(0, 10);
-  const due = await db.select({ taskId: tasks.id, projectId: tasks.projectId, title: tasks.title, number: tasks.number,
+  const due = await db.select({ taskId: tasks.id, projectId: tasks.projectId, title: tasks.title, path: tasks.path,
     key: projects.key, dueDate: tasks.dueDate, userId: users.id })
     .from(tasks).innerJoin(statuses, eq(statuses.id, tasks.statusId))
     .innerJoin(projects, eq(projects.id, tasks.projectId))
@@ -137,7 +137,7 @@ export async function createDueReminders(db: DB, now = new Date()): Promise<numb
   const inserted = await db.insert(notifications).values(due.map((row) => {
     const type: NotificationType = row.dueDate === tomorrow ? "dueSoon" : "overdue";
     return { userId: row.userId, projectId: row.projectId, taskId: row.taskId, type,
-      message: `${row.key}-${row.number} ${row.title} ${type === "dueSoon" ? "ist morgen fällig" : "ist überfällig"}.`,
+      message: `${row.key}-${row.path} ${row.title} ${type === "dueSoon" ? "ist morgen fällig" : "ist überfällig"}.`,
       eventKey: `due:${today}:${row.taskId}:${row.userId}:${type}` };
   })).onConflictDoNothing().returning({ id: notifications.id });
   return inserted.length;

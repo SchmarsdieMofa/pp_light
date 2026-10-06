@@ -28,13 +28,13 @@ export function BoardCard({
     >
       {showDetails && (
         <span className="flex items-center justify-between text-xs text-muted-foreground">
-          {card.key}-{card.number}
+          {card.key}-{card.path}
           <PriorityBadge priority={card.priority} />
         </span>
       )}
       {card.parent && (
-        <span className="block truncate text-xs text-muted-foreground" title={`Unteraufgabe von ${card.key}-${card.parent.number} ${card.parent.title}`}>
-          ↳ {card.key}-{card.parent.number} {card.parent.title}
+        <span className="block truncate text-xs text-muted-foreground" title={`Unteraufgabe von ${card.key}-${card.parent.path} ${card.parent.title}`}>
+          ↳ {card.key}-{card.parent.path} {card.parent.title}
         </span>
       )}
       <span className="block">{card.title}</span>

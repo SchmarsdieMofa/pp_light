@@ -11,10 +11,10 @@ export async function TaskPanel({ taskId }: { taskId: string }) {
   const actor = await requireActor();
   const detail = await getTaskDetail(db(), actor, taskId);
   return (
-    <TaskOverlay label={detail ? `Aufgabe ${detail.key}-${detail.number}` : "Aufgabe"}>
+    <TaskOverlay label={detail ? `Aufgabe ${detail.key}-${detail.path}` : "Aufgabe"}>
       <PanelHeader
         taskId={detail?.id}
-        reference={detail ? `${detail.key}-${detail.number}` : undefined}
+        reference={detail ? `${detail.key}-${detail.path}` : undefined}
         project={detail ? { id: detail.projectId, name: detail.projectName } : undefined}
       />
       <ScrollArea className="flex-1" contentClassName="p-4 md:p-6" scrollFade>

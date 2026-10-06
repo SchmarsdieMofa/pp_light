@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, exists, isNull, ne, or, sql } from "drizzle-orm";
 import type { TaskPriority } from "@/lib/enums";
 import type { DB } from "@/server/db/client";
-import { byPosition } from "@/server/db/order";
+import { byPosition, byPath } from "@/server/db/order";
 import { projectMembers, projects, statuses, taskAssignees, tasks } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { assertCan, projectCtx, type Actor } from "@/server/permissions";
@@ -14,7 +14,7 @@ export type MyWorkTask = {
   projectId: string;
   projectName: string;
   key: string;
-  number: number;
+  path: string;
   title: string;
   dueDate: string | null;
   priority: TaskPriority;
@@ -37,7 +37,7 @@ export async function listMyWork(db: DB, actor: Actor): Promise<MyWorkTask[]> {
       projectId: tasks.projectId,
       projectName: projects.name,
       key: projects.key,
-      number: tasks.number,
+      path: tasks.path,
       title: tasks.title,
       dueDate: tasks.dueDate,
       priority: tasks.priority,
@@ -49,7 +49,7 @@ export async function listMyWork(db: DB, actor: Actor): Promise<MyWorkTask[]> {
     .innerJoin(statuses, eq(statuses.id, tasks.statusId))
     .innerJoin(projects, eq(projects.id, tasks.projectId))
     .where(and(eq(statuses.isDone, false), isNull(projects.archivedAt), or(visible)))
-    .orderBy(asc(projects.key), asc(tasks.number));
+    .orderBy(asc(projects.key), asc(byPath(tasks.path)));
   return rows.map((row) => ({ ...row, updatedAt: row.updatedAt.toISOString() }));
 }
 
@@ -58,7 +58,7 @@ export async function createMyTask(
   db: DB,
   actor: Actor,
   input: { projectId: string; title: string; dueDate: string | null },
-): Promise<{ id: string; number: number }> {
+): Promise<{ id: string; path: string }> {
   // Check first: creating the task and then failing to assign it would leave an orphan behind.
   const [membership] = await db
     .select({ role: projectMembers.role })
@@ -71,7 +71,7 @@ export async function createMyTask(
   const task = await createTask(db, actor, { projectId: input.projectId, title: input.title });
   await setTaskAssignees(db, actor, task.id, [actor.id]);
   if (input.dueDate) await updateTask(db, actor, task.id, task.updatedAt.toISOString(), { dueDate: input.dueDate });
-  return { id: task.id, number: task.number };
+  return { id: task.id, path: task.path };
 }
 
 /** Moves a task to the end of its project's first "done" column. */

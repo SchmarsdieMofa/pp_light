@@ -40,10 +40,11 @@ async function requireEdit(db: DB, actor: Actor, blockerId: string, blockedId: s
   return task.projectId;
 }
 
-/** A task spans its subtasks, so it cannot wait for one of them (or the other way round). */
-async function assertNotParentChild(ex: Executor, blockerId: string, blockedId: string) {
-  const pair = await ex.select({ id: tasks.id, parentId: tasks.parentId }).from(tasks).where(inArray(tasks.id, [blockerId, blockedId]));
-  if (pair.some((task) => task.parentId === blockerId || task.parentId === blockedId)) {
+/** A task spans its subtasks (at any depth), so it cannot wait for one of them or the other way round. */
+async function assertNotAncestry(ex: Executor, blockerId: string, blockedId: string) {
+  const pair = await ex.select({ id: tasks.id, path: tasks.path }).from(tasks).where(inArray(tasks.id, [blockerId, blockedId]));
+  const [a, b] = pair;
+  if (a && b && (a.path.startsWith(`${b.path}.`) || b.path.startsWith(`${a.path}.`))) {
     throw new DomainError("VALIDATION", "Eine Aufgabe und ihre Unteraufgabe können nicht voneinander abhängen – die Aufgabe umfasst ihre Unteraufgaben ohnehin.");
   }
 }
@@ -54,7 +55,7 @@ class PreviewDone extends Error {
   }
 }
 
-export type DependencyPreviewMove = ScheduleMove & { key: string; number: number; title: string };
+export type DependencyPreviewMove = ScheduleMove & { key: string; path: string; title: string };
 
 /** Which tasks adding this dependency would move – nothing is saved. */
 export async function previewDependency(db: DB, actor: Actor, blockerId: string, blockedId: string, rawLagDays: number): Promise<DependencyPreviewMove[]> {
@@ -73,19 +74,19 @@ export async function previewDependency(db: DB, actor: Actor, blockerId: string,
     moves = err.moves;
   }
   if (moves.length === 0) return [];
-  const rows = await db.select({ id: tasks.id, number: tasks.number, title: tasks.title, key: projects.key })
+  const rows = await db.select({ id: tasks.id, path: tasks.path, title: tasks.title, key: projects.key })
     .from(tasks).innerJoin(projects, eq(projects.id, tasks.projectId)).where(inArray(tasks.id, moves.map((move) => move.id)));
   const byId = new Map(rows.map((row) => [row.id, row]));
   return moves.flatMap((move) => {
     const row = byId.get(move.id);
-    return row ? [{ ...move, key: row.key, number: row.number, title: row.title }] : [];
+    return row ? [{ ...move, key: row.key, path: row.path, title: row.title }] : [];
   });
 }
 
 async function insertDependency(tx: Executor, projectId: string, blockerId: string, blockedId: string, lagDays: number) {
   await lockProject(tx, projectId);
   await requirePair(tx, projectId, blockerId, blockedId);
-  await assertNotParentChild(tx, blockerId, blockedId);
+  await assertNotAncestry(tx, blockerId, blockedId);
   const ids = (await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, projectId))).map((task) => task.id);
   const existing = await tx.select().from(taskDependencies).where(inArray(taskDependencies.blockerId, ids));
   if (existing.some((edge) => edge.blockerId === blockerId && edge.blockedId === blockedId)) {
