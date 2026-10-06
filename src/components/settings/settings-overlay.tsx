@@ -68,6 +68,8 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
             ? "konto"
             : null;
   if (!tab) return null;
+  // Lists and tables use the full width; forms stay readable at a narrower one.
+  const wide = tab === "nutzer" || tab === "gruppen";
 
   function close() {
     // Blur first: fields save on blur, and an unmounted input never fires it.
@@ -106,7 +108,7 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/40 supports-backdrop-filter:backdrop-blur-[2px]" />
         <Dialog.Popup
           aria-label="Einstellungen"
-          className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-background outline-none md:inset-x-0 md:top-[6svh] md:bottom-auto md:mx-auto md:max-h-[88svh] md:w-[min(44rem,calc(100%-3rem))] md:rounded-xl md:border md:shadow-2xl"
+          className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-background outline-none md:inset-x-0 md:top-[4svh] md:bottom-auto md:mx-auto md:h-[92svh] md:w-[min(64rem,calc(100%-3rem))] md:rounded-xl md:border md:shadow-2xl"
         >
           <header className="flex items-center gap-2 border-b px-5 pt-4">
             <div className="min-w-0 flex-1">
@@ -138,7 +140,7 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
             </Button>
           </header>
 
-          <ScrollArea className="flex-1" contentClassName="divide-y px-5 py-5" scrollFade>
+          <ScrollArea className="flex-1" contentClassName={cn("px-5 py-5", wide ? "" : "mx-auto max-w-2xl divide-y")} scrollFade>
             {tab === "konto" ? (
               <>
                 <Block title="Profil" description="So sehen dich andere in Projekten, Kommentaren und Zuweisungen.">

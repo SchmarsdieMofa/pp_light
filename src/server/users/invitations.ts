@@ -1,8 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, count, eq, gt, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { DB } from "@/server/db/client";
-import { authTokens, mailOutbox, users } from "@/server/db/schema";
+import { authTokens, mailOutbox, projectMembers, userGroupMembers, userGroups, users } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { assertCan, type Actor } from "@/server/permissions";
 import { hashPassword } from "@/server/auth/password";
@@ -13,10 +13,36 @@ import { normalizeEmail } from "./service";
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 const newToken = () => randomBytes(32).toString("base64url");
 
-export async function listUsers(db: DB, actor: Actor) {
+export type UserListRow = {
+  id: string;
+  email: string;
+  name: string;
+  role: "admin" | "member";
+  active: boolean;
+  /** Not active yet, but a valid invitation link is out. */
+  invited: boolean;
+  groups: string[];
+  projectCount: number;
+};
+
+export async function listUsers(db: DB, actor: Actor): Promise<UserListRow[]> {
   assertCan(actor, "admin.manageUsers");
-  return db.select({ id: users.id, email: users.email, name: users.name, role: users.role, active: users.active })
-    .from(users).orderBy(users.email);
+  const [rows, invites, groupRows, projectRows] = await Promise.all([
+    db.select({ id: users.id, email: users.email, name: users.name, role: users.role, active: users.active })
+      .from(users).orderBy(users.email),
+    db.select({ userId: authTokens.userId }).from(authTokens)
+      .where(and(eq(authTokens.kind, "invite"), isNull(authTokens.usedAt), gt(authTokens.expiresAt, new Date()))),
+    db.select({ userId: userGroupMembers.userId, name: userGroups.name }).from(userGroupMembers)
+      .innerJoin(userGroups, eq(userGroups.id, userGroupMembers.groupId)).orderBy(sql`lower(${userGroups.name})`),
+    db.select({ userId: projectMembers.userId, n: count() }).from(projectMembers).groupBy(projectMembers.userId),
+  ]);
+  const invited = new Set(invites.map((row) => row.userId));
+  return rows.map((row) => ({
+    ...row,
+    invited: !row.active && invited.has(row.id),
+    groups: groupRows.filter((group) => group.userId === row.id).map((group) => group.name),
+    projectCount: projectRows.find((project) => project.userId === row.id)?.n ?? 0,
+  }));
 }
 
 export async function inviteUser(db: DB, actor: Actor, raw: { email: string; name: string; role: "admin" | "member" }) {

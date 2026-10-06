@@ -16,7 +16,12 @@ function mutate(fn: (actor: Awaited<ReturnType<typeof requireActor>>) => Promise
 }
 
 export async function createGroupAction(name: string) {
-  return mutate((actor) => createGroup(db(), actor, name));
+  const actor = await requireActor();
+  return runAction(async () => {
+    const group = await createGroup(db(), actor, name);
+    revalidatePath("/", "layout");
+    return group;
+  });
 }
 
 export async function renameGroupAction(groupId: string, name: string) {
