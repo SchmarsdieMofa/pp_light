@@ -15,10 +15,17 @@ const PROJECT_MATRIX = {
 } as const satisfies Record<string, readonly ProjectRole[]>;
 
 type ProjectAction = keyof typeof PROJECT_MATRIX;
-export type Action = "admin.manageUsers" | "project.create" | ProjectAction;
+/**
+ * Global actions. `system.manage`: admins only (backups, server settings, assigning roles).
+ * `users.manage`: admins and managers (invite, activate/deactivate – see `canManageUser` for whom).
+ * `groups.manage`: admins and managers.
+ */
+export type Action = "system.manage" | "users.manage" | "groups.manage" | "project.create" | ProjectAction;
 
 export const ALL_ACTIONS: readonly Action[] = [
-  "admin.manageUsers",
+  "system.manage",
+  "users.manage",
+  "groups.manage",
   "project.create",
   ...(Object.keys(PROJECT_MATRIX) as ProjectAction[]),
 ];
@@ -31,7 +38,8 @@ export type AccessRole = ProjectRole | "readonly";
 
 export function can(actor: Actor, action: Action, ctx: PermissionContext = {}): boolean {
   if (ctx.readOnly) return action === "project.view";
-  if (action === "admin.manageUsers") return actor.role === "admin";
+  if (action === "system.manage") return actor.role === "admin";
+  if (action === "users.manage" || action === "groups.manage") return actor.role === "admin" || actor.role === "manager";
   if (action === "project.create") return true;
 
   const role = ctx.projectRole;
@@ -51,4 +59,19 @@ export function assertCan(actor: Actor, action: Action, ctx: PermissionContext =
 export function projectCtx(role: AccessRole | null): PermissionContext {
   if (role === "readonly") return { projectRole: null, readOnly: true };
   return { projectRole: role };
+}
+
+/**
+ * Whom a user manager may act on. Admins: everyone. Managers: only plain members – never admins or
+ * other managers, so a manager cannot lock out or take over a more privileged account.
+ */
+export function canManageUser(actor: Actor, targetRole: GlobalRole): boolean {
+  if (actor.role === "admin") return true;
+  return actor.role === "manager" && targetRole === "member";
+}
+
+/** Which global role the actor may hand out (invitations): admins any, managers only "member". */
+export function canAssignRole(actor: Actor, role: GlobalRole): boolean {
+  if (actor.role === "admin") return true;
+  return actor.role === "manager" && role === "member";
 }

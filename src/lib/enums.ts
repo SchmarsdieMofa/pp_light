@@ -1,4 +1,4 @@
-export const GLOBAL_ROLES = ["admin", "member"] as const;
+export const GLOBAL_ROLES = ["admin", "manager", "member"] as const;
 export type GlobalRole = (typeof GLOBAL_ROLES)[number];
 
 export const PROJECT_ROLES = ["owner", "member", "guest"] as const;

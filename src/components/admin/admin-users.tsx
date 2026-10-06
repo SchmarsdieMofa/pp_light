@@ -7,13 +7,23 @@ import { inviteUserAction, revokeInvitationAction, setUserActiveAction, setUserR
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { GLOBAL_ROLES, type GlobalRole } from "@/lib/enums";
 import { initials } from "@/lib/initials";
 import { cn } from "@/lib/utils";
 import type { UserListRow } from "@/server/users/invitations";
 
 export type UserRow = UserListRow;
 
-const ROLE_OPTIONS = [{ value: "member", label: "Mitglied" }, { value: "admin", label: "Admin" }];
+const ROLE_LABELS: Record<GlobalRole, string> = { member: "Mitglied", manager: "Manager", admin: "Admin" };
+const ROLE_OPTIONS = [
+  { value: "member", label: ROLE_LABELS.member, description: "Arbeitet in Projekten" },
+  { value: "manager", label: ROLE_LABELS.manager, description: "Lädt Mitglieder ein, pflegt Gruppen" },
+  { value: "admin", label: ROLE_LABELS.admin, description: "Verwaltet alles, auch Backups und Server" },
+];
+const parseRole = (value: string): GlobalRole => GLOBAL_ROLES.find((role) => role === value) ?? "member";
+
+/** Admins manage every account; managers only plain members (the server enforces the same). */
+const canManage = (ownRole: GlobalRole, target: GlobalRole) => ownRole === "admin" || (ownRole === "manager" && target === "member");
 
 /** Person | Status | Gruppen · Projekte | Aktionen – the same grid for the header and every row. */
 const GRID = "lg:grid lg:grid-cols-[minmax(0,1.5fr)_8rem_minmax(0,1fr)_25rem] lg:items-center lg:gap-x-4";
@@ -36,11 +46,11 @@ const STATUS_STYLE = {
   inactive: { label: "Deaktiviert", className: "bg-muted text-muted-foreground" },
 } as const;
 
-export function AdminUsers({ users, ownId }: { users: UserRow[]; ownId: string }) {
+export function AdminUsers({ users, ownId, ownRole }: { users: UserRow[]; ownId: string; ownRole: GlobalRole }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [inviteRole, setInviteRole] = useState<UserRow["role"]>("member");
+  const [inviteRole, setInviteRole] = useState<GlobalRole>("member");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
 
@@ -69,7 +79,7 @@ export function AdminUsers({ users, ownId }: { users: UserRow[]; ownId: string }
   return (
     <div className="space-y-4">
       <form
-        className="grid gap-2 rounded-lg border bg-muted/20 p-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-center"
+        className={cn("grid gap-2 rounded-lg border bg-muted/20 p-3 sm:items-center", ownRole === "admin" ? "sm:grid-cols-[1fr_1fr_auto_auto]" : "sm:grid-cols-[1fr_1fr_auto]")}
         onSubmit={async (event) => {
           event.preventDefault();
           setBusy(true);
@@ -77,7 +87,7 @@ export function AdminUsers({ users, ownId }: { users: UserRow[]; ownId: string }
           const formElement = event.currentTarget;
           const form = new FormData(formElement);
           try {
-            const result = await inviteUserAction({ email: String(form.get("email")), name: String(form.get("name")), role: form.get("role") === "admin" ? "admin" : "member" });
+            const result = await inviteUserAction({ email: String(form.get("email")), name: String(form.get("name")), role: ownRole === "admin" ? parseRole(String(form.get("role"))) : "member" });
             setMessage(result.ok ? "Einladung vorgemerkt. Der Worker versendet die E-Mail." : result.error.message);
             if (result.ok) {
               formElement.reset();
@@ -90,7 +100,9 @@ export function AdminUsers({ users, ownId }: { users: UserRow[]; ownId: string }
       >
         <Input name="name" placeholder="Name" aria-label="Name" required />
         <Input name="email" type="email" placeholder="E-Mail" aria-label="E-Mail" required />
-        <Select name="role" aria-label="Rolle" className="w-full sm:w-32" value={inviteRole} options={ROLE_OPTIONS} onValueChange={(next) => setInviteRole(next as UserRow["role"])} />
+        {ownRole === "admin" && (
+          <Select name="role" aria-label="Rolle" className="w-full sm:w-32" value={inviteRole} options={ROLE_OPTIONS} onValueChange={(next) => setInviteRole(parseRole(next))} />
+        )}
         <Button type="submit" disabled={busy}>Einladen</Button>
       </form>
       {message && <p role="status" className="text-sm">{message}</p>}
@@ -144,29 +156,29 @@ export function AdminUsers({ users, ownId }: { users: UserRow[]; ownId: string }
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className={cn("rounded-full px-2 py-0.5 text-xs", status.className)}>{status.label}</span>
-                  {user.role === "admin" && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">Admin</span>}
+                  {user.role !== "member" && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{ROLE_LABELS[user.role]}</span>}
                 </div>
                 <div className="min-w-0 space-y-0.5 text-xs text-muted-foreground">
                   <p className="[overflow-wrap:anywhere]">{user.groups.length > 0 ? user.groups.join(", ") : "Keine Gruppe"}</p>
                   <p>{user.projectCount} {user.projectCount === 1 ? "Projekt" : "Projekte"}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                  {!own && (
+                  {!own && ownRole === "admin" && (
                     <Select
                       aria-label={`Rolle von ${user.name}`}
                       value={user.role}
                       disabled={busy}
                       className="w-28"
                       options={ROLE_OPTIONS}
-                      onValueChange={(next) => act(() => setUserRoleAction(user.id, next === "admin" ? "admin" : "member"))}
+                      onValueChange={(next) => act(() => setUserRoleAction(user.id, parseRole(next)))}
                     />
                   )}
-                  {!own && (
+                  {!own && canManage(ownRole, user.role) && (
                     <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => act(() => setUserActiveAction(user.id, !user.active))}>
                       {user.active ? "Deaktivieren" : "Aktivieren"}
                     </Button>
                   )}
-                  {!user.active && (
+                  {!user.active && canManage(ownRole, user.role) && (
                     <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => act(() => revokeInvitationAction(user.id), `Einladung für ${user.email} zurückgezogen.`)}>
                       Einladung zurückziehen
                     </Button>

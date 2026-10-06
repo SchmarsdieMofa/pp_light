@@ -41,7 +41,7 @@ export function normalizeBaseUrl(raw: string): string {
 }
 
 export async function setBaseUrl(db: Executor, actor: Actor, raw: string): Promise<void> {
-  assertCan(actor, "admin.manageUsers");
+  assertCan(actor, "system.manage");
   await saveAppSettings(db, { baseUrl: normalizeBaseUrl(raw) });
 }
 
@@ -50,7 +50,7 @@ export async function setBaseUrl(db: Executor, actor: Actor, raw: string): Promi
  * Behind a proxy that forwards plain HTTP the app always sees "http", so the redirect loop cannot be switched on.
  */
 export async function setHttpsOnly(db: Executor, actor: Actor, on: boolean, currentProto: "http" | "https"): Promise<void> {
-  assertCan(actor, "admin.manageUsers");
+  assertCan(actor, "system.manage");
   if (on && currentProto !== "https") {
     throw new DomainError(
       "VALIDATION",

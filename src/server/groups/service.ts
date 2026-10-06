@@ -13,8 +13,8 @@ const nameSchema = z.string().trim().min(1, "Bitte einen Namen eingeben.").max(8
 
 export type GroupRow = { id: string; name: string; members: { id: string; name: string; email: string; active: boolean }[] };
 
-function requireAdmin(actor: Actor) {
-  assertCan(actor, "admin.manageUsers");
+function requireGroupManager(actor: Actor) {
+  assertCan(actor, "groups.manage");
 }
 
 function parseName(raw: string): string {
@@ -33,7 +33,7 @@ async function requireGroup(db: DB, groupId: string) {
 
 /** All groups with their members, for the admin screen. */
 export async function listGroups(db: DB, actor: Actor): Promise<GroupRow[]> {
-  requireAdmin(actor);
+  requireGroupManager(actor);
   const groups = await db.select().from(userGroups).orderBy(asc(sql`lower(${userGroups.name})`));
   if (groups.length === 0) return [];
   const rows = await db
@@ -49,7 +49,7 @@ export async function listGroups(db: DB, actor: Actor): Promise<GroupRow[]> {
 }
 
 export async function createGroup(db: DB, actor: Actor, rawName: string): Promise<{ id: string }> {
-  requireAdmin(actor);
+  requireGroupManager(actor);
   const name = parseName(rawName);
   try {
     const [group] = await db.insert(userGroups).values({ name }).returning({ id: userGroups.id });
@@ -61,7 +61,7 @@ export async function createGroup(db: DB, actor: Actor, rawName: string): Promis
 }
 
 export async function renameGroup(db: DB, actor: Actor, groupId: string, rawName: string): Promise<void> {
-  requireAdmin(actor);
+  requireGroupManager(actor);
   const name = parseName(rawName);
   await requireGroup(db, groupId);
   try {
@@ -73,13 +73,13 @@ export async function renameGroup(db: DB, actor: Actor, groupId: string, rawName
 }
 
 export async function deleteGroup(db: DB, actor: Actor, groupId: string): Promise<void> {
-  requireAdmin(actor);
+  requireGroupManager(actor);
   await requireGroup(db, groupId);
   await db.delete(userGroups).where(eq(userGroups.id, groupId));
 }
 
 export async function addGroupMember(db: DB, actor: Actor, groupId: string, userId: string): Promise<void> {
-  requireAdmin(actor);
+  requireGroupManager(actor);
   await requireGroup(db, groupId);
   const [user] = z.uuid().safeParse(userId).success ? await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1) : [];
   if (!user) throw new DomainError("NOT_FOUND", "Person nicht gefunden.");
@@ -87,7 +87,7 @@ export async function addGroupMember(db: DB, actor: Actor, groupId: string, user
 }
 
 export async function removeGroupMember(db: DB, actor: Actor, groupId: string, userId: string): Promise<void> {
-  requireAdmin(actor);
+  requireGroupManager(actor);
   await requireGroup(db, groupId);
   if (!z.uuid().safeParse(userId).success) return;
   await db.delete(userGroupMembers).where(and(eq(userGroupMembers.groupId, groupId), eq(userGroupMembers.userId, userId)));

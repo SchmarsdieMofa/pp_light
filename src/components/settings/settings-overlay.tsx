@@ -10,7 +10,7 @@ import { DensityToggle } from "@/components/board/density-toggle";
 import { ThemeToggle } from "@/components/shell/user-menu";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { CardDensity } from "@/lib/enums";
+import type { CardDensity, GlobalRole } from "@/lib/enums";
 import { isTypingTarget } from "@/lib/shortcuts";
 import { buildHref, normalizeSearchParams } from "@/lib/urls";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,7 @@ export type SettingsData = {
   name: string;
   email: string;
   ownId: string;
+  ownRole: GlobalRole;
   hasPassword: boolean;
   cardDensity: CardDensity;
   /** Only for admins. */
@@ -173,8 +174,8 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
                 </Block>
               </>
             ) : tab === "nutzer" ? (
-              <Block title="Nutzerverwaltung" description="Personen einladen, Rollen vergeben und Konten deaktivieren.">
-                <AdminUsers users={data.users!} ownId={data.ownId} />
+              <Block title="Nutzerverwaltung" description={data.ownRole === "admin" ? "Personen einladen, Rollen vergeben und Konten deaktivieren." : "Personen einladen und Konten von Mitgliedern deaktivieren."}>
+                <AdminUsers users={data.users!} ownId={data.ownId} ownRole={data.ownRole} />
               </Block>
             ) : tab === "gruppen" ? (
               <Block title="Gruppen" description="Teams zusammenstellen. Wer ein Projekt verwaltet, kann eine ganze Gruppe auf einmal hinzufügen.">

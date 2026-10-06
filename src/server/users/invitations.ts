@@ -1,10 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 import { and, count, eq, gt, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
-import type { DB } from "@/server/db/client";
+import type { DB, Executor } from "@/server/db/client";
 import { authTokens, mailOutbox, projectMembers, userGroupMembers, userGroups, users } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
-import { assertCan, type Actor } from "@/server/permissions";
+import type { GlobalRole } from "@/lib/enums";
+import { assertCan, canAssignRole, canManageUser, type Actor } from "@/server/permissions";
 import { hashPassword } from "@/server/auth/password";
 import { sealMailBody } from "@/server/mail/crypto";
 import { getBaseUrl } from "@/server/settings/service";
@@ -17,7 +18,7 @@ export type UserListRow = {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "member";
+  role: GlobalRole;
   active: boolean;
   /** Not active yet, but a valid invitation link is out. */
   invited: boolean;
@@ -26,7 +27,7 @@ export type UserListRow = {
 };
 
 export async function listUsers(db: DB, actor: Actor): Promise<UserListRow[]> {
-  assertCan(actor, "admin.manageUsers");
+  assertCan(actor, "users.manage");
   const [rows, invites, groupRows, projectRows] = await Promise.all([
     db.select({ id: users.id, email: users.email, name: users.name, role: users.role, active: users.active })
       .from(users).orderBy(users.email),
@@ -45,8 +46,11 @@ export async function listUsers(db: DB, actor: Actor): Promise<UserListRow[]> {
   }));
 }
 
-export async function inviteUser(db: DB, actor: Actor, raw: { email: string; name: string; role: "admin" | "member" }) {
-  assertCan(actor, "admin.manageUsers");
+export async function inviteUser(db: DB, actor: Actor, raw: { email: string; name: string; role: GlobalRole }) {
+  assertCan(actor, "users.manage");
+  if (!canAssignRole(actor, raw.role)) {
+    throw new DomainError("FORBIDDEN", "Diese Rolle darfst du nicht vergeben.");
+  }
   const email = normalizeEmail(raw.email);
   const name = raw.name.trim();
   if (!z.email().safeParse(email).success || !name || name.length > 100) {
@@ -57,6 +61,8 @@ export async function inviteUser(db: DB, actor: Actor, raw: { email: string; nam
   await db.transaction(async (tx) => {
     const [existing] = await tx.select().from(users).where(eq(users.email, email));
     if (existing?.active) throw new DomainError("EMAIL_TAKEN", "Dieses Konto ist bereits aktiv.");
+    // A re-invitation rewrites name and role of the account: not for accounts the actor may not manage.
+    if (existing && !canManageUser(actor, existing.role)) throw new DomainError("FORBIDDEN", "Dieses Konto darfst du nicht ändern.");
     const [user] = existing ? [existing] : await tx.insert(users).values({ email, name, role: raw.role, active: false }).returning();
     if (existing) await tx.update(users).set({ name, role: raw.role }).where(eq(users.id, user.id));
     await tx.delete(authTokens).where(and(eq(authTokens.userId, user.id), eq(authTokens.kind, "invite")));
@@ -117,10 +123,20 @@ export async function consumeAuthToken(db: DB, rawToken: string, kind: "invite" 
   });
 }
 
+/** NOT_FOUND for an unknown account; FORBIDDEN unless the actor may manage that kind of account. */
+async function requireManageableUser(ex: Executor, actor: Actor, userId: string): Promise<void> {
+  const [target] = z.uuid().safeParse(userId).success
+    ? await ex.select({ role: users.role }).from(users).where(eq(users.id, userId)).limit(1)
+    : [];
+  if (!target) throw new DomainError("NOT_FOUND", "Nutzer nicht gefunden.");
+  if (!canManageUser(actor, target.role)) throw new DomainError("FORBIDDEN", "Dieses Konto darfst du nicht ändern.");
+}
+
 export async function setUserActive(db: DB, actor: Actor, userId: string, active: boolean): Promise<void> {
-  assertCan(actor, "admin.manageUsers");
+  assertCan(actor, "users.manage");
   if (actor.id === userId && !active) throw new DomainError("VALIDATION", "Du kannst dein eigenes Konto nicht deaktivieren.");
   await db.transaction(async (tx) => {
+    await requireManageableUser(tx, actor, userId);
     const changed = await tx.update(users).set({ active }).where(eq(users.id, userId)).returning({ id: users.id });
     if (!changed.length) throw new DomainError("NOT_FOUND", "Nutzer nicht gefunden.");
     // Open reset/invite links would otherwise let a deactivated person back in.
@@ -130,6 +146,7 @@ export async function setUserActive(db: DB, actor: Actor, userId: string, active
 
 /** Withdraws a pending invitation; the account stays inactive. */
 export async function revokeInvitation(db: DB, actor: Actor, userId: string): Promise<void> {
-  assertCan(actor, "admin.manageUsers");
+  assertCan(actor, "users.manage");
+  await requireManageableUser(db, actor, userId);
   await db.delete(authTokens).where(and(eq(authTokens.userId, userId), eq(authTokens.kind, "invite")));
 }

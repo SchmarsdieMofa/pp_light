@@ -92,6 +92,13 @@
       "when": 1791323491657,
       "tag": "0012_task_paths",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791324554585,
+      "tag": "0013_manager_role",
+      "breakpoints": true
     }
   ]
 }

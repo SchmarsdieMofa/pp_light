@@ -1,11 +1,11 @@
-import type { ProjectRole } from "@/lib/enums";
+import type { GlobalRole, ProjectRole } from "@/lib/enums";
 import { projectMembers } from "@/server/db/schema";
 import type { Actor } from "@/server/permissions";
 import { createProject, listStatuses } from "@/server/projects/service";
 import { createUser } from "@/server/users/service";
 import { testDb } from "./db";
 
-export async function makeActor(email: string, role: "admin" | "member" = "member"): Promise<Actor> {
+export async function makeActor(email: string, role: GlobalRole = "member"): Promise<Actor> {
   const u = await createUser(testDb, { email, name: email.split("@")[0], role });
   return { id: u.id, role: u.role, name: u.name, email: u.email };
 }

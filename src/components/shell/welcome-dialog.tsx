@@ -1,5 +1,6 @@
 "use client";
 
+import type { GlobalRole } from "@/lib/enums";
 import { Dialog } from "@base-ui/react/dialog";
 import { Bell, CalendarDays, FolderKanban, Home, Search, Sparkles, Users, X, type LucideIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -19,7 +20,7 @@ const Kbd = ({ children }: { children: React.ReactNode }) => (
   <kbd className="rounded border bg-muted px-1.5 py-0.5 font-sans text-xs text-foreground">{children}</kbd>
 );
 
-function steps(firstName: string, isAdmin: boolean): Step[] {
+function steps(firstName: string, role: GlobalRole): Step[] {
   return [
     {
       icon: Sparkles,
@@ -66,12 +67,15 @@ function steps(firstName: string, isAdmin: boolean): Step[] {
       title: "Benachrichtigungen",
       text: "Wirst du erwähnt oder bekommst eine Aufgabe, landet das in der Inbox. Was du nicht gleich liest, kommt gesammelt per E-Mail.",
     },
-    ...(isAdmin
+    ...(role !== "member"
       ? [
           {
             icon: Users,
             title: "Dein Team",
-            text: "Als Admin lädst du Kolleginnen und Kollegen über das Zahnrad unten links ein: Einstellungen → Nutzerverwaltung. Dort findest du auch Backups und Server-Einstellungen.",
+            text:
+              role === "admin"
+                ? "Als Admin lädst du Kolleginnen und Kollegen über das Zahnrad unten links ein: Einstellungen → Nutzerverwaltung. Dort findest du auch Gruppen, Backups und Server-Einstellungen."
+                : "Als Manager lädst du Kolleginnen und Kollegen über das Zahnrad unten links ein und pflegst Gruppen: Einstellungen → Nutzerverwaltung und Gruppen.",
             action: { label: "Nutzerverwaltung öffnen", settings: "nutzer" },
           },
         ]
@@ -83,13 +87,13 @@ function steps(firstName: string, isAdmin: boolean): Step[] {
  * Short welcome tour. Opens by itself once per user (until finished or skipped) and again via `?welcome=1`.
  * It waits while the settings or a task overlay is open – e.g. right after the first-run setup.
  */
-export function WelcomeDialog(props: { name: string; isAdmin: boolean; onboarded: boolean; hasProjects: boolean }) {
+export function WelcomeDialog(props: { name: string; role: GlobalRole; onboarded: boolean; hasProjects: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [dismissed, setDismissed] = useState(props.onboarded);
   const [index, setIndex] = useState(0);
-  const all = steps(props.name.trim().split(/\s+/)[0] ?? "", props.isAdmin);
+  const all = steps(props.name.trim().split(/\s+/)[0] ?? "", props.role);
   const requested = searchParams.get(WELCOME_PARAM) === "1";
   const open = requested || (!dismissed && !searchParams.get("settings") && !searchParams.get("task"));
   if (!open) return null;

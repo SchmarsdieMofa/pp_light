@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/shell/sidebar";
 import { ThemeSync } from "@/components/shell/theme-sync";
 import { WelcomeDialog } from "@/components/shell/welcome-dialog";
 import { requireActor } from "@/server/auth/session";
+import { can } from "@/server/permissions";
 import { db } from "@/server/db/client";
 import { getPreferences } from "@/server/preferences/service";
 import { listProjectsForUser } from "@/server/projects/service";
@@ -27,14 +28,16 @@ async function serverSettings() {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const actor = await requireActor();
-  const isAdmin = actor.role === "admin";
+  // Admins run the system (backups, server, roles); managers only the people (users, groups).
+  const isAdmin = can(actor, "system.manage");
+  const managesPeople = can(actor, "users.manage");
   const [projects, prefs, initialUnread, withPassword, users, groups, backups, server] = await Promise.all([
     listProjectsForUser(db(), actor),
     getPreferences(db(), actor.id),
     unreadCount(db(), actor),
     hasPassword(db(), actor),
-    isAdmin ? listUsers(db(), actor) : null,
-    isAdmin ? listGroups(db(), actor) : null,
+    managesPeople ? listUsers(db(), actor) : null,
+    can(actor, "groups.manage") ? listGroups(db(), actor) : null,
     isAdmin ? listBackupRuns(db(), actor) : null,
     isAdmin ? serverSettings() : null,
   ]);
@@ -54,12 +57,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </AppShell>
       <Suspense>
         <SettingsOverlay
-          data={{ name: actor.name, email: actor.email, ownId: actor.id, hasPassword: withPassword, cardDensity: prefs.cardDensity, users, groups, backups, server }}
+          data={{ name: actor.name, email: actor.email, ownId: actor.id, ownRole: actor.role, hasPassword: withPassword, cardDensity: prefs.cardDensity, users, groups, backups, server }}
         />
       </Suspense>
       <CommandCenter projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key }))} />
       <Suspense>
-        <WelcomeDialog name={actor.name} isAdmin={isAdmin} onboarded={prefs.onboarded} hasProjects={projects.length > 0} />
+        <WelcomeDialog name={actor.name} role={actor.role} onboarded={prefs.onboarded} hasProjects={projects.length > 0} />
       </Suspense>
     </>
   );

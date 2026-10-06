@@ -1,25 +1,61 @@
 import { describe, expect, it } from "vitest";
-import type { ProjectRole } from "@/lib/enums";
-import { ALL_ACTIONS, assertCan, can, type Action, type Actor } from "@/server/permissions";
+import type { GlobalRole, ProjectRole } from "@/lib/enums";
+import { ALL_ACTIONS, assertCan, can, canAssignRole, canManageUser, type Action, type Actor } from "@/server/permissions";
 
 const member: Actor = { id: "u1", role: "member", name: "Mia", email: "mia@example.com" };
 const admin: Actor = { id: "a1", role: "admin", name: "Ada", email: "ada@example.com" };
 
+const manager: Actor = { id: "m1", role: "manager", name: "Max", email: "max@example.com" };
+const PROJECT_ACTIONS = ALL_ACTIONS.filter((action) => !["system.manage", "users.manage", "groups.manage", "project.create"].includes(action));
+
 describe("can", () => {
-  it("gives admins user management and project creation, but no project rights without membership", () => {
-    for (const action of ALL_ACTIONS) {
-      expect(can(admin, action)).toBe(action === "admin.manageUsers" || action === "project.create");
+  // Global actions per global role – the whole table, so a new action or role cannot slip through unnoticed.
+  it.each<[string, Actor, Action, boolean]>([
+    ["admin", admin, "system.manage", true],
+    ["admin", admin, "users.manage", true],
+    ["admin", admin, "groups.manage", true],
+    ["admin", admin, "project.create", true],
+    ["manager", manager, "system.manage", false],
+    ["manager", manager, "users.manage", true],
+    ["manager", manager, "groups.manage", true],
+    ["manager", manager, "project.create", true],
+    ["member", member, "system.manage", false],
+    ["member", member, "users.manage", false],
+    ["member", member, "groups.manage", false],
+    ["member", member, "project.create", true],
+  ])("%s · %s = %s", (_role, actor, action, expected) => {
+    expect(can(actor, action)).toBe(expected);
+  });
+
+  it("covers every action in the table above", () => {
+    expect(ALL_ACTIONS.filter((action) => !PROJECT_ACTIONS.includes(action)).sort()).toEqual(
+      ["groups.manage", "project.create", "system.manage", "users.manage"],
+    );
+  });
+
+  it.each([admin, manager, member])("gives $role no project rights without membership, even in an archived project", (actor) => {
+    for (const action of PROJECT_ACTIONS) {
+      expect(can(actor, action)).toBe(false);
+      expect(can(actor, action, { projectRole: null })).toBe(false);
     }
+    expect(can(actor, "project.view", { readOnly: true })).toBe(true);
+    expect(can(actor, "task.update", { readOnly: true })).toBe(false);
   });
 
-  it("limits an admin who is a project member to the membership role", () => {
-    expect(can(admin, "task.update", { projectRole: "member" })).toBe(true);
-    expect(can(admin, "project.update", { projectRole: "member" })).toBe(false);
-    expect(can(admin, "project.update", { projectRole: "owner" })).toBe(true);
+  it.each([admin, manager])("limits $role who is a project member to the membership role", (actor) => {
+    expect(can(actor, "task.update", { projectRole: "member" })).toBe(true);
+    expect(can(actor, "project.update", { projectRole: "member" })).toBe(false);
+    expect(can(actor, "project.manageMembers", { projectRole: "guest" })).toBe(false);
+    expect(can(actor, "project.update", { projectRole: "owner" })).toBe(true);
   });
 
-  it("lets only admins manage users", () => {
-    expect(can(member, "admin.manageUsers")).toBe(false);
+  it.each<[Actor, GlobalRole, boolean]>([
+    [admin, "admin", true], [admin, "manager", true], [admin, "member", true],
+    [manager, "admin", false], [manager, "manager", false], [manager, "member", true],
+    [member, "admin", false], [member, "manager", false], [member, "member", false],
+  ])("canManageUser: %#", (actor, target, expected) => {
+    expect(canManageUser(actor, target)).toBe(expected);
+    expect(canAssignRole(actor, target)).toBe(expected);
   });
 
   it("lets every user create projects", () => {
@@ -58,7 +94,7 @@ describe("can", () => {
 
 describe("assertCan", () => {
   it("throws FORBIDDEN when not allowed", () => {
-    expect(() => assertCan(member, "admin.manageUsers")).toThrow(
+    expect(() => assertCan(member, "system.manage")).toThrow(
       expect.objectContaining({ code: "FORBIDDEN" }),
     );
   });

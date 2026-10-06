@@ -49,7 +49,7 @@ export async function changeOwnPassword(db: DB, actor: Actor, current: string, n
 
 /** Admins change other people's global role; their own stays, so there is always an admin left. */
 export async function setUserRole(db: DB, actor: Actor, userId: string, raw: GlobalRole): Promise<void> {
-  assertCan(actor, "admin.manageUsers");
+  assertCan(actor, "system.manage");
   const role = z.enum(GLOBAL_ROLES).parse(raw);
   if (userId === actor.id) throw new DomainError("VALIDATION", "Du kannst deine eigene Rolle nicht ändern.");
   if (!z.uuid().safeParse(userId).success) throw new DomainError("NOT_FOUND", "Nutzer nicht gefunden.");

@@ -18,7 +18,7 @@ export type BackupRun = {
 
 /** Latest backups, newest first. Admins only – backups contain every project. */
 export async function listBackupRuns(db: DB, actor: Actor, limit = 10): Promise<BackupRun[]> {
-  assertCan(actor, "admin.manageUsers");
+  assertCan(actor, "system.manage");
   return db
     .select({
       id: backupRuns.id,
@@ -39,7 +39,7 @@ export async function listBackupRuns(db: DB, actor: Actor, limit = 10): Promise<
 
 /** Queues a backup; the backup container picks it up within seconds. One at a time. */
 export async function requestBackup(db: DB, actor: Actor): Promise<void> {
-  assertCan(actor, "admin.manageUsers");
+  assertCan(actor, "system.manage");
   const [active] = await db
     .select({ id: backupRuns.id })
     .from(backupRuns)
