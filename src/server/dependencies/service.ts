@@ -8,7 +8,7 @@ import { projects, taskDependencies, tasks } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { assertCan, projectCtx, type Actor } from "@/server/permissions";
 import { loadTaskAccess } from "@/server/tasks/access";
-import { propagateDates } from "./scheduling";
+import { propagateDates, type ScheduleMove } from "./scheduling";
 
 const lagSchema = z.number().int().min(0).max(3650);
 const idSchema = z.uuid();
@@ -40,21 +40,68 @@ async function requireEdit(db: DB, actor: Actor, blockerId: string, blockedId: s
   return task.projectId;
 }
 
+/** A task spans its subtasks, so it cannot wait for one of them (or the other way round). */
+async function assertNotParentChild(ex: Executor, blockerId: string, blockedId: string) {
+  const pair = await ex.select({ id: tasks.id, parentId: tasks.parentId }).from(tasks).where(inArray(tasks.id, [blockerId, blockedId]));
+  if (pair.some((task) => task.parentId === blockerId || task.parentId === blockedId)) {
+    throw new DomainError("VALIDATION", "Eine Aufgabe und ihre Unteraufgabe können nicht voneinander abhängen – die Aufgabe umfasst ihre Unteraufgaben ohnehin.");
+  }
+}
+
+class PreviewDone extends Error {
+  constructor(readonly moves: ScheduleMove[]) {
+    super("preview");
+  }
+}
+
+export type DependencyPreviewMove = ScheduleMove & { key: string; number: number; title: string };
+
+/** Which tasks adding this dependency would move – nothing is saved. */
+export async function previewDependency(db: DB, actor: Actor, blockerId: string, blockedId: string, rawLagDays: number): Promise<DependencyPreviewMove[]> {
+  const lagDays = lagSchema.parse(rawLagDays);
+  const projectId = await requireEdit(db, actor, blockerId, blockedId);
+  let moves: ScheduleMove[] = [];
+  try {
+    await db.transaction(async (tx) => {
+      await insertDependency(tx, projectId, blockerId, blockedId, lagDays);
+      const collected: ScheduleMove[] = [];
+      await propagateDates(tx, projectId, [blockedId], true, actor.id, randomUUID(), collected);
+      throw new PreviewDone(collected);
+    });
+  } catch (err) {
+    if (!(err instanceof PreviewDone)) throw err;
+    moves = err.moves;
+  }
+  if (moves.length === 0) return [];
+  const rows = await db.select({ id: tasks.id, number: tasks.number, title: tasks.title, key: projects.key })
+    .from(tasks).innerJoin(projects, eq(projects.id, tasks.projectId)).where(inArray(tasks.id, moves.map((move) => move.id)));
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return moves.flatMap((move) => {
+    const row = byId.get(move.id);
+    return row ? [{ ...move, key: row.key, number: row.number, title: row.title }] : [];
+  });
+}
+
+async function insertDependency(tx: Executor, projectId: string, blockerId: string, blockedId: string, lagDays: number) {
+  await lockProject(tx, projectId);
+  await requirePair(tx, projectId, blockerId, blockedId);
+  await assertNotParentChild(tx, blockerId, blockedId);
+  const ids = (await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, projectId))).map((task) => task.id);
+  const existing = await tx.select().from(taskDependencies).where(inArray(taskDependencies.blockerId, ids));
+  if (existing.some((edge) => edge.blockerId === blockerId && edge.blockedId === blockedId)) {
+    throw new DomainError("VALIDATION", "Diese Abhängigkeit gibt es schon.");
+  }
+  if (wouldCreateCycle(existing, blockerId, blockedId)) {
+    throw new DomainError("VALIDATION", "Diese Abhängigkeit würde einen Zyklus erzeugen.");
+  }
+  await tx.insert(taskDependencies).values({ blockerId, blockedId, lagDays });
+}
+
 export async function addDependency(db: DB, actor: Actor, blockerId: string, blockedId: string, rawLagDays: number) {
   const lagDays = lagSchema.parse(rawLagDays);
   const projectId = await requireEdit(db, actor, blockerId, blockedId);
   return db.transaction(async (tx) => {
-    await lockProject(tx, projectId);
-    await requirePair(tx, projectId, blockerId, blockedId);
-    const ids = (await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, projectId))).map((task) => task.id);
-    const existing = await tx.select().from(taskDependencies).where(inArray(taskDependencies.blockerId, ids));
-    if (existing.some((edge) => edge.blockerId === blockerId && edge.blockedId === blockedId)) {
-      throw new DomainError("VALIDATION", "Diese Abhängigkeit gibt es schon.");
-    }
-    if (wouldCreateCycle(existing, blockerId, blockedId)) {
-      throw new DomainError("VALIDATION", "Diese Abhängigkeit würde einen Zyklus erzeugen.");
-    }
-    await tx.insert(taskDependencies).values({ blockerId, blockedId, lagDays });
+    await insertDependency(tx, projectId, blockerId, blockedId, lagDays);
     const groupId = randomUUID();
     await recordActivity(tx, {
       projectId, taskId: blockedId, actorId: actor.id, action: "dependency.added", groupId,

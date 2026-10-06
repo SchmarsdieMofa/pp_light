@@ -4,9 +4,11 @@ import { Select } from "@/components/ui/select";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { addDependencyAction, removeDependencyAction, updateDependencyLagAction } from "@/app/(app)/tasks/actions";
+import { addDependencyAction, previewDependencyAction, removeDependencyAction, updateDependencyLagAction } from "@/app/(app)/tasks/actions";
 import { Button } from "@/components/ui/button";
+import { formatDate } from "@/lib/dates";
 import type { ActionResult } from "@/server/action-result";
+import type { DependencyPreviewMove } from "@/server/dependencies/service";
 import type { TaskLink } from "@/server/dependencies/queries";
 import type { TaskDetail } from "@/server/tasks/queries";
 import { useTaskHref } from "./use-task-href";
@@ -48,6 +50,10 @@ export function TaskDependencies({ detail }: { detail: TaskDetail }) {
       {(!detail.startDate || !detail.dueDate) && (
         <p className="text-xs text-muted-foreground">Automatisches Verschieben braucht Start und Fälligkeit der Aufgabe.</p>
       )}
+      <p className="text-xs text-muted-foreground">
+        „Abstand“ ist der Puffer in Arbeitstagen zwischen dem Ende des Blockers und dem Start der blockierten Aufgabe (0 = nächster Arbeitstag).
+        Endet ein Blocker nach dem Start der blockierten Aufgabe, wird diese nach hinten verschoben – vorher fragen wir nach.
+      </p>
       <DependencyList detail={detail} title="Blockiert durch" links={detail.blockers} isBlockerList href={href} />
       <DependencyList detail={detail} title="Blockiert" links={detail.successors} isBlockerList={false} href={href} />
     </section>
@@ -63,6 +69,7 @@ function DependencyList(props: {
 }) {
   const [selected, setSelected] = useState("");
   const [lag, setLag] = useState(0);
+  const [moves, setMoves] = useState<DependencyPreviewMove[] | null>(null);
   const { pending, run } = useRun();
   const blockerId = props.isBlockerList ? selected : props.detail.id;
   const blockedId = props.isBlockerList ? props.detail.id : selected;
@@ -80,8 +87,12 @@ function DependencyList(props: {
         <form className="flex flex-wrap items-center gap-2" onSubmit={(event) => {
           event.preventDefault();
           if (!selected) return;
-          run(() => addDependencyAction(blockerId, blockedId, lag), (result) => {
-            setSelected(""); setLag(0); movedMessage(result.movedCount);
+          // Moving dates is surprising: show what would move first, then let the user decide.
+          run(() => previewDependencyAction(blockerId, blockedId, lag), (preview) => {
+            if (preview.moves.length > 0) { setMoves(preview.moves); return; }
+            run(() => addDependencyAction(blockerId, blockedId, lag), (result) => {
+              setSelected(""); setLag(0); movedMessage(result.movedCount);
+            });
           });
         }}>
           <Select
@@ -91,7 +102,7 @@ function DependencyList(props: {
             searchPlaceholder="Aufgabe suchen…"
             value={selected}
             options={available.map((option) => ({ value: option.id, label: `${props.detail.key}-${option.number} ${option.title}` }))}
-            onValueChange={setSelected}
+            onValueChange={(value) => { setSelected(value); setMoves(null); }}
           />
           {/* Lag and submit only matter once a task is picked. */}
           {selected && (
@@ -100,10 +111,29 @@ function DependencyList(props: {
                 <input aria-label={`Abstand für ${props.title}`} type="number" min={0} max={3650} className={`${selectClass} w-16`}
                   value={lag} onChange={(event) => setLag(Number(event.target.value))} />
               </label>
-              <Button type="submit" size="sm" disabled={pending}>Hinzufügen</Button>
+              <Button type="submit" size="sm" disabled={pending || moves !== null}>Hinzufügen</Button>
             </>
           )}
         </form>
+      )}
+      {moves && (
+        <div role="alert" className="space-y-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-2 text-xs">
+          <p className="font-medium">Dadurch würden {moves.length === 1 ? "diese Aufgabe" : `diese ${moves.length} Aufgaben`} nach hinten verschoben:</p>
+          <ul className="space-y-0.5">
+            {moves.map((move) => (
+              <li key={move.id}>
+                {move.key}-{move.number} {move.title}: {formatDate(move.before.startDate)} – {formatDate(move.before.dueDate)} → <strong>{formatDate(move.after.startDate)} – {formatDate(move.after.dueDate)}</strong>
+              </li>
+            ))}
+          </ul>
+          <div className="flex gap-2">
+            <Button type="button" size="sm" disabled={pending} onClick={() =>
+              run(() => addDependencyAction(blockerId, blockedId, lag), (result) => {
+                setSelected(""); setLag(0); setMoves(null); movedMessage(result.movedCount);
+              })}>Hinzufügen und verschieben</Button>
+            <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setMoves(null)}>Abbrechen</Button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { listActivity } from "@/server/activity/service";
 import { taskDependencies, tasks } from "@/server/db/schema";
-import { addDependency, removeDependency, updateDependencyLag } from "@/server/dependencies/service";
+import { addDependency, previewDependency, removeDependency, updateDependencyLag } from "@/server/dependencies/service";
 import { undoScheduleGroup } from "@/server/dependencies/undo";
 import { createTask, updateTask } from "@/server/tasks/service";
 import { resetDb, testDb } from "../helpers/db";
@@ -37,6 +37,26 @@ describe("task dependencies", () => {
     expect(await dates(b.id)).toEqual({ startDate: "2026-10-06", dueDate: "2026-10-08" });
     await removeDependency(testDb, actor, a.id, b.id);
     expect(await dates(b.id)).toEqual({ startDate: "2026-10-06", dueDate: "2026-10-08" });
+  });
+
+  it("previews the shifts without saving anything", async () => {
+    const actor = await makeActor("preview@example.com");
+    const { project } = await makeProject(actor, "PRV");
+    const a = await datedTask(actor, project.id, "A", "2026-10-01", "2026-10-02");
+    const b = await datedTask(actor, project.id, "B", "2026-10-02", "2026-10-06");
+    const moves = await previewDependency(testDb, actor, a.id, b.id, 1);
+    expect(moves).toMatchObject([{ id: b.id, key: "PRV", title: "B", before: { startDate: "2026-10-02" }, after: { startDate: "2026-10-06", dueDate: "2026-10-08" } }]);
+    expect(await dates(b.id)).toEqual({ startDate: "2026-10-02", dueDate: "2026-10-06" });
+    expect(await testDb.select().from(taskDependencies)).toEqual([]);
+  });
+
+  it("rejects dependencies between a task and its own subtask", async () => {
+    const actor = await makeActor("family@example.com");
+    const { project } = await makeProject(actor, "FAM");
+    const parent = await createTask(testDb, actor, { projectId: project.id, title: "Eltern" });
+    const child = await createTask(testDb, actor, { projectId: project.id, title: "Kind", parentId: parent.id });
+    await expect(addDependency(testDb, actor, child.id, parent.id, 0)).rejects.toMatchObject({ code: "VALIDATION" });
+    await expect(addDependency(testDb, actor, parent.id, child.id, 0)).rejects.toMatchObject({ code: "VALIDATION" });
   });
 
   it("rejects cycles, duplicates and cross-project edges", async () => {

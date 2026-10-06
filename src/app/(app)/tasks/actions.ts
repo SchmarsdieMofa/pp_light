@@ -9,7 +9,7 @@ import { deleteAttachment } from "@/server/attachments/service";
 import { createComment, deleteComment, updateComment } from "@/server/comments/service";
 import { db } from "@/server/db/client";
 import { getEnv } from "@/lib/env";
-import { addDependency, removeDependency, updateDependencyLag } from "@/server/dependencies/service";
+import { addDependency, previewDependency, removeDependency, updateDependencyLag, type DependencyPreviewMove } from "@/server/dependencies/service";
 import { undoScheduleGroup } from "@/server/dependencies/undo";
 import { setTaskAssignees, setTaskLabels } from "@/server/tasks/relations";
 import { createTask, moveTask, updateTask } from "@/server/tasks/service";
@@ -108,6 +108,11 @@ export async function addDependencyAction(blockerId: string, blockedId: string, 
     refresh();
     return { movedCount: result.movedCount };
   });
+}
+
+export async function previewDependencyAction(blockerId: string, blockedId: string, lagDays: number): Promise<ActionResult<{ moves: DependencyPreviewMove[] }>> {
+  const actor = await requireActor();
+  return runAction(async () => ({ moves: await previewDependency(db(), actor, blockerId, blockedId, lagDays) }));
 }
 
 export async function updateDependencyLagAction(blockerId: string, blockedId: string, lagDays: number): Promise<ActionResult<{ movedCount: number }>> {

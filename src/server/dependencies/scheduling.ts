@@ -6,6 +6,7 @@ import type { Executor } from "@/server/db/client";
 import { statuses, taskDependencies, tasks } from "@/server/db/schema";
 
 type Dates = { startDate: string | null; dueDate: string | null };
+export type ScheduleMove = { id: string; before: Dates; after: Dates };
 
 export async function propagateDates(
   ex: Executor,
@@ -14,6 +15,8 @@ export async function propagateDates(
   includeRoots: boolean,
   actorId: string,
   groupId: string,
+  /** Receives every move, e.g. to preview them before they are kept. */
+  collect?: ScheduleMove[],
 ): Promise<number> {
   const rows = await ex.select({
     id: tasks.id,
@@ -71,6 +74,7 @@ export async function propagateDates(
       diff: { before, after },
     });
     current.set(id, { ...row, ...after });
+    collect?.push({ id, before, after });
     moved++;
   }
   return moved;
