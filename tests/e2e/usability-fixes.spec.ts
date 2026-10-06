@@ -55,9 +55,9 @@ test("subtasks show up on the board and in the list; member picker suggests peop
   await expect(picker).toHaveValue(E2E_MEMBER.email);
 
   await picker.fill("");
-  await page.getByRole("button", { name: "Alle Personen durchsuchen" }).click();
-  const dialog = page.getByRole("dialog", { name: "Person hinzufügen" });
-  await dialog.getByLabel("Personen suchen").fill("member");
+  await page.getByRole("button", { name: "Alle Personen und Gruppen durchsuchen" }).click();
+  const dialog = page.getByRole("dialog", { name: "Person oder Gruppe hinzufügen" });
+  await dialog.getByLabel("Personen und Gruppen suchen").fill("member");
   await dialog.getByRole("button", { name: new RegExp(E2E_MEMBER.name) }).click();
   await expect(picker).toHaveValue(E2E_MEMBER.email);
 });
@@ -73,4 +73,26 @@ test("an admin who is not a member can neither list nor open a project", async (
   const response = await admin.goto(board);
   expect(response?.status()).toBe(404);
   await admin.close();
+});
+
+test("admins build a group; a project owner adds the whole group at once", async ({ page }) => {
+  await login(page);
+  await page.goto("/?settings=gruppen");
+  const settings = page.getByRole("dialog", { name: "Einstellungen" });
+  await settings.getByLabel("Name der neuen Gruppe").fill("Team Eins");
+  await settings.getByRole("button", { name: "Gruppe anlegen" }).click();
+  const group = settings.getByRole("region", { name: "Gruppe Team Eins" });
+  await expect(group).toBeVisible();
+  await group.getByRole("combobox", { name: "Person zu Team Eins hinzufügen" }).click();
+  await page.getByRole("option", { name: new RegExp(E2E_MEMBER.name) }).click();
+  await expect(group.getByRole("list", { name: "Mitglieder von Team Eins" })).toContainText(E2E_MEMBER.name);
+  await settings.getByRole("button", { name: "Schließen" }).click();
+
+  await page.goto("/");
+  const board = await createProjectViaUi(page, "Gruppen-Test", "grt");
+  await page.goto(board.replace(/\/board$/, "/settings"));
+  await page.getByRole("combobox", { name: /E-Mail des Mitglieds/ }).fill("team e");
+  await page.getByRole("option", { name: /Team Eins/ }).click();
+  await page.getByRole("button", { name: "Gruppe hinzufügen" }).click();
+  await expect(page.getByRole("list", { name: "Mitglieder" })).toContainText(E2E_MEMBER.name);
 });

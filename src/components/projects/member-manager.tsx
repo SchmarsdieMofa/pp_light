@@ -3,10 +3,11 @@
 import { Select } from "@/components/ui/select";
 import { UserPlus, UserMinus } from "lucide-react";
 import { useState } from "react";
-import { addMemberAction, changeMemberRoleAction, removeMemberAction } from "@/app/(app)/projects/actions";
+import { addGroupAction, addMemberAction, changeMemberRoleAction, removeMemberAction } from "@/app/(app)/projects/actions";
 import { Button } from "@/components/ui/button";
 import { PROJECT_ROLES, type ProjectRole } from "@/lib/enums";
-import { MemberPicker } from "./member-picker";
+import { toast } from "sonner";
+import { MemberPicker, type PickedGroup } from "./member-picker";
 import { ConfirmAction, useRunner } from "./settings-ui";
 
 const ROLE_LABELS: Record<ProjectRole, string> = { owner: "Owner", member: "Mitglied", guest: "Gast" };
@@ -25,6 +26,7 @@ function initials(name: string) {
 
 export function MemberManager(props: { projectId: string; members: MemberItem[]; canManage: boolean }) {
   const [email, setEmail] = useState("");
+  const [group, setGroup] = useState<PickedGroup | null>(null);
   const [role, setRole] = useState<ProjectRole>("member");
   const { pending, run } = useRunner();
 
@@ -71,13 +73,20 @@ export function MemberManager(props: { projectId: string; members: MemberItem[];
           className="flex flex-wrap items-center gap-2"
           onSubmit={(e) => {
             e.preventDefault();
+            if (group) {
+              run(() => addGroupAction(props.projectId, group.id, role), ({ added }) => {
+                setGroup(null);
+                toast.success(added === 0 ? `Alle aus „${group.name}“ sind schon im Projekt.` : `${added} ${added === 1 ? "Person" : "Personen"} aus „${group.name}“ hinzugefügt.`);
+              });
+              return;
+            }
             run(() => addMemberAction(props.projectId, email, role), () => setEmail(""));
           }}
         >
-          <MemberPicker projectId={props.projectId} value={email} onChange={setEmail} />
+          <MemberPicker projectId={props.projectId} value={email} onChange={setEmail} group={group} onGroupChange={setGroup} />
           <Select aria-label="Rolle" className="w-28" value={role} options={roleOptions} onValueChange={(next) => setRole(next as ProjectRole)} />
-          <Button type="submit" size="sm" variant="outline" disabled={pending || !email.trim()}>
-            <UserPlus /> Mitglied hinzufügen
+          <Button type="submit" size="sm" variant="outline" disabled={pending || (!group && !email.trim())}>
+            <UserPlus /> {group ? "Gruppe hinzufügen" : "Mitglied hinzufügen"}
           </Button>
           <p className="w-full text-xs text-muted-foreground">
             Owner verwalten das Projekt · Mitglieder bearbeiten Aufgaben · Gäste lesen und kommentieren.

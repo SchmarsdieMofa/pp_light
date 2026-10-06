@@ -4,6 +4,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { AdminGroups } from "@/components/admin/admin-groups";
 import { AdminUsers, type UserRow } from "@/components/admin/admin-users";
 import { DensityToggle } from "@/components/board/density-toggle";
 import { ThemeToggle } from "@/components/shell/user-menu";
@@ -14,6 +15,7 @@ import { isTypingTarget } from "@/lib/shortcuts";
 import { buildHref, normalizeSearchParams } from "@/lib/urls";
 import { cn } from "@/lib/utils";
 import type { BackupRun } from "@/server/backups/service";
+import type { GroupRow } from "@/server/groups/service";
 import { PasswordForm, ProfileForm } from "./account-settings";
 import { BackupPanel } from "./backup-panel";
 import { ServerPanel, type ServerSettings } from "./server-panel";
@@ -27,6 +29,8 @@ export type SettingsData = {
   cardDensity: CardDensity;
   /** Only for admins. */
   users: UserRow[] | null;
+  /** Only for admins. */
+  groups: GroupRow[] | null;
   /** Only for admins. */
   backups: BackupRun[] | null;
   /** Only for admins. */
@@ -56,7 +60,7 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
   const hrefFor = useSettingsHref();
   const requested = searchParams.get(SETTINGS_PARAM);
   const tab =
-    requested === "nutzer" && data.users ? "nutzer" : requested === "backups" && data.backups
+    requested === "nutzer" && data.users ? "nutzer" : requested === "gruppen" && data.users && data.groups ? "gruppen" : requested === "backups" && data.backups
         ? "backups"
         : requested === "server" && data.server
           ? "server"
@@ -74,6 +78,7 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
   const tabs = [
     { value: "konto" as const, label: "Mein Konto" },
     ...(data.users ? [{ value: "nutzer" as const, label: "Nutzerverwaltung" }] : []),
+    ...(data.users && data.groups ? [{ value: "gruppen" as const, label: "Gruppen" }] : []),
     ...(data.backups ? [{ value: "backups" as const, label: "Backups" }] : []),
     ...(data.server ? [{ value: "server" as const, label: "Server" }] : []),
   ];
@@ -168,6 +173,10 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
             ) : tab === "nutzer" ? (
               <Block title="Nutzerverwaltung" description="Personen einladen, Rollen vergeben und Konten deaktivieren.">
                 <AdminUsers users={data.users!} ownId={data.ownId} />
+              </Block>
+            ) : tab === "gruppen" ? (
+              <Block title="Gruppen" description="Teams zusammenstellen. Wer ein Projekt verwaltet, kann eine ganze Gruppe auf einmal hinzufügen.">
+                <AdminGroups groups={data.groups!} users={data.users!} />
               </Block>
             ) : tab === "backups" ? (
               <Block title="Backups" description="Sicherungen von Datenbank und Anhängen.">

@@ -357,3 +357,23 @@ export const appSettings = pgTable(
   },
   (t) => [check("app_settings_single_row", sql`${t.id} = 1`)],
 );
+
+/** A named set of people (e.g. a team). Admins maintain them; an owner adds a whole group to a project in one step. */
+export const userGroups = pgTable(
+  "user_groups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("user_groups_name_idx").on(sql`lower(${t.name})`)],
+);
+
+export const userGroupMembers = pgTable(
+  "user_group_members",
+  {
+    groupId: uuid("group_id").notNull().references(() => userGroups.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.groupId, t.userId] }), index("user_group_members_user_idx").on(t.userId)],
+);

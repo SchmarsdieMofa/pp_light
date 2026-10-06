@@ -13,6 +13,7 @@ import { listProjectsForUser } from "@/server/projects/service";
 import { unreadCount } from "@/server/notifications/service";
 import { hasPassword } from "@/server/users/account";
 import { listUsers } from "@/server/users/invitations";
+import { listGroups } from "@/server/groups/service";
 import { listBackupRuns } from "@/server/backups/service";
 import { requestOrigin, requestProto } from "@/lib/access-redirect";
 import { getAppSettings, getBaseUrl } from "@/server/settings/service";
@@ -27,12 +28,13 @@ async function serverSettings() {
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const actor = await requireActor();
   const isAdmin = actor.role === "admin";
-  const [projects, prefs, initialUnread, withPassword, users, backups, server] = await Promise.all([
+  const [projects, prefs, initialUnread, withPassword, users, groups, backups, server] = await Promise.all([
     listProjectsForUser(db(), actor),
     getPreferences(db(), actor.id),
     unreadCount(db(), actor),
     hasPassword(db(), actor),
     isAdmin ? listUsers(db(), actor) : null,
+    isAdmin ? listGroups(db(), actor) : null,
     isAdmin ? listBackupRuns(db(), actor) : null,
     isAdmin ? serverSettings() : null,
   ]);
@@ -52,7 +54,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </AppShell>
       <Suspense>
         <SettingsOverlay
-          data={{ name: actor.name, email: actor.email, ownId: actor.id, hasPassword: withPassword, cardDensity: prefs.cardDensity, users, backups, server }}
+          data={{ name: actor.name, email: actor.email, ownId: actor.id, hasPassword: withPassword, cardDensity: prefs.cardDensity, users, groups, backups, server }}
         />
       </Suspense>
       <CommandCenter projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key }))} />
