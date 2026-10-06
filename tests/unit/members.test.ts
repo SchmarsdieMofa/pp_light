@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { users } from "@/server/db/schema";
-import { addMemberByEmail, changeMemberRole, removeMember } from "@/server/members/service";
+import { addMemberByEmail, changeMemberRole, removeMember, searchAddableUsers } from "@/server/members/service";
 import { listMembers } from "@/server/projects/service";
 import { getTaskDetail } from "@/server/tasks/queries";
 import { setTaskAssignees } from "@/server/tasks/relations";
@@ -57,6 +57,23 @@ describe("members", () => {
     await setTaskAssignees(testDb, ada, task.id, [ada.id, mia.id]);
     await removeMember(testDb, ada, project.id, mia.id);
     expect((await getTaskDetail(testDb, ada, task.id))?.assigneeIds).toEqual([ada.id]);
+  });
+
+  it("suggests only matching, active people who are not members yet", async () => {
+    const ada = await makeActor("ada@example.com");
+    const mia = await makeActor("mia@example.com");
+    const gus = await makeActor("gus@example.com");
+    const off = await makeActor("miro@example.com");
+    await testDb.update(users).set({ active: false }).where(eq(users.id, off.id));
+    const { project } = await makeProject(ada, "SUG");
+    await addMemberByEmail(testDb, ada, project.id, "gus@example.com", "member");
+    expect(await searchAddableUsers(testDb, ada, project.id, "")).toEqual([]);
+    expect((await searchAddableUsers(testDb, ada, project.id, "mi")).map((u) => u.email)).toEqual(["mia@example.com"]);
+    expect(await searchAddableUsers(testDb, ada, project.id, "gus")).toEqual([]);
+    expect((await searchAddableUsers(testDb, ada, project.id, "", { browse: true })).map((u) => u.email)).toEqual(["mia@example.com"]);
+    expect(await searchAddableUsers(testDb, ada, project.id, "%")).toEqual([]);
+    await expect(searchAddableUsers(testDb, gus, project.id, "mi")).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(mia.id).toBeTruthy();
   });
 
   it("allows only owners/admins and validates input", async () => {

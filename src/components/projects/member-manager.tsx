@@ -6,6 +6,7 @@ import { useState } from "react";
 import { addMemberAction, changeMemberRoleAction, removeMemberAction } from "@/app/(app)/projects/actions";
 import { Button } from "@/components/ui/button";
 import { PROJECT_ROLES, type ProjectRole } from "@/lib/enums";
+import { MemberPicker } from "./member-picker";
 import { ConfirmAction, useRunner } from "./settings-ui";
 
 const ROLE_LABELS: Record<ProjectRole, string> = { owner: "Owner", member: "Mitglied", guest: "Gast" };
@@ -73,14 +74,7 @@ export function MemberManager(props: { projectId: string; members: MemberItem[];
             run(() => addMemberAction(props.projectId, email, role), () => setEmail(""));
           }}
         >
-          <input
-            type="email"
-            aria-label="E-Mail des Mitglieds"
-            placeholder="E-Mail der Person"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="h-8 min-w-0 flex-1 basis-56 rounded-md border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          />
+          <MemberPicker projectId={props.projectId} value={email} onChange={setEmail} />
           <Select aria-label="Rolle" className="w-28" value={role} options={roleOptions} onValueChange={(next) => setRole(next as ProjectRole)} />
           <Button type="submit" size="sm" variant="outline" disabled={pending || !email.trim()}>
             <UserPlus /> Mitglied hinzufügen

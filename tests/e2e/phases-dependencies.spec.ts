@@ -69,6 +69,10 @@ test("manages phases and cascades a dependency with undo", async ({ page }) => {
   await setDate(page, "Fällig", "2026-10-02");
   await choose(panel.getByRole("combobox", { name: "Blocker hinzufügen" }), "MVI-1 Ausgang");
   await panel.getByRole("button", { name: "Hinzufügen" }).first().click();
+  // The shift is announced before anything moves.
+  await expect(panel.getByRole("alert")).toContainText("01.10.2026 – 02.10.2026 → 05.10.2026 – 06.10.2026");
+  await expect(panel.getByLabel("Start")).toHaveValue("01.10.2026");
+  await panel.getByRole("button", { name: "Hinzufügen und verschieben" }).click();
   await expect(panel.getByRole("link", { name: /MVI-1 Ausgang/ })).toBeVisible();
   await expect(panel.getByLabel("Start")).toHaveValue("05.10.2026");
   await expect(panel.getByLabel("Fällig")).toHaveValue("06.10.2026");

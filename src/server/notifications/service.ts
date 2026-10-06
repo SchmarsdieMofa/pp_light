@@ -72,7 +72,7 @@ export async function notifyActivity(ex: Executor, event: Event): Promise<void> 
 }
 
 function visibleTo(actor: Actor) {
-  return sql`exists (select 1 from project_members pm where pm.project_id = ${notifications.projectId} and pm.user_id = ${actor.id})`;
+  return sql`(${notifications.projectId} is null or exists (select 1 from project_members pm where pm.project_id = ${notifications.projectId} and pm.user_id = ${actor.id}))`;
 }
 
 export async function listNotifications(db: DB, actor: Actor, limit = 50) {

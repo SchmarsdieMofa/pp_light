@@ -172,8 +172,9 @@ test("manages subtasks, checklist, labels and filters", async ({ page }) => {
   await panel.getByRole("group", { name: "Labels" }).getByRole("checkbox", { name: "Design" }).check();
   await page.waitForLoadState("networkidle");
   await closeTask(page);
-  await expect(table.getByRole("row", { name: /Logo/ })).toContainText("Design");
-  await expect(table.getByRole("row", { name: /Logo/ })).toContainText("0/1");
+  // The subtask row names its parent as well; the parent comes first.
+  await expect(table.getByRole("row", { name: /Logo/ }).first()).toContainText("Design");
+  await expect(table.getByRole("row", { name: /Logo/ }).first()).toContainText("0/1");
 
   await choose(page.getByLabel("Label", { exact: true }), "Design");
   await expect(table.getByRole("link", { name: "Logo" })).toBeVisible();

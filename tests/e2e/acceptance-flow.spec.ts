@@ -100,7 +100,8 @@ test("invitation through Mailpit to project planning and an inbox mention", asyn
 
     const moved = page.waitForResponse((response) => response.request().method() === "POST"
       && Boolean(response.request().headers()["next-action"]));
-    await dragTo(page, page.getByRole("region", { name: "Offen" }).getByRole("link", { name: /Ausgang/ }), page.getByRole("region", { name: "In Arbeit" }));
+    // The subtask card (Prüfung) names its parent too: the parent comes first.
+    await dragTo(page, page.getByRole("region", { name: "Offen" }).getByRole("link", { name: /Ausgang/ }).first(), page.getByRole("region", { name: "In Arbeit" }));
     await moved;
     await page.reload();
     await expect(page.getByRole("region", { name: "In Arbeit" })).toContainText("Ausgang");

@@ -9,7 +9,7 @@ import { runAction, type ActionResult } from "@/server/action-result";
 import { requireActor } from "@/server/auth/session";
 import { db } from "@/server/db/client";
 import { createLabel, deleteLabel } from "@/server/labels/service";
-import { addMemberByEmail, changeMemberRole, removeMember } from "@/server/members/service";
+import { addMemberByEmail, changeMemberRole, removeMember, searchAddableUsers, type UserSuggestion } from "@/server/members/service";
 import { createPhase, deletePhase, movePhase, updatePhase } from "@/server/phases/service";
 import { getEnv } from "@/lib/env";
 import {
@@ -75,6 +75,11 @@ export async function deleteStatusAction(statusId: string, targetStatusId: strin
 
 export async function addMemberAction(projectId: string, email: string, role: ProjectRole) {
   return mutate((actor) => addMemberByEmail(db(), actor, projectId, email, role));
+}
+
+export async function searchUsersAction(projectId: string, query: string, browse = false): Promise<ActionResult<UserSuggestion[]>> {
+  const actor = await requireActor();
+  return runAction(() => searchAddableUsers(db(), actor, projectId, query, { browse }));
 }
 
 export async function changeMemberRoleAction(projectId: string, userId: string, role: ProjectRole) {

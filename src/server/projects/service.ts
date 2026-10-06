@@ -1,4 +1,4 @@
-import { and, asc, eq, exists, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { generateNKeysBetween } from "fractional-indexing";
 import { z } from "zod";
 import type { ProjectRole } from "@/lib/enums";

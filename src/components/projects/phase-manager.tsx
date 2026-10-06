@@ -24,7 +24,7 @@ export function PhaseManager(props: { projectId: string; phases: Phase[]; canMan
   return (
     <div className="space-y-3">
       {props.phases.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Noch keine Phasen. Phasen gliedern das Gantt-Diagramm, Meilensteine markieren Stichtage.</p>
+        <p className="text-sm text-muted-foreground">Noch keine Phasen. Lege z. B. „Planung“, „Umsetzung“ und „Abnahme“ an, um das Gantt-Diagramm zu gliedern – oder einen Meilenstein wie „Go-live“ für einen Stichtag.</p>
       ) : (
         <ul className="divide-y rounded-lg border">
           {props.phases.map((phase, index) => (

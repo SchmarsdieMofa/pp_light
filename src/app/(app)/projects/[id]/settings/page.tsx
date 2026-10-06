@@ -53,7 +53,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
         <StatusManager projectId={project.id} statuses={columns.map(({ id, name, color, isDone }) => ({ id, name, color, isDone }))} canManage={canManage} />
       </SettingsSection>
 
-      <SettingsSection id="phasen" title="Phasen und Meilensteine" description="Gliedern das Gantt-Diagramm; Aufgaben lassen sich einer Phase zuordnen.">
+      <SettingsSection id="phasen" title="Phasen und Meilensteine" description="Eine Phase ist ein Zeitabschnitt des Projekts (z. B. Planung, Umsetzung, Abnahme) mit Start und Ende; Aufgaben lassen sich ihr zuordnen und werden im Gantt-Diagramm darunter gruppiert. Ein Meilenstein ist ein einzelner Stichtag ohne Dauer, z. B. „Go-live“.">
         <PhaseManager projectId={project.id} phases={phases} canManage={canManage} />
       </SettingsSection>
 
