@@ -76,6 +76,7 @@ test("a manager runs people and groups, but not backups, servers or roles", asyn
   const group = dialog.getByRole("region", { name: `Gruppe Team ${suffix}` });
   await expect(group).toBeVisible();
   await group.getByRole("combobox", { name: `Person zu Team ${suffix} hinzufügen` }).click();
+  await page.getByRole("combobox", { name: "Name oder E-Mail suchen…" }).fill(colleague.email);
   await page.getByRole("option", { name: new RegExp(colleague.email) }).click();
   await expect(group.getByRole("list", { name: `Mitglieder von Team ${suffix}` })).toContainText(colleague.name);
 });

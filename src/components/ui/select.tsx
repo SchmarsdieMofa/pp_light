@@ -3,7 +3,7 @@
 import { Combobox } from "@base-ui/react/combobox";
 import { Select as SelectPrimitive } from "@base-ui/react/select";
 import { Check, ChevronsUpDown, Search } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export type SelectOption = { value: string; label: string; description?: string; disabled?: boolean };
@@ -23,6 +23,8 @@ type SelectProps = {
   className?: string;
   /** Search field in the popup. Default: on for more than eight options. */
   searchable?: boolean;
+  /** Keep suggestions empty until a search is entered. */
+  searchRequired?: boolean;
   searchPlaceholder?: string;
   emptyText?: string;
 };
@@ -55,7 +57,7 @@ function ItemBody({ option }: { option: SelectOption }) {
  * lists – a search field on top. Values are strings; "" is a normal value (e.g. "Alle", "Keine").
  */
 export function Select(props: SelectProps) {
-  const searchable = props.searchable ?? props.options.length > 8;
+  const searchable = props.searchRequired || (props.searchable ?? props.options.length > 8);
   return searchable ? <SearchSelect {...props} /> : <PlainSelect {...props} />;
 }
 
@@ -100,6 +102,8 @@ function PlainSelect(props: SelectProps) {
 }
 
 function SearchSelect(props: SelectProps) {
+  const [query, setQuery] = useState("");
+  const awaitingSearch = props.searchRequired && !query.trim();
   const items = useMemo(
     () => Combobox.createItems(props.options, { getValue: (o) => o.value, getLabel: (o) => o.label }),
     [props.options],
@@ -108,6 +112,12 @@ function SearchSelect(props: SelectProps) {
   return (
     <Combobox.Root
       items={items}
+      filteredItems={awaitingSearch ? [] : undefined}
+      inputValue={props.searchRequired ? query : undefined}
+      onInputValueChange={setQuery}
+      onOpenChange={(open) => {
+        if (!open && props.searchRequired) setQuery("");
+      }}
       value={props.value}
       name={props.name}
       disabled={props.disabled}
@@ -126,12 +136,13 @@ function SearchSelect(props: SelectProps) {
             <div className="relative shrink-0 border-b">
               <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <Combobox.Input
+                aria-label={props.searchPlaceholder ?? "Suchen"}
                 placeholder={props.searchPlaceholder ?? "Suchen…"}
                 className="h-9 w-full min-w-56 bg-transparent pr-2 pl-8 text-sm outline-none placeholder:text-muted-foreground any-pointer-coarse:text-base"
               />
             </div>
             <Combobox.Empty>
-              <p className="px-3 py-4 text-center text-sm text-muted-foreground">{props.emptyText ?? "Nichts gefunden."}</p>
+              <p className="px-3 py-4 text-center text-sm text-muted-foreground">{awaitingSearch ? "Zum Suchen Name oder E-Mail eingeben." : props.emptyText ?? "Nichts gefunden."}</p>
             </Combobox.Empty>
             <Combobox.List className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1 scroll-py-1 empty:p-0">
               {(option: SelectOption) => (

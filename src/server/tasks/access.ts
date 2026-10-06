@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { ProjectRole } from "@/lib/enums";
 import type { Executor } from "@/server/db/client";
-import { projectMembers, projects, tasks } from "@/server/db/schema";
+import { projectAccess, projects, tasks } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import type { AccessRole, Actor } from "@/server/permissions";
 
@@ -24,10 +24,10 @@ export async function loadTaskAccess(
 ): Promise<TaskAccess> {
   if (!z.uuid().safeParse(taskId).success) throw notFound();
   const query = ex
-    .select({ task: tasks, role: projectMembers.role, archivedAt: projects.archivedAt })
+    .select({ task: tasks, role: projectAccess.role, archivedAt: projects.archivedAt })
     .from(tasks)
     .innerJoin(projects, eq(projects.id, tasks.projectId))
-    .leftJoin(projectMembers, and(eq(projectMembers.projectId, tasks.projectId), eq(projectMembers.userId, actor.id)))
+    .leftJoin(projectAccess, and(eq(projectAccess.projectId, tasks.projectId), eq(projectAccess.userId, actor.id)))
     .where(eq(tasks.id, taskId))
     .limit(1);
   const [row] = opts.forUpdate ? await query.for("update", { of: tasks }) : await query;

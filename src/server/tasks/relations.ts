@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { recordActivity, type ActivityAction } from "@/server/activity/service";
 import type { DB, Executor } from "@/server/db/client";
-import { labels, projectMembers, taskAssignees, taskLabels } from "@/server/db/schema";
+import { labels, projectAccess, taskAssignees, taskLabels } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { assertCan, projectCtx, type Actor } from "@/server/permissions";
 import { loadTaskAccess } from "./access";
@@ -29,9 +29,9 @@ export async function setTaskAssignees(db: DB, actor: Actor, taskId: string, use
     assertCan(actor, "task.update", projectCtx(role));
     if (ids.length > 0) {
       const members = await tx
-        .select({ userId: projectMembers.userId })
-        .from(projectMembers)
-        .where(and(eq(projectMembers.projectId, task.projectId), inArray(projectMembers.userId, ids)));
+        .select({ userId: projectAccess.userId })
+        .from(projectAccess)
+        .where(and(eq(projectAccess.projectId, task.projectId), inArray(projectAccess.userId, ids)));
       if (members.length !== ids.length) throw new DomainError("VALIDATION", "Nur Projektmitglieder können zuständig sein.");
     }
     const before = (await tx.select().from(taskAssignees).where(eq(taskAssignees.taskId, task.id))).map((r) => r.userId);

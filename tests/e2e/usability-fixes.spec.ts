@@ -75,24 +75,71 @@ test("an admin who is not a member can neither list nor open a project", async (
   await admin.close();
 });
 
-test("admins build a group; a project owner adds the whole group at once", async ({ page }) => {
+test("a group is part of the project: people joining or leaving it gain or lose access at once", async ({ page, browser }) => {
   await login(page);
-  await page.goto("/?settings=gruppen");
   const settings = page.getByRole("dialog", { name: "Einstellungen" });
+  await page.goto("/?settings=gruppen");
   await settings.getByLabel("Name der neuen Gruppe").fill("Team Eins");
   await settings.getByRole("button", { name: "Gruppe anlegen" }).click();
   const group = settings.getByRole("region", { name: "Gruppe Team Eins" });
   await expect(group).toBeVisible();
-  await group.getByRole("combobox", { name: "Person zu Team Eins hinzufügen" }).click();
-  await page.getByRole("option", { name: new RegExp(E2E_MEMBER.name) }).click();
-  await expect(group.getByRole("list", { name: "Mitglieder von Team Eins" })).toContainText(E2E_MEMBER.name);
   await settings.getByRole("button", { name: "Schließen" }).click();
 
+  // The (still empty) group joins the project.
   await page.goto("/");
   const board = await createProjectViaUi(page, "Gruppen-Test", "grt");
-  await page.goto(board.replace(/\/board$/, "/settings"));
+  const projectSettings = board.replace(/\/board$/, "/settings");
+  await page.goto(projectSettings);
   await page.getByRole("combobox", { name: /E-Mail des Mitglieds/ }).fill("team e");
   await page.getByRole("option", { name: /Team Eins/ }).click();
   await page.getByRole("button", { name: "Gruppe hinzufügen" }).click();
-  await expect(page.getByRole("list", { name: "Mitglieder" })).toContainText(E2E_MEMBER.name);
+  const projectGroups = page.getByRole("list", { name: "Gruppen im Projekt" });
+  await expect(projectGroups).toContainText("Team Eins");
+  await expect(page.getByRole("list", { name: "Mitglieder" })).not.toContainText(E2E_MEMBER.name);
+
+  // Someone is put into the group afterwards and is in the project.
+  await page.goto("/?settings=gruppen");
+  await settings.getByRole("list", { name: "Gruppen", exact: true }).getByRole("button", { name: /Team Eins/ }).click();
+  await group.getByRole("combobox", { name: "Person zu Team Eins hinzufügen" }).click();
+  const search = page.getByRole("combobox", { name: "Name oder E-Mail suchen…" });
+  await expect(page.getByRole("option")).toHaveCount(0);
+  await expect(page.getByText("Zum Suchen Name oder E-Mail eingeben.")).toBeVisible();
+  await search.fill("   ");
+  await expect(page.getByRole("option")).toHaveCount(0);
+  await search.fill("kein-treffer");
+  await expect(page.getByRole("option")).toHaveCount(0);
+  await expect(page.getByText("Nichts gefunden.")).toBeVisible();
+  await search.fill("mia");
+  await expect(page.getByRole("option", { name: new RegExp(E2E_MEMBER.name) })).toBeVisible();
+  await expect(page.getByRole("option")).toHaveCount(1);
+  await search.fill("");
+  await expect(page.getByRole("option")).toHaveCount(0);
+  await search.fill(E2E_MEMBER.email);
+  await expect(page.getByRole("option", { name: new RegExp(E2E_MEMBER.name) })).toBeVisible();
+  await search.press("Enter");
+  await expect(group.getByRole("list", { name: "Mitglieder von Team Eins" })).toContainText(E2E_MEMBER.name);
+  await group.getByRole("combobox", { name: "Person zu Team Eins hinzufügen" }).click();
+  await expect(search).toHaveValue("");
+  await expect(page.getByRole("option")).toHaveCount(0);
+  await search.fill(E2E_MEMBER.email);
+  await expect(page.getByRole("option")).toHaveCount(0);
+  await search.press("Escape");
+  await expect(group).toContainText("Gruppen-Test");
+  await page.goto(projectSettings);
+  const row = page.getByRole("list", { name: "Mitglieder" }).locator("li").filter({ hasText: E2E_MEMBER.name });
+  await expect(row).toContainText("über Gruppe Team Eins");
+  await expect(row.getByRole("combobox")).toHaveCount(0);
+
+  const context = await browser.newContext();
+  const mia = await context.newPage();
+  await login(mia, E2E_MEMBER.email, E2E_MEMBER.password);
+  expect((await mia.goto(board))?.status()).toBe(200);
+
+  // And out again.
+  await page.goto("/?settings=gruppen");
+  await settings.getByRole("list", { name: "Gruppen", exact: true }).getByRole("button", { name: /Team Eins/ }).click();
+  await group.getByRole("button", { name: `${E2E_MEMBER.name} aus Team Eins entfernen` }).click();
+  await expect(group.getByRole("list", { name: "Mitglieder von Team Eins" })).toHaveCount(0);
+  expect((await mia.goto(board))?.status()).toBe(404);
+  await context.close();
 });

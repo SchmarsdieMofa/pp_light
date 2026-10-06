@@ -2,7 +2,7 @@ import { byPath } from "@/server/db/order";
 import { and, asc, eq, exists, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import type { TaskPriority } from "@/lib/enums";
 import type { DB } from "@/server/db/client";
-import { projectMembers, projects, statuses, taskAssignees, tasks } from "@/server/db/schema";
+import { projectAccess, projects, statuses, taskAssignees, tasks } from "@/server/db/schema";
 import type { Actor } from "@/server/permissions";
 
 export type CalendarTask = {
@@ -38,15 +38,15 @@ export type CalendarFilter = {
 export async function listCalendarTasks(db: DB, actor: Actor, filter: CalendarFilter): Promise<CalendarTask[]> {
   const membership = db
     .select({ one: sql`1` })
-    .from(projectMembers)
-    .where(and(eq(projectMembers.projectId, tasks.projectId), eq(projectMembers.userId, actor.id)));
+    .from(projectAccess)
+    .where(and(eq(projectAccess.projectId, tasks.projectId), eq(projectAccess.userId, actor.id)));
   const editorMembership = db
     .select({ one: sql`1` })
-    .from(projectMembers)
+    .from(projectAccess)
     .where(and(
-      eq(projectMembers.projectId, tasks.projectId),
-      eq(projectMembers.userId, actor.id),
-      inArray(projectMembers.role, ["owner", "member"]),
+      eq(projectAccess.projectId, tasks.projectId),
+      eq(projectAccess.userId, actor.id),
+      inArray(projectAccess.role, ["owner", "member"]),
     ));
   const inRange = and(gte(tasks.dueDate, filter.from), lte(tasks.dueDate, filter.to));
   const dateCondition = filter.overdueBefore

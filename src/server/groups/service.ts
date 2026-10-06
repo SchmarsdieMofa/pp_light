@@ -1,17 +1,20 @@
-import { and, asc, count, eq, ilike, notInArray, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import type { ProjectRole } from "@/lib/enums";
-import { PROJECT_ROLES } from "@/lib/enums";
 import type { DB } from "@/server/db/client";
-import { projectMembers, userGroupMembers, userGroups, users } from "@/server/db/schema";
+import { projectGroups, projects, userGroupMembers, userGroups, users } from "@/server/db/schema";
 import { DomainError, isUniqueViolation } from "@/server/errors";
-import { assertCan, projectCtx, type Actor } from "@/server/permissions";
-import { requireProjectAccess } from "@/server/projects/service";
-import { escapeLike } from "@/server/tasks/queries";
+import { assertCan, type Actor } from "@/server/permissions";
+import { pruneAssignees } from "@/server/projects/access-cleanup";
 
 const nameSchema = z.string().trim().min(1, "Bitte einen Namen eingeben.").max(80, "Der Name darf höchstens 80 Zeichen haben.");
 
-export type GroupRow = { id: string; name: string; members: { id: string; name: string; email: string; active: boolean }[] };
+export type GroupRow = {
+  id: string;
+  name: string;
+  members: { id: string; name: string; email: string; active: boolean }[];
+  /** Projects the group is part of: its people have access there. */
+  projects: { id: string; name: string }[];
+};
 
 function requireGroupManager(actor: Actor) {
   assertCan(actor, "groups.manage");
@@ -31,20 +34,28 @@ async function requireGroup(db: DB, groupId: string) {
   return group;
 }
 
-/** All groups with their members, for the admin screen. */
+/** All groups with their people and projects, for the admin screen. */
 export async function listGroups(db: DB, actor: Actor): Promise<GroupRow[]> {
   requireGroupManager(actor);
   const groups = await db.select().from(userGroups).orderBy(asc(sql`lower(${userGroups.name})`));
   if (groups.length === 0) return [];
-  const rows = await db
-    .select({ groupId: userGroupMembers.groupId, id: users.id, name: users.name, email: users.email, active: users.active })
-    .from(userGroupMembers)
-    .innerJoin(users, eq(users.id, userGroupMembers.userId))
-    .orderBy(asc(users.name), asc(users.email));
+  const [rows, links] = await Promise.all([
+    db
+      .select({ groupId: userGroupMembers.groupId, id: users.id, name: users.name, email: users.email, active: users.active })
+      .from(userGroupMembers)
+      .innerJoin(users, eq(users.id, userGroupMembers.userId))
+      .orderBy(asc(users.name), asc(users.email)),
+    db
+      .select({ groupId: projectGroups.groupId, id: projects.id, name: projects.name })
+      .from(projectGroups)
+      .innerJoin(projects, eq(projects.id, projectGroups.projectId))
+      .orderBy(asc(projects.name)),
+  ]);
   return groups.map((group) => ({
     id: group.id,
     name: group.name,
     members: rows.filter((row) => row.groupId === group.id).map(({ id, name, email, active }) => ({ id, name, email, active })),
+    projects: links.filter((link) => link.groupId === group.id).map(({ id, name }) => ({ id, name })),
   }));
 }
 
@@ -72,12 +83,24 @@ export async function renameGroup(db: DB, actor: Actor, groupId: string, rawName
   }
 }
 
+/** The projects a group is part of. */
+async function linkedProjects(ex: DB | Parameters<Parameters<DB["transaction"]>[0]>[0], groupId: string): Promise<string[]> {
+  const rows = await ex.select({ id: projectGroups.projectId }).from(projectGroups).where(eq(projectGroups.groupId, groupId));
+  return rows.map((row) => row.id);
+}
+
+/** Deleting a group takes its access away: people who are in a project only through it lose it. */
 export async function deleteGroup(db: DB, actor: Actor, groupId: string): Promise<void> {
   requireGroupManager(actor);
   await requireGroup(db, groupId);
-  await db.delete(userGroups).where(eq(userGroups.id, groupId));
+  await db.transaction(async (tx) => {
+    const linked = await linkedProjects(tx, groupId);
+    await tx.delete(userGroups).where(eq(userGroups.id, groupId));
+    await pruneAssignees(tx, linked);
+  });
 }
 
+/** Someone in the group gets access to the group's projects at once. */
 export async function addGroupMember(db: DB, actor: Actor, groupId: string, userId: string): Promise<void> {
   requireGroupManager(actor);
   await requireGroup(db, groupId);
@@ -86,60 +109,13 @@ export async function addGroupMember(db: DB, actor: Actor, groupId: string, user
   await db.insert(userGroupMembers).values({ groupId, userId }).onConflictDoNothing();
 }
 
+/** …and loses it at once when taken out again. */
 export async function removeGroupMember(db: DB, actor: Actor, groupId: string, userId: string): Promise<void> {
   requireGroupManager(actor);
   await requireGroup(db, groupId);
   if (!z.uuid().safeParse(userId).success) return;
-  await db.delete(userGroupMembers).where(and(eq(userGroupMembers.groupId, groupId), eq(userGroupMembers.userId, userId)));
-}
-
-export type GroupSuggestion = { id: string; name: string; /** Active people in it who are not in the project yet. */ addable: number };
-
-/**
- * Groups for the project's "add member" picker. Like the people search, nothing is listed without
- * a query unless `browse` is set. Only owners (who may add members) get an answer.
- */
-export async function searchAddableGroups(
-  db: DB,
-  actor: Actor,
-  projectId: string,
-  rawQuery: string,
-  opts: { browse?: boolean } = {},
-): Promise<GroupSuggestion[]> {
-  const access = await requireProjectAccess(db, actor, projectId);
-  assertCan(actor, "project.manageMembers", projectCtx(access.role));
-  const query = rawQuery.trim().slice(0, 100);
-  if (!query && !opts.browse) return [];
-  const members = db.select({ id: projectMembers.userId }).from(projectMembers).where(eq(projectMembers.projectId, projectId));
-  const rows = await db
-    .select({ id: userGroups.id, name: userGroups.name, addable: count(users.id) })
-    .from(userGroups)
-    .leftJoin(userGroupMembers, eq(userGroupMembers.groupId, userGroups.id))
-    .leftJoin(users, and(eq(users.id, userGroupMembers.userId), eq(users.active, true), notInArray(users.id, members)))
-    .where(query ? ilike(userGroups.name, `%${escapeLike(query)}%`) : undefined)
-    .groupBy(userGroups.id)
-    .orderBy(asc(sql`lower(${userGroups.name})`))
-    .limit(opts.browse ? 50 : 5);
-  return rows;
-}
-
-/** Adds every active person of the group who is not in the project yet. Returns how many were added. */
-export async function addGroupToProject(db: DB, actor: Actor, projectId: string, groupId: string, rawRole: ProjectRole): Promise<{ added: number }> {
-  const role = z.enum(PROJECT_ROLES).safeParse(rawRole);
-  if (!role.success) throw new DomainError("VALIDATION", "Unbekannte Rolle.");
-  const access = await requireProjectAccess(db, actor, projectId);
-  assertCan(actor, "project.manageMembers", projectCtx(access.role));
-  await requireGroup(db, groupId);
-  const people = await db
-    .select({ id: users.id })
-    .from(userGroupMembers)
-    .innerJoin(users, and(eq(users.id, userGroupMembers.userId), eq(users.active, true)))
-    .where(eq(userGroupMembers.groupId, groupId));
-  if (people.length === 0) return { added: 0 };
-  const inserted = await db
-    .insert(projectMembers)
-    .values(people.map((person) => ({ projectId, userId: person.id, role: role.data })))
-    .onConflictDoNothing()
-    .returning({ userId: projectMembers.userId });
-  return { added: inserted.length };
+  await db.transaction(async (tx) => {
+    await tx.delete(userGroupMembers).where(and(eq(userGroupMembers.groupId, groupId), eq(userGroupMembers.userId, userId)));
+    await pruneAssignees(tx, await linkedProjects(tx, groupId));
+  });
 }

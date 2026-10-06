@@ -3,6 +3,8 @@ export type GlobalRole = (typeof GLOBAL_ROLES)[number];
 
 export const PROJECT_ROLES = ["owner", "member", "guest"] as const;
 export type ProjectRole = (typeof PROJECT_ROLES)[number];
+/** Roles a whole group can have in a project – never owner (see groups/project-groups.ts). */
+export const GROUP_PROJECT_ROLES = ["member", "guest"] as const;
 
 export const THEMES = ["system", "light", "dark"] as const;
 export type Theme = (typeof THEMES)[number];

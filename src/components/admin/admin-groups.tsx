@@ -90,7 +90,11 @@ function GroupDetail({ group, users }: { group: GroupRow; users: UserRow[] }) {
           trigger={<Trash2 />}
           triggerLabel={`Gruppe ${group.name} löschen`}
           title={`Gruppe „${group.name}“ löschen?`}
-          description="Nur die Gruppe verschwindet. Wer schon über sie zu einem Projekt hinzugefügt wurde, bleibt dort Mitglied."
+          description={
+            group.projects.length > 0
+              ? `Die Gruppe ist Teil von ${group.projects.length} ${group.projects.length === 1 ? "Projekt" : "Projekten"} (${group.projects.map((p) => p.name).join(", ")}). Wer dort nur über diese Gruppe Zugang hat, verliert ihn.`
+              : "Die Gruppe ist in keinem Projekt; es ändert sich für niemanden etwas."
+          }
           confirmLabel="Löschen"
           pending={pending}
           onConfirm={() => run(() => deleteGroupAction(group.id))}
@@ -102,6 +106,7 @@ function GroupDetail({ group, users }: { group: GroupRow; users: UserRow[] }) {
             aria-label={`Person zu ${group.name} hinzufügen`}
             placeholder="Person hinzufügen…"
             searchable
+            searchRequired
             searchPlaceholder="Name oder E-Mail suchen…"
             value=""
             disabled={pending}
@@ -118,6 +123,11 @@ function GroupDetail({ group, users }: { group: GroupRow; users: UserRow[] }) {
         )}
         <p className="ml-auto text-sm text-muted-foreground">{group.members.length} {group.members.length === 1 ? "Person" : "Personen"}</p>
       </div>
+      <p className="text-xs text-muted-foreground">
+        {group.projects.length > 0
+          ? `In den Projekten: ${group.projects.map((p) => p.name).join(", ")} – wer hinzukommt oder geht, bekommt dort sofort Zugang bzw. verliert ihn.`
+          : "Noch in keinem Projekt. Projekt-Owner fügen die Gruppe in den Projekteinstellungen hinzu."}
+      </p>
       {group.members.length === 0 ? (
         <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">Diese Gruppe ist noch leer.</p>
       ) : (

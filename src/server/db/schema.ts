@@ -9,6 +9,7 @@ import {
   integer,
   jsonb,
   pgEnum,
+  pgView,
   pgTable,
   primaryKey,
   text,
@@ -380,3 +381,25 @@ export const userGroupMembers = pgTable(
   },
   (t) => [primaryKey({ columns: [t.groupId, t.userId] }), index("user_group_members_user_idx").on(t.userId)],
 );
+
+/** A whole group is part of a project: everyone in it has `role` there – for as long as they are in the group. */
+export const projectGroups = pgTable(
+  "project_groups",
+  {
+    projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").notNull().references(() => userGroups.id, { onDelete: "cascade" }),
+    role: projectRole("role").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.projectId, t.groupId] }), index("project_groups_group_idx").on(t.groupId)],
+);
+
+/**
+ * Who may see which project, and as what: direct memberships plus memberships through groups, the highest
+ * role winning (owner > member > guest). Created in migration 0014 – read access checks from here, write
+ * direct memberships to `project_members` and group links to `project_groups`.
+ */
+export const projectAccess = pgView("project_access", {
+  projectId: uuid("project_id").notNull(),
+  userId: uuid("user_id").notNull(),
+  role: projectRole("role").notNull(),
+}).existing();

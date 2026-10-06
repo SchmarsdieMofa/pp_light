@@ -6,7 +6,7 @@ import { searchGroupsAction, searchUsersAction } from "@/app/(app)/projects/acti
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import type { GroupSuggestion } from "@/server/groups/service";
+import type { GroupSuggestion } from "@/server/groups/project-groups";
 import type { UserSuggestion } from "@/server/members/service";
 
 const inputClass =
@@ -51,7 +51,7 @@ function EntryLine({ entry }: { entry: Entry }) {
           {group.name}
         </span>
         <span className="block text-xs text-muted-foreground">
-          Gruppe · {group.addable} {group.addable === 1 ? "Person" : "Personen"} noch nicht im Projekt
+          Gruppe · {group.size} {group.size === 1 ? "Person" : "Personen"}
         </span>
       </>
     );
@@ -193,7 +193,7 @@ function PickerDialog(props: { projectId: string; open: boolean; onOpenChange: (
         <DialogHeader>
           <DialogTitle>Person oder Gruppe hinzufügen</DialogTitle>
           <DialogDescription>
-            Suche nach Name oder E-Mail. Nur aktive Personen, die noch nicht im Projekt sind. Eine Gruppe fügt alle ihre Personen auf einmal hinzu.
+            Suche nach Name oder E-Mail. Nur aktive Personen, die noch nicht im Projekt sind. Eine Gruppe gehört dauerhaft zum Projekt: Wer in ihr ist, ist im Projekt.
           </DialogDescription>
         </DialogHeader>
         <div className="relative">

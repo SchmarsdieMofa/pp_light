@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { ProjectRole } from "@/lib/enums";
 import type { DB } from "@/server/db/client";
 import { byPosition, byPath } from "@/server/db/order";
-import { attachments, comments, phases, projectMembers, projects, statuses, taskAssignees, tasks, users } from "@/server/db/schema";
+import { attachments, comments, phases, projectAccess, projects, statuses, taskAssignees, tasks, users } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { assertCan, can, projectCtx, type Actor } from "@/server/permissions";
 import { requireProjectAccess, type Project } from "./service";
@@ -135,18 +135,18 @@ export async function getProjectReport(db: DB, actor: Actor, projectId: string, 
       .select({
         id: users.id,
         name: users.name,
-        role: projectMembers.role,
+        role: projectAccess.role,
         // Count joined tasks, not assignments: assignments in other projects join no task (NULL).
         assigned: sql<number>`count(distinct ${tasks.id})::int`,
         done: sql<number>`count(distinct ${tasks.id}) filter (where ${statuses.isDone})::int`,
       })
-      .from(projectMembers)
-      .innerJoin(users, eq(users.id, projectMembers.userId))
-      .leftJoin(taskAssignees, eq(taskAssignees.userId, projectMembers.userId))
+      .from(projectAccess)
+      .innerJoin(users, eq(users.id, projectAccess.userId))
+      .leftJoin(taskAssignees, eq(taskAssignees.userId, projectAccess.userId))
       .leftJoin(tasks, and(eq(tasks.id, taskAssignees.taskId), eq(tasks.projectId, projectId)))
       .leftJoin(statuses, eq(statuses.id, tasks.statusId))
-      .where(eq(projectMembers.projectId, projectId))
-      .groupBy(users.id, users.name, projectMembers.role)
+      .where(eq(projectAccess.projectId, projectId))
+      .groupBy(users.id, users.name, projectAccess.role)
       .orderBy(desc(sql`count(distinct ${tasks.id}) filter (where ${statuses.isDone})`), asc(users.name)),
     db.select({ n: count() }).from(comments).innerJoin(tasks, eq(tasks.id, comments.taskId)).where(eq(tasks.projectId, projectId)),
     db.select({ n: count() }).from(attachments).innerJoin(tasks, eq(tasks.id, attachments.taskId)).where(eq(tasks.projectId, projectId)),
@@ -177,9 +177,9 @@ export type ArchivedProject = Project & { taskTotal: number; taskDone: number; c
 
 /** Archived and completed projects the actor can see, newest first, with their final progress. */
 export async function listArchivedProjects(db: DB, actor: Actor): Promise<ArchivedProject[]> {
-  const member = and(eq(projectMembers.projectId, projects.id), eq(projectMembers.userId, actor.id));
-  const base = db.select({ project: projects, role: projectMembers.role }).from(projects);
-  const rows = await base.innerJoin(projectMembers, member)
+  const member = and(eq(projectAccess.projectId, projects.id), eq(projectAccess.userId, actor.id));
+  const base = db.select({ project: projects, role: projectAccess.role }).from(projects);
+  const rows = await base.innerJoin(projectAccess, member)
     .where(isNotNull(projects.archivedAt))
     .orderBy(desc(projects.archivedAt));
   if (rows.length === 0) return [];

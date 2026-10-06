@@ -3,7 +3,7 @@ import type { Executor, DB } from "@/server/db/client";
 import { z } from "zod";
 import { NOTIFICATION_TYPES, type NotificationType } from "@/lib/notification-types";
 import {
-  commentMentions, notificationPreferences, notifications, projectMembers, projects, statuses,
+  commentMentions, notificationPreferences, notifications, projectAccess, projects, statuses,
   taskAssignees, tasks, users,
 } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
@@ -51,8 +51,8 @@ export async function notifyActivity(ex: Executor, event: Event): Promise<void> 
   recipients.delete(event.actorId);
   if (recipients.size === 0) return;
   const allowed = await ex.select({ id: users.id }).from(users)
-    .innerJoin(projectMembers, eq(projectMembers.userId, users.id))
-    .where(and(eq(users.active, true), eq(projectMembers.projectId, event.projectId), inArray(users.id, [...recipients.keys()])));
+    .innerJoin(projectAccess, eq(projectAccess.userId, users.id))
+    .where(and(eq(users.active, true), eq(projectAccess.projectId, event.projectId), inArray(users.id, [...recipients.keys()])));
   const [actor] = await ex.select({ name: users.name }).from(users).where(eq(users.id, event.actorId)).limit(1);
   const taskName = `${task.key}-${task.path} ${task.title}`;
   const verb: Record<NotificationType, string> = {
@@ -72,7 +72,7 @@ export async function notifyActivity(ex: Executor, event: Event): Promise<void> 
 }
 
 function visibleTo(actor: Actor) {
-  return sql`(${notifications.projectId} is null or exists (select 1 from project_members pm where pm.project_id = ${notifications.projectId} and pm.user_id = ${actor.id}))`;
+  return sql`(${notifications.projectId} is null or exists (select 1 from project_access pm where pm.project_id = ${notifications.projectId} and pm.user_id = ${actor.id}))`;
 }
 
 export async function listNotifications(db: DB, actor: Actor, limit = 50) {
@@ -131,7 +131,7 @@ export async function createDueReminders(db: DB, now = new Date()): Promise<numb
     .innerJoin(projects, eq(projects.id, tasks.projectId))
     .innerJoin(taskAssignees, eq(taskAssignees.taskId, tasks.id))
     .innerJoin(users, eq(users.id, taskAssignees.userId))
-    .innerJoin(projectMembers, and(eq(projectMembers.projectId, tasks.projectId), eq(projectMembers.userId, users.id)))
+    .innerJoin(projectAccess, and(eq(projectAccess.projectId, tasks.projectId), eq(projectAccess.userId, users.id)))
     .where(and(eq(statuses.isDone, false), eq(users.active, true), lte(tasks.dueDate, tomorrow), not(isNull(tasks.dueDate))));
   if (due.length === 0) return 0;
   const inserted = await db.insert(notifications).values(due.map((row) => {

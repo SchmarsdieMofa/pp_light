@@ -5,7 +5,8 @@ import { resolveActor } from "@/server/auth/actor";
 import { listBackupRuns, requestBackup } from "@/server/backups/service";
 import { listCalendarTasks } from "@/server/calendar/service";
 import { authTokens, mailOutbox, users } from "@/server/db/schema";
-import { addGroupMember, addGroupToProject, createGroup, deleteGroup, listGroups, removeGroupMember, renameGroup } from "@/server/groups/service";
+import { addGroupMember, createGroup, deleteGroup, listGroups, removeGroupMember, renameGroup } from "@/server/groups/service";
+import { addGroupToProject } from "@/server/groups/project-groups";
 import { addMemberByEmail } from "@/server/members/service";
 import { getProjectForUser, listProjectsForUser } from "@/server/projects/service";
 import { updateProjectDetails } from "@/server/projects/lifecycle";
@@ -191,7 +192,7 @@ describe("manager role: groups", () => {
     const { project } = await makeProject(member, "GRX");
     const { id } = await createGroup(testDb, manager, "Eindringlinge");
     await addGroupMember(testDb, manager, id, manager.id);
-    await expect(addGroupToProject(testDb, manager, project.id, id, "owner")).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(addGroupToProject(testDb, manager, project.id, id, "member")).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(addMemberByEmail(testDb, manager, project.id, manager.email, "owner")).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(await getProjectForUser(testDb, manager, project.id)).toBeNull();
     // Even as a plain member of the project the manager cannot add anyone.

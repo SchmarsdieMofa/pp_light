@@ -2,7 +2,7 @@ import { and, asc, desc, eq, exists, isNull, ne, or, sql } from "drizzle-orm";
 import type { TaskPriority } from "@/lib/enums";
 import type { DB } from "@/server/db/client";
 import { byPosition, byPath } from "@/server/db/order";
-import { projectMembers, projects, statuses, taskAssignees, tasks } from "@/server/db/schema";
+import { projectAccess, projects, statuses, taskAssignees, tasks } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { assertCan, projectCtx, type Actor } from "@/server/permissions";
 import { loadTaskAccess } from "@/server/tasks/access";
@@ -28,8 +28,8 @@ export async function listMyWork(db: DB, actor: Actor): Promise<MyWorkTask[]> {
   const visible = exists(
     db
       .select({ one: sql`1` })
-      .from(projectMembers)
-      .where(and(eq(projectMembers.projectId, tasks.projectId), eq(projectMembers.userId, actor.id))),
+      .from(projectAccess)
+      .where(and(eq(projectAccess.projectId, tasks.projectId), eq(projectAccess.userId, actor.id))),
   );
   const rows = await db
     .select({
@@ -61,9 +61,9 @@ export async function createMyTask(
 ): Promise<{ id: string; path: string }> {
   // Check first: creating the task and then failing to assign it would leave an orphan behind.
   const [membership] = await db
-    .select({ role: projectMembers.role })
-    .from(projectMembers)
-    .where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, actor.id)))
+    .select({ role: projectAccess.role })
+    .from(projectAccess)
+    .where(and(eq(projectAccess.projectId, input.projectId), eq(projectAccess.userId, actor.id)))
     .limit(1);
   if (!membership || membership.role === "guest") {
     throw new DomainError("VALIDATION", "Hier kannst du dir keine Aufgaben zuweisen – du bist kein Mitglied dieses Projekts.");
@@ -124,7 +124,7 @@ export async function listCapturableProjects(db: DB, actor: Actor): Promise<{ id
   return db
     .select({ id: projects.id, name: projects.name, key: projects.key })
     .from(projects)
-    .innerJoin(projectMembers, and(eq(projectMembers.projectId, projects.id), eq(projectMembers.userId, actor.id)))
-    .where(and(isNull(projects.archivedAt), ne(projectMembers.role, "guest")))
+    .innerJoin(projectAccess, and(eq(projectAccess.projectId, projects.id), eq(projectAccess.userId, actor.id)))
+    .where(and(isNull(projects.archivedAt), ne(projectAccess.role, "guest")))
     .orderBy(asc(projects.name));
 }

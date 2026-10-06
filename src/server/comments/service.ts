@@ -3,7 +3,7 @@ import { z } from "zod";
 import { parseMentionIds } from "@/lib/mentions";
 import { recordActivity } from "@/server/activity/service";
 import type { DB, Executor } from "@/server/db/client";
-import { commentMentions, comments, projectMembers, users } from "@/server/db/schema";
+import { commentMentions, comments, projectAccess, users } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { assertCan, can, projectCtx, type Actor } from "@/server/permissions";
 import { loadTaskAccess } from "@/server/tasks/access";
@@ -19,9 +19,9 @@ async function syncMentions(ex: Executor, commentId: string, projectId: string, 
   const ids = parseMentionIds(body);
   if (ids.length === 0) return;
   const members = await ex
-    .select({ userId: projectMembers.userId })
-    .from(projectMembers)
-    .where(and(eq(projectMembers.projectId, projectId), inArray(projectMembers.userId, ids)));
+    .select({ userId: projectAccess.userId })
+    .from(projectAccess)
+    .where(and(eq(projectAccess.projectId, projectId), inArray(projectAccess.userId, ids)));
   if (members.length > 0) {
     await ex.insert(commentMentions).values(members.map((m) => ({ commentId, userId: m.userId })));
   }

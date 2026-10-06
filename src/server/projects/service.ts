@@ -5,7 +5,7 @@ import type { ProjectRole } from "@/lib/enums";
 import { createProjectSchema, type CreateProjectInput } from "@/lib/schemas/project";
 import type { DB } from "@/server/db/client";
 import { byPosition } from "@/server/db/order";
-import { projectMembers, projects, statuses, tasks, users } from "@/server/db/schema";
+import { projectAccess, projectGroups, projectMembers, projects, statuses, tasks, userGroupMembers, userGroups, users } from "@/server/db/schema";
 import { DomainError, isUniqueViolation } from "@/server/errors";
 import { assertCan, type AccessRole, type Actor } from "@/server/permissions";
 
@@ -52,8 +52,8 @@ export async function listProjectsForUser(db: DB, actor: Actor): Promise<Project
   const rows = await db
     .select({ project: projects })
     .from(projects)
-    .innerJoin(projectMembers, eq(projectMembers.projectId, projects.id))
-    .where(and(eq(projectMembers.userId, actor.id), isNull(projects.archivedAt)))
+    .innerJoin(projectAccess, eq(projectAccess.projectId, projects.id))
+    .where(and(eq(projectAccess.userId, actor.id), isNull(projects.archivedAt)))
     .orderBy(asc(projects.name));
   return rows.map((r) => r.project);
 }
@@ -87,11 +87,11 @@ export async function listProjectOverview(db: DB, actor: Actor, today: string) {
 export async function getProjectForUser(db: DB, actor: Actor, projectId: string): Promise<ProjectAccess | null> {
   if (!z.uuid().safeParse(projectId).success) return null;
   const [row] = await db
-    .select({ project: projects, role: projectMembers.role })
+    .select({ project: projects, role: projectAccess.role })
     .from(projects)
     .leftJoin(
-      projectMembers,
-      and(eq(projectMembers.projectId, projects.id), eq(projectMembers.userId, actor.id)),
+      projectAccess,
+      and(eq(projectAccess.projectId, projects.id), eq(projectAccess.userId, actor.id)),
     )
     .where(eq(projects.id, projectId))
     .limit(1);
@@ -116,13 +116,38 @@ export async function requireProjectAccess(db: DB, actor: Actor, projectId: stri
   return access;
 }
 
-export type Member = { id: string; name: string; email: string; role: ProjectRole };
+export type Member = {
+  id: string;
+  name: string;
+  email: string;
+  /** What the person may do in the project: the highest role of their own membership and their groups. */
+  role: ProjectRole;
+  /** The person's own membership (null: they are in only through a group). */
+  directRole: ProjectRole | null;
+  /** Names of the project's groups the person is in. */
+  groups: string[];
+};
 
-export function listMembers(db: DB, projectId: string): Promise<Member[]> {
-  return db
-    .select({ id: users.id, name: users.name, email: users.email, role: projectMembers.role })
-    .from(projectMembers)
-    .innerJoin(users, eq(users.id, projectMembers.userId))
-    .where(eq(projectMembers.projectId, projectId))
-    .orderBy(asc(users.name));
+export async function listMembers(db: DB, projectId: string): Promise<Member[]> {
+  const [people, direct, viaGroups] = await Promise.all([
+    db
+      .select({ id: users.id, name: users.name, email: users.email, role: projectAccess.role })
+      .from(projectAccess)
+      .innerJoin(users, eq(users.id, projectAccess.userId))
+      .where(eq(projectAccess.projectId, projectId))
+      .orderBy(asc(users.name)),
+    db.select({ userId: projectMembers.userId, role: projectMembers.role }).from(projectMembers).where(eq(projectMembers.projectId, projectId)),
+    db
+      .select({ userId: userGroupMembers.userId, name: userGroups.name })
+      .from(projectGroups)
+      .innerJoin(userGroups, eq(userGroups.id, projectGroups.groupId))
+      .innerJoin(userGroupMembers, eq(userGroupMembers.groupId, projectGroups.groupId))
+      .where(eq(projectGroups.projectId, projectId))
+      .orderBy(asc(userGroups.name)),
+  ]);
+  return people.map((person) => ({
+    ...person,
+    directRole: direct.find((row) => row.userId === person.id)?.role ?? null,
+    groups: viaGroups.filter((row) => row.userId === person.id).map((row) => row.name),
+  }));
 }

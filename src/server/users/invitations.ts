@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { and, count, eq, gt, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { DB, Executor } from "@/server/db/client";
-import { authTokens, mailOutbox, projectMembers, userGroupMembers, userGroups, users } from "@/server/db/schema";
+import { authTokens, mailOutbox, projectAccess, userGroupMembers, userGroups, users } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import type { GlobalRole } from "@/lib/enums";
 import { assertCan, canAssignRole, canManageUser, type Actor } from "@/server/permissions";
@@ -35,7 +35,7 @@ export async function listUsers(db: DB, actor: Actor): Promise<UserListRow[]> {
       .where(and(eq(authTokens.kind, "invite"), isNull(authTokens.usedAt), gt(authTokens.expiresAt, new Date()))),
     db.select({ userId: userGroupMembers.userId, name: userGroups.name }).from(userGroupMembers)
       .innerJoin(userGroups, eq(userGroups.id, userGroupMembers.groupId)).orderBy(sql`lower(${userGroups.name})`),
-    db.select({ userId: projectMembers.userId, n: count() }).from(projectMembers).groupBy(projectMembers.userId),
+    db.select({ userId: projectAccess.userId, n: count() }).from(projectAccess).groupBy(projectAccess.userId),
   ]);
   const invited = new Set(invites.map((row) => row.userId));
   return rows.map((row) => ({

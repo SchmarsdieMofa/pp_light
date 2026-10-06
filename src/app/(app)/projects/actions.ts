@@ -9,7 +9,7 @@ import { runAction, type ActionResult } from "@/server/action-result";
 import { requireActor } from "@/server/auth/session";
 import { db } from "@/server/db/client";
 import { createLabel, deleteLabel } from "@/server/labels/service";
-import { addGroupToProject, searchAddableGroups, type GroupSuggestion } from "@/server/groups/service";
+import { addGroupToProject, changeProjectGroupRole, removeProjectGroup, searchAddableGroups, type GroupSuggestion } from "@/server/groups/project-groups";
 import { addMemberByEmail, changeMemberRole, removeMember, searchAddableUsers, type UserSuggestion } from "@/server/members/service";
 import { createPhase, deletePhase, movePhase, updatePhase } from "@/server/phases/service";
 import { getEnv } from "@/lib/env";
@@ -88,13 +88,21 @@ export async function searchGroupsAction(projectId: string, query: string, brows
   return runAction(() => searchAddableGroups(db(), actor, projectId, query, { browse }));
 }
 
-export async function addGroupAction(projectId: string, groupId: string, role: ProjectRole): Promise<ActionResult<{ added: number }>> {
+export async function addGroupAction(projectId: string, groupId: string, role: ProjectRole): Promise<ActionResult<{ size: number }>> {
   const actor = await requireActor();
   return runAction(async () => {
     const result = await addGroupToProject(db(), actor, projectId, groupId, role);
     revalidatePath("/", "layout");
     return result;
   });
+}
+
+export async function changeProjectGroupRoleAction(projectId: string, groupId: string, role: ProjectRole) {
+  return mutate((actor) => changeProjectGroupRole(db(), actor, projectId, groupId, role));
+}
+
+export async function removeProjectGroupAction(projectId: string, groupId: string) {
+  return mutate((actor) => removeProjectGroup(db(), actor, projectId, groupId));
 }
 
 export async function changeMemberRoleAction(projectId: string, userId: string, role: ProjectRole) {

@@ -1,4 +1,5 @@
 import { LabelManager } from "@/components/projects/label-manager";
+import { listProjectGroups } from "@/server/groups/project-groups";
 import { MemberManager } from "@/components/projects/member-manager";
 import { PhaseManager } from "@/components/projects/phase-manager";
 import { ProjectDetails } from "@/components/projects/project-details";
@@ -15,10 +16,11 @@ import { listMembers, listStatuses } from "@/server/projects/service";
 export default async function SettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { actor, project, role, memberRole } = await loadProject(id);
-  const [columns, labels, members, phases] = await Promise.all([
+  const [columns, labels, members, projectGroupList, phases] = await Promise.all([
     listStatuses(db(), project.id),
     listLabels(db(), project.id),
     listMembers(db(), project.id),
+    listProjectGroups(db(), project.id),
     listPhases(db(), project.id),
   ]);
   const canManage = can(actor, "project.update", projectCtx(role));
@@ -62,7 +64,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
       </SettingsSection>
 
       <SettingsSection id="mitglieder" title="Mitglieder" description="Wer das Projekt sieht und was er darin tun darf.">
-        <MemberManager projectId={project.id} members={members} canManage={canManageMembers} />
+        <MemberManager projectId={project.id} members={members} groups={projectGroupList} canManage={canManageMembers} />
       </SettingsSection>
 
       {canSteer && (

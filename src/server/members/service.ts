@@ -1,10 +1,11 @@
-import { and, asc, eq, ilike, inArray, notInArray, or, type SQL } from "drizzle-orm";
+import { and, asc, eq, ilike, notInArray, or, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { PROJECT_ROLES, type ProjectRole } from "@/lib/enums";
 import type { DB, Executor } from "@/server/db/client";
-import { projectMembers, taskAssignees, tasks, users } from "@/server/db/schema";
+import { projectMembers, users } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { assertCan, projectCtx, type Actor } from "@/server/permissions";
+import { pruneAssignees } from "@/server/projects/access-cleanup";
 import { requireProjectAccess } from "@/server/projects/service";
 import { escapeLike } from "@/server/tasks/queries";
 import { normalizeEmail } from "@/server/users/service";
@@ -108,12 +109,10 @@ export async function removeMember(db: DB, actor: Actor, projectId: string, user
   await db.transaction(async (tx) => {
     const membership = await loadMembership(tx, projectId, userId);
     if (membership.role === "owner") await assertAnotherOwner(tx, projectId, userId);
-    const projectTaskIds = tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, projectId));
-    await tx
-      .delete(taskAssignees)
-      .where(and(eq(taskAssignees.userId, userId), inArray(taskAssignees.taskId, projectTaskIds)));
     await tx
       .delete(projectMembers)
       .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)));
+    // Still in through a group? Then the assignments stay.
+    await pruneAssignees(tx, [projectId]);
   });
 }

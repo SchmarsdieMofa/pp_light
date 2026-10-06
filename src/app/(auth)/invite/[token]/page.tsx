@@ -6,7 +6,10 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   const { token } = await params;
   const valid = await tokenIsValid(db(), token, "invite");
   return <main className="flex min-h-svh items-center justify-center p-4"><div className="w-full max-w-sm space-y-5">
-    <h1 className="text-2xl font-semibold">Einladung annehmen</h1>
-    {valid ? <SetPasswordForm kind="invite" token={token} /> : <p>Dieser Link ist ungültig oder abgelaufen.</p>}
+    <h1 className="text-2xl font-semibold">Passwort festlegen</h1>
+    {valid ? <>
+      <p className="text-sm text-muted-foreground">Lege dein eigenes Passwort für pp_light fest. Damit kannst du dich anschließend anmelden.</p>
+      <SetPasswordForm kind="invite" token={token} />
+    </> : <p>Dieser Link ist ungültig oder abgelaufen.</p>}
   </div></main>;
 }

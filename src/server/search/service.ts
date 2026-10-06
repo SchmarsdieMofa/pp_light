@@ -1,7 +1,7 @@
 import { byPath } from "@/server/db/order";
 import { and, asc, desc, eq, exists, ilike, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { DB } from "@/server/db/client";
-import { projectMembers, projects, tasks } from "@/server/db/schema";
+import { projectAccess, projects, tasks } from "@/server/db/schema";
 import type { Actor } from "@/server/permissions";
 import { escapeLike } from "@/server/tasks/queries";
 
@@ -17,8 +17,8 @@ function visibleProject(db: DB, actor: Actor, projectId: typeof projects.id | ty
   return exists(
     db
       .select({ one: sql`1` })
-      .from(projectMembers)
-      .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, actor.id))),
+      .from(projectAccess)
+      .where(and(eq(projectAccess.projectId, projectId), eq(projectAccess.userId, actor.id))),
   );
 }
 

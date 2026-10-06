@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import type { DB } from "@/server/db/client";
-import { mailOutbox, notificationPreferences, notifications, projectMembers, users } from "@/server/db/schema";
+import { mailOutbox, notificationPreferences, notifications, projectAccess, users } from "@/server/db/schema";
 import { sendMail } from "@/server/mail/service";
 import { openMailBody } from "@/server/mail/crypto";
 import { getBaseUrl } from "@/server/settings/service";
@@ -38,12 +38,12 @@ export async function sendPendingDigests(db: DB, now = new Date()): Promise<numb
             type: notifications.type,
             message: notifications.message,
             projectId: notifications.projectId,
-            memberId: projectMembers.userId,
+            memberId: projectAccess.userId,
           })
           .from(notifications)
           .leftJoin(
-            projectMembers,
-            and(eq(projectMembers.userId, userId), eq(projectMembers.projectId, notifications.projectId)),
+            projectAccess,
+            and(eq(projectAccess.userId, userId), eq(projectAccess.projectId, notifications.projectId)),
           )
           .where(and(eq(notifications.userId, userId), isNull(notifications.emailedAt)))
           .orderBy(asc(notifications.createdAt))
