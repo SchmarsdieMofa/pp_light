@@ -38,11 +38,13 @@ async function setup() {
 describe("listProjectTasks", () => {
   beforeEach(resetDb);
 
-  it("lists top-level tasks with status, assignees, labels and progress", async () => {
-    const { project, mia } = await setup();
+  it("lists tasks and subtasks with status, assignees, labels, parent and progress", async () => {
+    const { project, mia, logo: logoTask } = await setup();
     const rows = await listProjectTasks(testDb, project.id);
-    expect(rows.map((r) => r.title)).toEqual(["Logo 100% fertig", "Header_bauen", "Footer"]);
-    const [logo, header] = rows;
+    expect(rows.map((r) => r.title)).toEqual(["Logo 100% fertig", "Header_bauen", "Footer", "Unter", "Unter 2"]);
+    const [logo, header, , sub] = rows;
+    expect(logo.parent).toBeNull();
+    expect(sub.parent).toEqual({ id: logoTask.id, number: logoTask.number, title: "Logo 100% fertig" });
     expect(logo.key).toBe("QRY");
     expect(logo.subtasks).toEqual({ done: 1, total: 2 });
     expect(logo.checklist).toEqual({ done: 1, total: 2 });
@@ -58,7 +60,7 @@ describe("listProjectTasks", () => {
     expect(await titles({ assigneeId: mia.id })).toEqual(["Header_bauen"]);
     expect(await titles({ labelId: design.id })).toEqual(["Logo 100% fertig"]);
     expect(await titles({ priority: "low" })).toEqual(["Footer"]);
-    expect(await titles({ statusId: done.id })).toEqual([]);
+    expect(await titles({ statusId: done.id })).toEqual(["Unter"]);
   });
 
   it("searches literally and by number", async () => {
@@ -78,16 +80,16 @@ describe("listProjectTasks", () => {
     });
     const rows = await listProjectTasks(testDb, project.id, {}, { field: "position", dir: "asc" });
     expect(rows.find((r) => r.id === logo.id)?.descriptionExcerpt).toHaveLength(140);
-    expect(rows.map((r) => r.title)).toEqual(["Logo 100% fertig", "Header_bauen", "Footer"]);
+    expect(rows.map((r) => r.title)).toEqual(["Logo 100% fertig", "Header_bauen", "Footer", "Unter 2", "Unter"]);
   });
 
   it("sorts by priority and due date (empty dates last)", async () => {
     const { project } = await setup();
     const titles = async (field: "priority" | "dueDate", dir: "asc" | "desc") =>
       (await listProjectTasks(testDb, project.id, {}, { field, dir })).map((r) => r.title);
-    expect(await titles("priority", "desc")).toEqual(["Header_bauen", "Footer", "Logo 100% fertig"]);
-    expect(await titles("dueDate", "asc")).toEqual(["Footer", "Header_bauen", "Logo 100% fertig"]);
-    expect(await titles("dueDate", "desc")).toEqual(["Header_bauen", "Footer", "Logo 100% fertig"]);
+    expect(await titles("priority", "desc")).toEqual(["Header_bauen", "Footer", "Logo 100% fertig", "Unter", "Unter 2"]);
+    expect(await titles("dueDate", "asc")).toEqual(["Footer", "Header_bauen", "Logo 100% fertig", "Unter", "Unter 2"]);
+    expect(await titles("dueDate", "desc")).toEqual(["Header_bauen", "Footer", "Logo 100% fertig", "Unter", "Unter 2"]);
   });
 
   it("shows, filters and sorts by phase", async () => {
@@ -99,7 +101,7 @@ describe("listProjectTasks", () => {
     expect((await listProjectTasks(testDb, project.id, { phaseId: planning.id })).map((row) => row.title)).toEqual(["Header_bauen"]);
     const sorted = await listProjectTasks(testDb, project.id, {}, { field: "phase", dir: "asc" });
     expect(sorted.map((row) => [row.title, row.phase?.name])).toEqual([
-      ["Logo 100% fertig", "Lieferung"], ["Header_bauen", "Planung"], ["Footer", undefined],
+      ["Logo 100% fertig", "Lieferung"], ["Header_bauen", "Planung"], ["Footer", undefined], ["Unter", undefined], ["Unter 2", undefined],
     ]);
     expect((await getTaskDetail(testDb, ada, logo.id))?.phases.map((phase) => phase.name)).toEqual(["Planung", "Lieferung"]);
   });

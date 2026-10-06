@@ -188,6 +188,11 @@ function TaskRow(props: {
             </span>
           ))}
           {row.phase && <span className="text-[11px] text-muted-foreground">· {row.phase.name}</span>}
+          {row.parent && (
+            <span className="max-w-full truncate text-[11px] text-muted-foreground" title={`Unteraufgabe von ${row.key}-${row.parent.number} ${row.parent.title}`}>
+              ↳ {row.key}-{row.parent.number} {row.parent.title}
+            </span>
+          )}
           <span className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground tabular-nums">
             {row.subtasks.total > 0 && (
               <span title="Unteraufgaben" className="inline-flex items-center gap-0.5"><GitBranch className="size-3" aria-hidden />{row.subtasks.done}/{row.subtasks.total}</span>

@@ -32,6 +32,11 @@ export function BoardCard({
           <PriorityBadge priority={card.priority} />
         </span>
       )}
+      {card.parent && (
+        <span className="block truncate text-xs text-muted-foreground" title={`Unteraufgabe von ${card.key}-${card.parent.number} ${card.parent.title}`}>
+          ↳ {card.key}-{card.parent.number} {card.parent.title}
+        </span>
+      )}
       <span className="block">{card.title}</span>
       {density === "full" && card.descriptionExcerpt && (
         <span className="line-clamp-2 block text-xs text-muted-foreground">{card.descriptionExcerpt}</span>

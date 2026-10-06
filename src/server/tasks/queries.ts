@@ -1,4 +1,5 @@
-import { and, asc, desc, eq, exists, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import { and, asc, desc, eq, exists, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import type { TaskPriority } from "@/lib/enums";
 import { describeActivity, type ActivityLookup } from "@/lib/activity-text";
 import type { TaskListFilters, TaskSort } from "@/lib/task-list-params";
@@ -33,6 +34,8 @@ export type TaskListRow = {
   number: number;
   key: string;
   title: string;
+  /** Set for subtasks: the task they belong to. */
+  parent: { id: string; number: number; title: string } | null;
   descriptionExcerpt: string;
   priority: TaskPriority;
   startDate: string | null;
@@ -82,7 +85,8 @@ export async function listProjectTasks(
   filters: TaskListFilters = {},
   sort: TaskSort = { field: "number", dir: "asc" },
 ): Promise<TaskListRow[]> {
-  const conditions: (SQL | undefined)[] = [eq(tasks.projectId, projectId), isNull(tasks.parentId)];
+  const parent = alias(tasks, "parent_task");
+  const conditions: (SQL | undefined)[] = [eq(tasks.projectId, projectId)];
   if (filters.statusId) conditions.push(eq(tasks.statusId, filters.statusId));
   if (filters.phaseId) conditions.push(eq(tasks.phaseId, filters.phaseId));
   if (filters.priority) conditions.push(eq(tasks.priority, filters.priority));
@@ -119,6 +123,9 @@ export async function listProjectTasks(
       number: tasks.number,
       key: projects.key,
       title: tasks.title,
+      parentId: parent.id,
+      parentNumber: parent.number,
+      parentTitle: parent.title,
       descriptionExcerpt: sql<string>`left(${tasks.description}, 140)`,
       priority: tasks.priority,
       startDate: tasks.startDate,
@@ -130,6 +137,7 @@ export async function listProjectTasks(
     .from(tasks)
     .innerJoin(statuses, eq(statuses.id, tasks.statusId))
     .leftJoin(phases, eq(phases.id, tasks.phaseId))
+    .leftJoin(parent, eq(parent.id, tasks.parentId))
     .innerJoin(projects, eq(projects.id, tasks.projectId))
     .where(and(...conditions))
     .orderBy(...orderFor(sort));
@@ -172,11 +180,12 @@ export async function listProjectTasks(
       .from(comments).where(inArray(comments.taskId, ids)).groupBy(comments.taskId),
   ]);
 
-  return base.map(({ phaseId, phaseName, ...t }) => {
+  return base.map(({ phaseId, phaseName, parentId, parentNumber, parentTitle, ...t }) => {
     const sub = subtaskRows.find((r) => r.parentId === t.id);
     const check = checklistRows.find((r) => r.taskId === t.id);
     return {
       ...t,
+      parent: parentId && parentNumber !== null && parentTitle !== null ? { id: parentId, number: parentNumber, title: parentTitle } : null,
       phase: phaseId && phaseName ? { id: phaseId, name: phaseName } : null,
       assignees: assigneeRows.filter((r) => r.taskId === t.id).map(({ id, name }) => ({ id, name })),
       labels: labelRows.filter((r) => r.taskId === t.id).map(({ id, name, color }) => ({ id, name, color })),
