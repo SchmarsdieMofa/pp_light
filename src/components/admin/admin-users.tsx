@@ -135,7 +135,7 @@ export function AdminUsers({ users, ownId, ownRole }: { users: UserRow[]; ownId:
           <span>Person</span>
           <span>Status</span>
           <span>Gruppen · Projekte</span>
-          <span className="text-right">Aktionen</span>
+          <span>Rolle · Aktionen</span>
         </div>
         {shown.length === 0 && <p className="px-3 py-6 text-center text-sm text-muted-foreground">Niemand gefunden.</p>}
         <ul className="divide-y" aria-label="Nutzer">
@@ -162,24 +162,24 @@ export function AdminUsers({ users, ownId, ownRole }: { users: UserRow[]; ownId:
                   <p className="[overflow-wrap:anywhere]">{user.groups.length > 0 ? user.groups.join(", ") : "Keine Gruppe"}</p>
                   <p>{user.projectCount} {user.projectCount === 1 ? "Projekt" : "Projekte"}</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                <div className="grid w-full max-w-[14.5rem] grid-cols-2 items-center gap-2 lg:max-w-none lg:grid-cols-[7rem_7rem_10rem]">
                   {!own && ownRole === "admin" && (
                     <Select
                       aria-label={`Rolle von ${user.name}`}
                       value={user.role}
                       disabled={busy}
-                      className="w-28"
+                      className="w-full lg:col-start-1"
                       options={ROLE_OPTIONS}
                       onValueChange={(next) => act(() => setUserRoleAction(user.id, parseRole(next)))}
                     />
                   )}
                   {!own && canManage(ownRole, user.role) && (
-                    <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => act(() => setUserActiveAction(user.id, !user.active))}>
+                    <Button type="button" size="sm" variant="outline" className={cn("h-8 w-full lg:col-start-2", ownRole === "admin" ? "col-start-2" : "col-start-1")} disabled={busy} onClick={() => act(() => setUserActiveAction(user.id, !user.active))}>
                       {user.active ? "Deaktivieren" : "Aktivieren"}
                     </Button>
                   )}
                   {!user.active && canManage(ownRole, user.role) && (
-                    <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => act(() => revokeInvitationAction(user.id), `Einladung für ${user.email} zurückgezogen.`)}>
+                    <Button type="button" size="sm" variant="ghost" className="col-span-2 h-8 w-full lg:col-span-1 lg:col-start-3" disabled={busy} onClick={() => act(() => revokeInvitationAction(user.id), `Einladung für ${user.email} zurückgezogen.`)}>
                       Einladung zurückziehen
                     </Button>
                   )}

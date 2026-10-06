@@ -7,7 +7,7 @@ import { createProject } from "../../src/server/projects/service";
 import { createTask } from "../../src/server/tasks/service";
 import { createUser } from "../../src/server/users/service";
 import { E2E_DATABASE_URL } from "../helpers/test-env";
-import { E2E_ADMIN, login } from "./fixtures";
+import { E2E_ADMIN, E2E_MEMBER, login } from "./fixtures";
 
 const name = "Alexandra Katharina von Hohenlohe-Waldenburg-Schillingsfürst";
 const title = "Eine Aufgabe mit einem sehr langen Titel für die Kontrolle von Dialogen, Listen und Kalenderkarten";
@@ -54,6 +54,18 @@ test("user identities, settings tabs and actions fit desktop and phone screens",
     const row = dialog.getByRole("list", { name: "Nutzer", exact: true }).locator("li").filter({ hasText: email });
     await wrapsWithoutClipping(row.getByText(name, { exact: true }));
     await wrapsWithoutClipping(row.getByText(email, { exact: true }));
+    if (width >= 1024) {
+      const activeRow = dialog.getByRole("list", { name: "Nutzer", exact: true }).locator("li").filter({ hasText: E2E_MEMBER.email });
+      const role = (await row.getByRole("combobox", { name: `Rolle von ${name}` }).boundingBox())!;
+      const activeRole = (await activeRow.getByRole("combobox", { name: `Rolle von ${E2E_MEMBER.name}` }).boundingBox())!;
+      const activate = (await row.getByRole("button", { name: "Aktivieren", exact: true }).boundingBox())!;
+      const deactivate = (await activeRow.getByRole("button", { name: "Deaktivieren", exact: true }).boundingBox())!;
+      const revoke = (await row.getByRole("button", { name: "Einladung zurückziehen", exact: true }).boundingBox())!;
+      expect(Math.round(role.x)).toBe(Math.round(activeRole.x));
+      expect(Math.round(activate.x)).toBe(Math.round(deactivate.x));
+      expect(Math.round(role.y)).toBe(Math.round(activate.y));
+      expect(Math.round(revoke.y)).toBe(Math.round(activate.y));
+    }
     const bounds = await dialog.boundingBox();
     const controls = row.locator("button").or(dialog.getByRole("navigation", { name: "Einstellungsbereiche" }).getByRole("link"));
     for (const control of await controls.all()) {
