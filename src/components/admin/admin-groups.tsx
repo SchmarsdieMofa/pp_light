@@ -78,8 +78,9 @@ function GroupDetail({ group, users }: { group: GroupRow; users: UserRow[] }) {
   const [query, setQuery] = useState("");
   const inGroup = new Set(group.members.map((member) => member.id));
   const options = users
-    .filter((user) => user.active && !inGroup.has(user.id))
-    .map((user) => ({ value: user.id, label: `${user.name} · ${user.email}` }));
+    // Invited people can be put in a group before they accept; they get project access once active.
+    .filter((user) => (user.active || user.invited) && !inGroup.has(user.id))
+    .map((user) => ({ value: user.id, label: `${user.name} · ${user.email}${user.active ? "" : " (eingeladen)"}` }));
   const needle = query.trim().toLocaleLowerCase("de");
   const members = needle ? group.members.filter((member) => `${member.name} ${member.email}`.toLocaleLowerCase("de").includes(needle)) : group.members;
   return (
@@ -101,20 +102,18 @@ function GroupDetail({ group, users }: { group: GroupRow; users: UserRow[] }) {
         />
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {options.length > 0 && (
-          <Select
-            aria-label={`Person zu ${group.name} hinzufügen`}
-            placeholder="Person hinzufügen…"
-            searchable
-            searchRequired
-            searchPlaceholder="Name oder E-Mail suchen…"
-            value=""
-            disabled={pending}
-            className="w-full sm:w-72"
-            options={options}
-            onValueChange={(userId) => run(() => addGroupMemberAction(group.id, userId))}
-          />
-        )}
+        <Select
+          aria-label={`Person zu ${group.name} hinzufügen`}
+          placeholder={options.length > 0 ? "Person hinzufügen…" : "Alle Personen sind schon Mitglied"}
+          searchable
+          searchRequired
+          searchPlaceholder="Name oder E-Mail suchen…"
+          value=""
+          disabled={pending || options.length === 0}
+          className="w-full sm:w-72"
+          options={options}
+          onValueChange={(userId) => run(() => addGroupMemberAction(group.id, userId))}
+        />
         {group.members.length > 6 && (
           <div className="relative w-full sm:w-56">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />

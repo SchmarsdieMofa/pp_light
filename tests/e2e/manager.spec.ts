@@ -28,6 +28,8 @@ test.beforeAll(async () => {
   }
 });
 
+const invitee = `neu-${suffix}@example.com`;
+
 test("a manager runs people and groups, but not backups, servers or roles", async ({ page }) => {
   await login(page, manager.email, manager.password);
   await page.goto("/?settings=nutzer");
@@ -40,7 +42,6 @@ test("a manager runs people and groups, but not backups, servers or roles", asyn
 
   // No role to hand out in the invitation form; everyone invited is a plain member.
   await expect(dialog.getByRole("combobox", { name: "Rolle", exact: true })).toHaveCount(0);
-  const invitee = `neu-${suffix}@example.com`;
   await dialog.getByRole("textbox", { name: "Name" }).fill("Nele Neu");
   await dialog.getByRole("textbox", { name: "E-Mail" }).fill(invitee);
   await dialog.getByRole("button", { name: "Einladen" }).click();
@@ -79,6 +80,12 @@ test("a manager runs people and groups, but not backups, servers or roles", asyn
   await page.getByRole("combobox", { name: "Name oder E-Mail suchen…" }).fill(colleague.email);
   await page.getByRole("option", { name: new RegExp(colleague.email) }).click();
   await expect(group.getByRole("list", { name: `Mitglieder von Team ${suffix}` })).toContainText(colleague.name);
+
+  // People who are only invited so far can be put in the group too.
+  await group.getByRole("combobox", { name: `Person zu Team ${suffix} hinzufügen` }).click();
+  await page.getByRole("combobox", { name: "Name oder E-Mail suchen…" }).fill(invitee);
+  await page.getByRole("option", { name: /\(eingeladen\)/ }).click();
+  await expect(group.getByRole("list", { name: `Mitglieder von Team ${suffix}` })).toContainText(invitee);
 });
 
 test("a manager does not see projects they are not a member of", async ({ page }) => {
