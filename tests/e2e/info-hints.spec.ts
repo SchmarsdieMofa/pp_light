@@ -3,7 +3,7 @@ import { createProjectViaUi, login } from "./fixtures";
 
 test("question marks explain a field on hover and on keyboard focus", async ({ page }) => {
   await login(page);
-  await createProjectViaUi(page, "Hinweis-Test", "hin");
+  await createProjectViaUi(page, "Hinweis-Test", "hnw");
   const add = page.getByLabel("Neue Aufgabe in Offen");
   await add.fill("Erklär mich");
   await add.press("Enter");

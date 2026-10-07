@@ -1,5 +1,6 @@
 import { Archive, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { PinButton } from "@/components/projects/pin-button";
 import { NewProjectDialog } from "@/components/projects/new-project-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,11 +8,19 @@ import { todayInZone } from "@/lib/dates";
 import { requireActor } from "@/server/auth/session";
 import { db } from "@/server/db/client";
 import { listArchivedProjects } from "@/server/projects/lifecycle";
+import { listPinnedProjectIds } from "@/server/projects/pins";
 import { listProjectOverview } from "@/server/projects/service";
 
 export default async function ProjectsPage({ searchParams }: { searchParams: Promise<{ q?: string | string[] }> }) {
   const actor = await requireActor();
-  const [projects, archived] = await Promise.all([listProjectOverview(db(), actor, todayInZone()), listArchivedProjects(db(), actor)]);
+  const [overview, archived, pinnedIds] = await Promise.all([
+    listProjectOverview(db(), actor, todayInZone()),
+    listArchivedProjects(db(), actor),
+    listPinnedProjectIds(db(), actor.id),
+  ]);
+  const pinned = new Set(pinnedIds);
+  // Pinned projects first, otherwise the alphabetical order stays.
+  const projects = [...overview.filter((p) => pinned.has(p.id)), ...overview.filter((p) => !pinned.has(p.id))];
   const rawQuery = (await searchParams).q;
   const query = (typeof rawQuery === "string" ? rawQuery : "").trim().slice(0, 100);
   const needle = query.toLocaleLowerCase("de");
@@ -64,6 +73,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
                       <h2 className="min-w-0 text-base font-semibold break-words">
                         <Link href={`/projects/${project.id}/board`} className="hover:underline">{project.name}</Link>
                       </h2>
+                      <PinButton projectId={project.id} projectName={project.name} pinned={pinned.has(project.id)} />
                     </div>
                     {project.description && <p className="max-w-2xl line-clamp-2 text-sm text-muted-foreground break-words">{project.description}</p>}
                   </div>

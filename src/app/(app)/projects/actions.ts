@@ -22,6 +22,7 @@ import {
   type CloseProjectInput,
   type ProjectDetailsInput,
 } from "@/server/projects/lifecycle";
+import { setProjectPinned } from "@/server/projects/pins";
 import { createProject } from "@/server/projects/service";
 import { createStatus, deleteStatus, moveStatus, updateStatus } from "@/server/statuses/service";
 
@@ -32,6 +33,10 @@ export async function createProjectAction(input: CreateProjectInput): Promise<Ac
     revalidatePath("/", "layout");
     return { id: project.id };
   });
+}
+
+export async function setProjectPinnedAction(projectId: string, pinned: boolean): Promise<ActionResult<void>> {
+  return mutate((actor) => setProjectPinned(db(), actor, projectId, pinned));
 }
 
 export async function createLabelAction(input: LabelInput): Promise<ActionResult<void>> {

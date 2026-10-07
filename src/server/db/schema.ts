@@ -393,6 +393,17 @@ export const projectGroups = pgTable(
   (t) => [primaryKey({ columns: [t.projectId, t.groupId] }), index("project_groups_group_idx").on(t.groupId)],
 );
 
+/** A project a person pinned for quick access: it sits at the top of their sidebar. Per person, follows them across devices. */
+export const projectPins = pgTable(
+  "project_pins",
+  {
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+    pinnedAt: timestamp("pinned_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.projectId] }), index("project_pins_project_idx").on(t.projectId)],
+);
+
 /**
  * Who may see which project, and as what: direct memberships plus memberships through groups, the highest
  * role winning (owner > member > guest). Created in migration 0014 – read access checks from here, write
