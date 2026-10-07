@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { setAssigneesAction, setLabelsAction, undoScheduleAction, updateTaskAction } from "@/app/(app)/tasks/actions";
 import { Select } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
+import { InfoHint } from "@/components/ui/info-hint";
 import { Textarea } from "@/components/ui/textarea";
 import { TASK_PRIORITIES, type TaskPriority } from "@/lib/enums";
 import { PRIORITY_LABELS } from "@/lib/priority";
@@ -95,6 +96,7 @@ export function TaskEditor({ detail }: { detail: TaskDetail }) {
             <SelectField
               id="task-status"
               label="Status"
+              hint="In welcher Board-Spalte die Aufgabe liegt. Spalten mit „Erledigt“ markieren sie als abgeschlossen."
               initial={detail.statusId}
               disabled={disabled}
               options={detail.statuses.map((s) => ({ value: s.id, label: s.name }))}
@@ -103,12 +105,16 @@ export function TaskEditor({ detail }: { detail: TaskDetail }) {
             <SelectField
               id="task-priority"
               label="Priorität"
+              hint="Wie dringend die Aufgabe ist. Steht auf der Karte und lässt sich in Listen danach sortieren."
               initial={detail.priority}
               disabled={disabled}
               options={TASK_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))}
               save={(priority) => save({ priority: priority as TaskPriority })}
             />
-            <span className="text-muted-foreground">Zuständige</span>
+            <span className="flex items-center gap-1 text-muted-foreground">
+              Zuständige
+              <InfoHint topic="Was bedeutet Zuständige?">Wer die Aufgabe bearbeitet. Zuständige werden benachrichtigt und finden sie unter „Meine Arbeit“.</InfoHint>
+            </span>
             <MultiSelect
               label="Zuständige"
               options={detail.members}
@@ -119,9 +125,12 @@ export function TaskEditor({ detail }: { detail: TaskDetail }) {
                 if (!res.ok) toast.error(res.error.message);
               }}
             />
-            <DateField id="task-due" label="Fällig" initial={detail.dueDate} disabled={disabled} save={(dueDate) => save({ dueDate })} />
-            <DateField id="task-start" label="Start" initial={detail.startDate} disabled={disabled} save={(startDate) => save({ startDate })} />
-            <span className="text-muted-foreground">Labels</span>
+            <DateField id="task-due" label="Fällig" hint="Bis wann die Aufgabe fertig sein soll. Überfällige Aufgaben werden hervorgehoben." initial={detail.dueDate} disabled={disabled} save={(dueDate) => save({ dueDate })} />
+            <DateField id="task-start" label="Start" hint="Ab wann gearbeitet wird. Start und Fällig bilden den Balken im Gantt-Diagramm." initial={detail.startDate} disabled={disabled} save={(startDate) => save({ startDate })} />
+            <span className="flex items-center gap-1 text-muted-foreground">
+              Labels
+              <InfoHint topic="Was sind Labels?">Schlagworte, mit denen sich Aufgaben filtern lassen.</InfoHint>
+            </span>
             <MultiSelect
               label="Labels"
               options={detail.labels}
@@ -135,6 +144,7 @@ export function TaskEditor({ detail }: { detail: TaskDetail }) {
             <SelectField
               id="task-phase"
               label="Phase"
+              hint="Ordnet die Aufgabe einem Projektabschnitt zu. Im Gantt-Diagramm wird sie darunter gruppiert."
               initial={detail.phaseId ?? ""}
               disabled={disabled}
               options={[{ value: "", label: "Keine Phase" }, ...detail.phases.map((phase) => ({ value: phase.id, label: phase.name }))]}
@@ -200,9 +210,21 @@ function TextField(props: {
   );
 }
 
+function FieldLabel(props: { id: string; label: string; hint?: string }) {
+  return (
+    <span className="flex items-center gap-1">
+      <label htmlFor={props.id} className="text-muted-foreground">
+        {props.label}
+      </label>
+      {props.hint && <InfoHint topic={`Was bedeutet ${props.label}?`}>{props.hint}</InfoHint>}
+    </span>
+  );
+}
+
 function SelectField(props: {
   id: string;
   label: string;
+  hint?: string;
   initial: string;
   disabled: boolean;
   options: { value: string; label: string }[];
@@ -212,9 +234,7 @@ function SelectField(props: {
   const commit = useLatestCommit(props.initial, setValue, props.save);
   return (
     <>
-      <label htmlFor={props.id} className="text-muted-foreground">
-        {props.label}
-      </label>
+      <FieldLabel id={props.id} label={props.label} hint={props.hint} />
       <Select
         id={props.id}
         value={value}
@@ -232,6 +252,7 @@ function SelectField(props: {
 function DateField(props: {
   id: string;
   label: string;
+  hint?: string;
   initial: string | null;
   disabled: boolean;
   save: (value: string | null) => Promise<boolean>;
@@ -240,9 +261,7 @@ function DateField(props: {
   const commit = useLatestCommit(props.initial ?? "", setValue, (v) => props.save(v || null));
   return (
     <>
-      <label htmlFor={props.id} className="text-muted-foreground">
-        {props.label}
-      </label>
+      <FieldLabel id={props.id} label={props.label} hint={props.hint} />
       <DatePicker
         id={props.id}
         label={props.label}

@@ -22,6 +22,7 @@ import {
   updateChecklistItemTextAction,
 } from "@/app/(app)/tasks/actions";
 import { Checkbox } from "@/components/ui/checkbox";
+import { InfoHint } from "@/components/ui/info-hint";
 import { Input } from "@/components/ui/input";
 import type { ActionResult } from "@/server/action-result";
 import type { TaskDetail } from "@/server/tasks/queries";
@@ -75,13 +76,16 @@ export function TaskChecklist({ detail }: { detail: TaskDetail }) {
 
   return (
     <section aria-label="Checkliste" className="space-y-2">
-      <h3 className="text-sm font-medium">
-        Checkliste{" "}
-        {items.length > 0 && (
-          <span className="text-muted-foreground">
-            {done}/{items.length}
-          </span>
-        )}
+      <h3 className="flex items-center gap-1.5 text-sm font-medium">
+        <span>
+          Checkliste{" "}
+          {items.length > 0 && (
+            <span className="text-muted-foreground">
+              {done}/{items.length}
+            </span>
+          )}
+        </span>
+        <InfoHint topic="Was ist eine Checkliste?">Kleine Schritte innerhalb dieser Aufgabe, ohne eigene Nummer, Zuständige oder Termine. Für größere Teile gibt es Unteraufgaben.</InfoHint>
       </h3>
       <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={items.map((item) => item.id)} strategy={verticalListSortingStrategy}>

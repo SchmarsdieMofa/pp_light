@@ -11,6 +11,7 @@ import type { ActionResult } from "@/server/action-result";
 import type { DependencyPreviewMove } from "@/server/dependencies/service";
 import type { TaskLink } from "@/server/dependencies/queries";
 import type { TaskDetail } from "@/server/tasks/queries";
+import { InfoHint } from "@/components/ui/info-hint";
 import { useTaskHref } from "./use-task-href";
 
 const selectClass = "h-8 rounded-md border bg-background px-2 text-sm";
@@ -46,7 +47,10 @@ export function TaskDependencies({ detail }: { detail: TaskDetail }) {
   }, []);
   return (
     <section className="space-y-3 border-t pt-4">
-      <h2 className="text-sm font-medium">Abhängigkeiten</h2>
+      <h2 className="flex items-center gap-1.5 text-sm font-medium">
+        Abhängigkeiten
+        <InfoHint topic="Was sind Abhängigkeiten?">„Blockiert durch“: Diese Aufgaben müssen zuerst fertig sein. „Blockiert“: Diese Aufgaben warten auf die aktuelle.</InfoHint>
+      </h2>
       {(!detail.startDate || !detail.dueDate) && (
         <p className="text-xs text-muted-foreground">Automatisches Verschieben braucht Start und Fälligkeit der Aufgabe.</p>
       )}
