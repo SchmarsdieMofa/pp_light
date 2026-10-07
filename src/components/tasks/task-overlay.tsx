@@ -10,7 +10,7 @@ import { buildHref, normalizeSearchParams } from "@/lib/urls";
  * reloads and the back button keep working; closing just drops the parameter.
  * Esc while typing only leaves the field (saving it) – a second Esc closes the overlay.
  */
-export function TaskOverlay({ label, children }: { label: string; children: React.ReactNode }) {
+export function TaskOverlay({ label, children, param = "task" }: { label: string; children: React.ReactNode; /** The search parameter holding the open item; closing drops it. */ param?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -18,7 +18,7 @@ export function TaskOverlay({ label, children }: { label: string; children: Reac
   function close() {
     // Blur first: fields save on blur, and an unmounted input never fires it.
     (document.activeElement as HTMLElement | null)?.blur();
-    router.push(buildHref(pathname, normalizeSearchParams(Object.fromEntries(searchParams.entries())), { task: null }), {
+    router.push(buildHref(pathname, normalizeSearchParams(Object.fromEntries(searchParams.entries())), { [param]: null }), {
       scroll: false,
     });
   }

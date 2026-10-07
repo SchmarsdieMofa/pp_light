@@ -6,6 +6,7 @@ import { requireActor } from "@/server/auth/session";
 import { db } from "@/server/db/client";
 import { loadProject } from "@/server/projects/loaders";
 import { listPinnedProjectIds } from "@/server/projects/pins";
+import { countOpenQuestions } from "@/server/questions/service";
 
 export default async function ProjectLayout({
   children,
@@ -17,7 +18,8 @@ export default async function ProjectLayout({
   const { id } = await params;
   const { project } = await loadProject(id);
   const actor = await requireActor();
-  const pinned = (await listPinnedProjectIds(db(), actor.id)).includes(project.id);
+  const [pinnedIds, openQuestions] = await Promise.all([listPinnedProjectIds(db(), actor.id), countOpenQuestions(db(), project.id)]);
+  const pinned = pinnedIds.includes(project.id);
   return (
     <div className="flex h-full flex-col">
       <header className="border-b px-6 pt-4">
@@ -25,7 +27,7 @@ export default async function ProjectLayout({
           <h1 className="text-lg font-semibold">{project.name}</h1>
           <PinButton projectId={project.id} projectName={project.name} pinned={pinned} />
         </div>
-        <ProjectTabs projectId={project.id} />
+        <ProjectTabs projectId={project.id} openQuestions={openQuestions} />
       </header>
       {project.archivedAt && (
         <p role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b bg-muted/50 px-6 py-2 text-sm">

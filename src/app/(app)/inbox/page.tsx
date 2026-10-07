@@ -21,7 +21,9 @@ export default async function InboxPage() {
           {items.map((item) => (
             <li key={item.id} className={`flex flex-col items-start justify-between gap-4 p-4 sm:flex-row ${item.readAt ? "" : "bg-primary/5"}`}>
               <div className="min-w-0 space-y-1 [overflow-wrap:anywhere]">
-                {item.taskId && item.projectId ? (
+                {item.questionId && item.projectId ? (
+                  <Link className="font-medium hover:underline" href={`/projects/${item.projectId}/questions?frage=${item.questionId}`}>{item.message}</Link>
+                ) : item.taskId && item.projectId ? (
                   <Link className="font-medium hover:underline" href={`/tasks/${item.taskId}`}>{item.message}</Link>
                 ) : <span className="font-medium">{item.message}</span>}
                 <p className="text-xs text-muted-foreground">{item.createdAt.toLocaleString("de-DE", { timeZone: "Europe/Berlin" })}</p>

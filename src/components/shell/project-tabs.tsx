@@ -8,10 +8,11 @@ const TABS = [
   { slug: "board", label: "Board" },
   { slug: "gantt", label: "Gantt" },
   { slug: "list", label: "Liste" },
+  { slug: "questions", label: "Fragen" },
   { slug: "settings", label: "Einstellungen" },
 ] as const;
 
-export function ProjectTabs({ projectId }: { projectId: string }) {
+export function ProjectTabs({ projectId, openQuestions = 0 }: { projectId: string; openQuestions?: number }) {
   const pathname = usePathname();
   return (
     <nav aria-label="Projektansichten" className="mt-2 flex gap-4 overflow-x-auto whitespace-nowrap">
@@ -30,6 +31,11 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
             )}
           >
             {tab.label}
+            {tab.slug === "questions" && openQuestions > 0 && (
+              <span aria-label={`${openQuestions} offen`} className="ml-1.5 rounded-full bg-muted px-1.5 text-xs tabular-nums text-muted-foreground">
+                {openQuestions}
+              </span>
+            )}
           </Link>
         );
       })}
