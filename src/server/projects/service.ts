@@ -5,8 +5,9 @@ import type { ProjectRole } from "@/lib/enums";
 import { createProjectSchema, type CreateProjectInput } from "@/lib/schemas/project";
 import type { DB } from "@/server/db/client";
 import { byPosition } from "@/server/db/order";
-import { projectAccess, projectGroups, projectMembers, projects, statuses, tasks, userGroupMembers, userGroups, users } from "@/server/db/schema";
+import { folderAccess, projectAccess, projectGroups, projectMembers, projects, statuses, tasks, userGroupMembers, userGroups, users } from "@/server/db/schema";
 import { DomainError, isUniqueViolation } from "@/server/errors";
+import { assertCanFillFolder } from "@/server/folders/access";
 import { assertCan, type AccessRole, type Actor } from "@/server/permissions";
 
 export type Project = typeof projects.$inferSelect;
@@ -29,9 +30,10 @@ export async function createProject(db: DB, actor: Actor, rawInput: CreateProjec
   const input = createProjectSchema.parse(rawInput);
   try {
     return await db.transaction(async (tx) => {
+      if (input.folderId) await assertCanFillFolder(tx, actor, input.folderId);
       const [project] = await tx
         .insert(projects)
-        .values({ name: input.name, key: input.key, description: input.description, createdBy: actor.id })
+        .values({ name: input.name, key: input.key, description: input.description, folderId: input.folderId ?? null, createdBy: actor.id })
         .returning();
       await tx.insert(projectMembers).values({ projectId: project.id, userId: actor.id, role: "owner" });
       const positions = generateNKeysBetween(null, null, DEFAULT_STATUSES.length);
@@ -126,10 +128,12 @@ export type Member = {
   directRole: ProjectRole | null;
   /** Names of the project's groups the person is in. */
   groups: string[];
+  /** The person has access through the project's folder (possibly besides a direct role). */
+  viaFolder: boolean;
 };
 
 export async function listMembers(db: DB, projectId: string): Promise<Member[]> {
-  const [people, direct, viaGroups] = await Promise.all([
+  const [people, direct, viaGroups, viaFolder] = await Promise.all([
     db
       .select({ id: users.id, name: users.name, email: users.email, role: projectAccess.role })
       .from(projectAccess)
@@ -144,10 +148,17 @@ export async function listMembers(db: DB, projectId: string): Promise<Member[]> 
       .innerJoin(userGroupMembers, eq(userGroupMembers.groupId, projectGroups.groupId))
       .where(eq(projectGroups.projectId, projectId))
       .orderBy(asc(userGroups.name)),
+    db
+      .select({ userId: folderAccess.userId })
+      .from(projects)
+      .innerJoin(folderAccess, eq(folderAccess.folderId, projects.folderId))
+      .where(eq(projects.id, projectId)),
   ]);
+  const inFolder = new Set(viaFolder.map((row) => row.userId));
   return people.map((person) => ({
     ...person,
     directRole: direct.find((row) => row.userId === person.id)?.role ?? null,
     groups: viaGroups.filter((row) => row.userId === person.id).map((row) => row.name),
+    viaFolder: inFolder.has(person.id),
   }));
 }

@@ -50,8 +50,46 @@ export const projects = pgTable("projects", {
   closingNote: text("closing_note").notNull().default(""),
   createdBy: uuid("created_by").notNull().references(() => users.id),
   taskCounter: integer("task_counter").notNull().default(0),
+  /** The folder the project lives in (flat, at most one). Its people have access here too – see `project_access`. */
+  folderId: uuid("folder_id").references((): AnyPgColumn => projectFolders.id, { onDelete: "set null" }),
+  createdAt: createdAt(),
+}, (t) => [index("projects_folder_idx").on(t.folderId)]);
+
+export const projectFolders = pgTable("project_folders", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  createdBy: uuid("created_by").notNull().references(() => users.id),
   createdAt: createdAt(),
 });
+
+/** People in a folder have `role` in every project of it (owner: owner everywhere). */
+export const folderMembers = pgTable(
+  "folder_members",
+  {
+    folderId: uuid("folder_id").notNull().references(() => projectFolders.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    role: projectRole("role").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.folderId, t.userId] }), index("folder_members_user_idx").on(t.userId)],
+);
+
+/** A whole group in a folder (member or guest, never owner – like in projects). */
+export const folderGroups = pgTable(
+  "folder_groups",
+  {
+    folderId: uuid("folder_id").notNull().references(() => projectFolders.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").notNull().references(() => userGroups.id, { onDelete: "cascade" }),
+    role: projectRole("role").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.folderId, t.groupId] }), index("folder_groups_group_idx").on(t.groupId)],
+);
+
+/** Who is in which folder, as what: direct and via groups, highest role wins. Created in migration 0016. */
+export const folderAccess = pgView("folder_access", {
+  folderId: uuid("folder_id").notNull(),
+  userId: uuid("user_id").notNull(),
+  role: projectRole("role").notNull(),
+}).existing();
 
 export const projectMembers = pgTable(
   "project_members",
@@ -405,9 +443,10 @@ export const projectPins = pgTable(
 );
 
 /**
- * Who may see which project, and as what: direct memberships plus memberships through groups, the highest
- * role winning (owner > member > guest). Created in migration 0014 – read access checks from here, write
- * direct memberships to `project_members` and group links to `project_groups`.
+ * Who may see which project, and as what: direct memberships, memberships through groups and through the
+ * project's folder, the highest role winning (owner > member > guest). Created in migration 0014, extended in
+ * 0016 – read access checks from here, write direct memberships to `project_members`, group links to
+ * `project_groups`, folder access to `folder_members` / `folder_groups`.
  */
 export const projectAccess = pgView("project_access", {
   projectId: uuid("project_id").notNull(),
