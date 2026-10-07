@@ -18,11 +18,12 @@ test("pinned projects sit at the top of the sidebar and stay there", async ({ pa
   await expect(pinnedList.getByRole("link", { name: new RegExp(second) })).toBeVisible();
   await expect(nav.getByRole("link", { name: new RegExp(second) })).toHaveCount(1);
 
-  // Still pinned after a reload, on another device-less page too, and first in the overview.
+  // Still pinned after a reload, and ahead of the unpinned project in the overview.
   await page.goto("/projects");
   await expect(pinnedList.getByRole("link", { name: new RegExp(second) })).toBeVisible();
-  const names = await page.getByRole("region", { name: "Projektliste" }).getByRole("heading", { level: 2 }).allTextContents();
-  expect(names[0]).toBe(second);
+  const names = await page.getByRole("region", { name: "Projektliste" }).getByRole("heading", { level: 3 }).allTextContents();
+  expect(names.indexOf(second)).toBeGreaterThanOrEqual(0);
+  expect(names.indexOf(second)).toBeLessThan(names.indexOf(first));
   await expect(page.getByRole("region", { name: "Projektliste" }).getByRole("button", { name: `${second} nicht mehr anpinnen` })).toHaveAttribute("aria-pressed", "true");
 
   // Pin another from its sidebar row (shown on hover), unpin the first from the overview.

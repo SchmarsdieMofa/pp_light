@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import type { ProjectRole } from "@/lib/enums";
 import { Textarea } from "@/components/ui/textarea";
 
 type FieldErrors = Record<string, string[] | undefined>;
@@ -16,8 +18,11 @@ type FieldErrors = Record<string, string[] | undefined>;
 /** Opens the dialog from elsewhere (welcome tour); only the instance with `listen` reacts. */
 export const NEW_PROJECT_EVENT = "pp:new-project";
 
-export function NewProjectDialog({ listen = false }: { listen?: boolean }) {
+export function NewProjectDialog({ listen = false, folders = [] }: { listen?: boolean; folders?: { id: string; name: string; role: ProjectRole }[] }) {
   const [open, setOpen] = useState(false);
+  const [folderId, setFolderId] = useState("");
+  // Guests of a folder only look; they cannot put projects into it.
+  const fillable = folders.filter((folder) => folder.role !== "guest");
   useEffect(() => {
     if (!listen) return;
     const show = () => setOpen(true);
@@ -36,6 +41,7 @@ export function NewProjectDialog({ listen = false }: { listen?: boolean }) {
         name: String(form.get("name") ?? ""),
         key: String(form.get("key") ?? ""),
         description: String(form.get("description") ?? ""),
+        folderId: folderId || undefined,
       });
       if (!res.ok) {
         if (res.error.fieldErrors) setErrors(res.error.fieldErrors);
@@ -80,6 +86,21 @@ export function NewProjectDialog({ listen = false }: { listen?: boolean }) {
             <Field id="description" label="Beschreibung" errors={errors.description}>
               <Textarea id="description" name="description" rows={3} />
             </Field>
+            {fillable.length > 0 && (
+              <Field
+                id="project-folder"
+                label="Ordner"
+                hint="Wer im Ordner ist, hat dort automatisch Zugriff auf das Projekt."
+                errors={errors.folderId}
+              >
+                <Select
+                  id="project-folder"
+                  value={folderId}
+                  onValueChange={setFolderId}
+                  options={[{ value: "", label: "Kein Ordner" }, ...fillable.map((folder) => ({ value: folder.id, label: folder.name }))]}
+                />
+              </Field>
+            )}
             <DialogFooter>
               <Button type="submit" disabled={pending}>
                 Anlegen

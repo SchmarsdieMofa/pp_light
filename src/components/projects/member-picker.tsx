@@ -2,10 +2,10 @@
 
 import { ChevronsUpDown, Search, Users, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { searchGroupsAction, searchUsersAction } from "@/app/(app)/projects/actions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import type { ActionResult } from "@/server/action-result";
 import type { GroupSuggestion } from "@/server/groups/project-groups";
 import type { UserSuggestion } from "@/server/members/service";
 
@@ -13,19 +13,30 @@ const inputClass =
   "h-8 min-w-0 rounded-md border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
 export type PickedGroup = GroupSuggestion;
+/** Where people are added to – a project or a folder: its id, what it is called, and how to search for people and groups for it. */
+export type PickerScope = {
+  id: string;
+  noun: "Projekt" | "Ordner";
+  searchUsers: (query: string, browse: boolean) => Promise<ActionResult<UserSuggestion[]>>;
+  searchGroups: (query: string, browse: boolean) => Promise<ActionResult<GroupSuggestion[]>>;
+};
 type Entry = { kind: "user"; user: UserSuggestion } | { kind: "group"; group: GroupSuggestion };
 
 const entryKey = (entry: Entry) => (entry.kind === "group" ? `g${entry.group.id}` : entry.user.id);
 
 /** People and groups matching `query`; nothing is fetched while the query is empty unless `browse` is set. `null` while loading. */
-function usePeopleSearch(projectId: string, query: string, browse: boolean): Entry[] | null {
+function usePeopleSearch(scope: PickerScope, query: string, browse: boolean): Entry[] | null {
+  const searches = useRef(scope);
+  useEffect(() => {
+    searches.current = scope;
+  });
   const [state, setState] = useState<{ key: string; entries: Entry[] }>({ key: "", entries: [] });
   const key = `${browse ? "b" : "s"}:${query.trim()}`;
   useEffect(() => {
     if (!browse && !query.trim()) return;
     let stale = false;
     const timer = setTimeout(async () => {
-      const [people, groups] = await Promise.all([searchUsersAction(projectId, query, browse), searchGroupsAction(projectId, query, browse)]);
+      const [people, groups] = await Promise.all([searches.current.searchUsers(query, browse), searches.current.searchGroups(query, browse)]);
       if (stale || !people.ok) return;
       const entries: Entry[] = [
         ...(groups.ok ? groups.data.map((group): Entry => ({ kind: "group", group })) : []),
@@ -37,7 +48,7 @@ function usePeopleSearch(projectId: string, query: string, browse: boolean): Ent
       stale = true;
       clearTimeout(timer);
     };
-  }, [projectId, query, browse, key]);
+  }, [scope.id, query, browse, key]);
   return !browse && !query.trim() ? [] : state.key === key ? state.entries : null;
 }
 
@@ -69,7 +80,7 @@ function EntryLine({ entry }: { entry: Entry }) {
  * a larger search dialog from the button next to it. A picked group replaces the field until it is cleared.
  */
 export function MemberPicker(props: {
-  projectId: string;
+  scope: PickerScope;
   value: string;
   onChange: (email: string) => void;
   group: PickedGroup | null;
@@ -80,7 +91,7 @@ export function MemberPicker(props: {
   const [active, setActive] = useState(0);
   const [dialog, setDialog] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const suggestions = usePeopleSearch(props.projectId, props.group ? "" : props.value, false);
+  const suggestions = usePeopleSearch(props.scope, props.group ? "" : props.value, false);
   const shown = open && suggestions !== null && suggestions.length > 0 ? suggestions : [];
 
   useEffect(() => {
@@ -172,7 +183,7 @@ export function MemberPicker(props: {
         </ul>
       )}
       <PickerDialog
-        projectId={props.projectId}
+        scope={props.scope}
         open={dialog}
         onOpenChange={setDialog}
         onPick={(entry) => {
@@ -184,16 +195,16 @@ export function MemberPicker(props: {
   );
 }
 
-function PickerDialog(props: { projectId: string; open: boolean; onOpenChange: (open: boolean) => void; onPick: (entry: Entry) => void }) {
+function PickerDialog(props: { scope: PickerScope; open: boolean; onOpenChange: (open: boolean) => void; onPick: (entry: Entry) => void }) {
   const [query, setQuery] = useState("");
-  const entries = usePeopleSearch(props.projectId, props.open ? query : "", props.open);
+  const entries = usePeopleSearch(props.scope, props.open ? query : "", props.open);
   return (
     <Dialog open={props.open} onOpenChange={(next) => { props.onOpenChange(next); if (!next) setQuery(""); }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Person oder Gruppe hinzufügen</DialogTitle>
           <DialogDescription>
-            Suche nach Name oder E-Mail. Nur aktive Personen, die noch nicht im Projekt sind. Eine Gruppe gehört dauerhaft zum Projekt: Wer in ihr ist, ist im Projekt.
+            Suche nach Name oder E-Mail. Nur aktive Personen, die noch nicht {props.scope.noun === "Ordner" ? "im Ordner" : "im Projekt"} sind. Eine Gruppe gehört dauerhaft dazu: Wer in ihr ist, ist {props.scope.noun === "Ordner" ? "im Ordner" : "im Projekt"}.
           </DialogDescription>
         </DialogHeader>
         <div className="relative">

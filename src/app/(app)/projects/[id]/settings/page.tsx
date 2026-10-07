@@ -1,6 +1,8 @@
 import { LabelManager } from "@/components/projects/label-manager";
+import { listFolders } from "@/server/folders/service";
 import { listProjectGroups } from "@/server/groups/project-groups";
 import { MemberManager } from "@/components/projects/member-manager";
+import { ProjectFolderField } from "@/components/projects/project-folder-field";
 import { PhaseManager } from "@/components/projects/phase-manager";
 import { ProjectDetails } from "@/components/projects/project-details";
 import { DeleteProject, ProjectLifecycle } from "@/components/projects/project-lifecycle";
@@ -16,12 +18,13 @@ import { listMembers, listStatuses } from "@/server/projects/service";
 export default async function SettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { actor, project, role, memberRole } = await loadProject(id);
-  const [columns, labels, members, projectGroupList, phases] = await Promise.all([
+  const [columns, labels, members, projectGroupList, phases, folders] = await Promise.all([
     listStatuses(db(), project.id),
     listLabels(db(), project.id),
     listMembers(db(), project.id),
     listProjectGroups(db(), project.id),
     listPhases(db(), project.id),
+    listFolders(db(), actor),
   ]);
   const canManage = can(actor, "project.update", projectCtx(role));
   const canManageMembers = can(actor, "project.manageMembers", projectCtx(role));
@@ -49,6 +52,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
 
       <SettingsSection id="allgemein" title="Allgemein" description="Änderungen werden automatisch gespeichert, sobald du ein Feld verlässt.">
         <ProjectDetails projectId={project.id} name={project.name} description={project.description} projectKey={project.key} canManage={canManage} />
+        <ProjectFolderField projectId={project.id} folderId={project.folderId} folders={folders} canManage={canManageMembers} />
       </SettingsSection>
 
       <SettingsSection id="spalten" title="Board-Spalten" description="Reihenfolge, Name und Farbe der Board-Spalten. „Erledigt“-Spalten zählen Aufgaben als abgeschlossen.">

@@ -1,7 +1,7 @@
 "use client";
 
 import { Select } from "@/components/ui/select";
-import { UserPlus, UserMinus, Users } from "lucide-react";
+import { Folder, UserPlus, UserMinus, Users } from "lucide-react";
 import { useState } from "react";
 import {
   addGroupAction,
@@ -16,7 +16,8 @@ import { GROUP_PROJECT_ROLES, PROJECT_ROLES, type ProjectRole } from "@/lib/enum
 import type { ProjectGroup } from "@/server/groups/project-groups";
 import type { Member } from "@/server/projects/service";
 import { toast } from "sonner";
-import { MemberPicker, type PickedGroup } from "./member-picker";
+import { searchGroupsAction, searchUsersAction } from "@/app/(app)/projects/actions";
+import { MemberPicker, type PickedGroup, type PickerScope } from "./member-picker";
 import { ConfirmAction, useRunner } from "./settings-ui";
 
 const ROLE_LABELS: Record<ProjectRole, string> = { owner: "Owner", member: "Mitglied", guest: "Gast" };
@@ -40,6 +41,12 @@ export function MemberManager(props: { projectId: string; members: Member[]; gro
   const [role, setRole] = useState<ProjectRole>("member");
   const { pending, run } = useRunner();
   const formRole: ProjectRole = group && role === "owner" ? "member" : role;
+  const scope: PickerScope = {
+    id: props.projectId,
+    noun: "Projekt",
+    searchUsers: (query, browse) => searchUsersAction(props.projectId, query, browse),
+    searchGroups: (query, browse) => searchGroupsAction(props.projectId, query, browse),
+  };
 
   return (
     <div className="space-y-4">
@@ -103,6 +110,11 @@ export function MemberManager(props: { projectId: string; members: Member[]; gro
                     <Users className="size-3 shrink-0" aria-hidden /> über Gruppe {m.groups.join(", ")}
                   </span>
                 )}
+                {m.viaFolder && (
+                  <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                    <Folder className="size-3 shrink-0" aria-hidden /> über den Ordner
+                  </span>
+                )}
               </span>
               {props.canManage && m.directRole ? (
                 <div className="col-start-2 flex flex-wrap items-center gap-2 sm:col-start-auto">
@@ -119,8 +131,8 @@ export function MemberManager(props: { projectId: string; members: Member[]; gro
                     triggerLabel={`${m.name} entfernen`}
                     title={`${m.name} aus dem Projekt entfernen?`}
                     description={
-                      m.groups.length > 0
-                        ? "Die Person bleibt über ihre Gruppe im Projekt, aber nicht mehr mit dieser eigenen Rolle."
+                      m.groups.length > 0 || m.viaFolder
+                        ? "Die Person bleibt über ihre Gruppe bzw. den Ordner im Projekt, aber nicht mehr mit dieser eigenen Rolle."
                         : "Die Person verliert den Zugriff auf das Projekt. Zuweisungen an sie werden aufgehoben."
                     }
                     confirmLabel="Entfernen"
@@ -150,7 +162,7 @@ export function MemberManager(props: { projectId: string; members: Member[]; gro
             run(() => addMemberAction(props.projectId, email, role), () => setEmail(""));
           }}
         >
-          <MemberPicker projectId={props.projectId} value={email} onChange={setEmail} group={group} onGroupChange={setGroup} />
+          <MemberPicker scope={scope} value={email} onChange={setEmail} group={group} onGroupChange={setGroup} />
           <Select
             aria-label="Rolle"
             className="w-28"

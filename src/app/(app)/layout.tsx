@@ -10,6 +10,7 @@ import { requireActor } from "@/server/auth/session";
 import { can } from "@/server/permissions";
 import { db } from "@/server/db/client";
 import { getPreferences } from "@/server/preferences/service";
+import { listFolders } from "@/server/folders/service";
 import { listPinnedProjectIds } from "@/server/projects/pins";
 import { listProjectsForUser } from "@/server/projects/service";
 import { unreadCount } from "@/server/notifications/service";
@@ -32,9 +33,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Admins run the system (backups, server, roles); managers only the people (users, groups).
   const isAdmin = can(actor, "system.manage");
   const managesPeople = can(actor, "users.manage");
-  const [projects, pinnedIds, prefs, initialUnread, withPassword, users, groups, backups, server] = await Promise.all([
+  const [projects, pinnedIds, folders, prefs, initialUnread, withPassword, users, groups, backups, server] = await Promise.all([
     listProjectsForUser(db(), actor),
     listPinnedProjectIds(db(), actor.id),
+    listFolders(db(), actor),
     getPreferences(db(), actor.id),
     unreadCount(db(), actor),
     hasPassword(db(), actor),
@@ -44,6 +46,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     isAdmin ? serverSettings() : null,
   ]);
   const pinned = new Set(pinnedIds);
+  // Folders are only named for people who are in them; others see their projects there without a folder.
+  const folderIds = new Set(folders.map((f) => f.id));
   return (
     <>
       <ThemeSync theme={prefs.theme} />
@@ -51,7 +55,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         sidebar={
           <Sidebar
             user={{ name: actor.name, email: actor.email }}
-            projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key, pinned: pinned.has(p.id) }))}
+            projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key, pinned: pinned.has(p.id), folderId: p.folderId && folderIds.has(p.folderId) ? p.folderId : null }))}
+            folders={folders}
             initialUnread={initialUnread}
           />
         }
