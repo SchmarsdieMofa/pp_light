@@ -1,9 +1,11 @@
 "use client";
 
-import { CheckCircle2, CircleHelp, RotateCcw, Trash2 } from "lucide-react";
+import { CheckCircle2, CircleHelp, ListPlus, RotateCcw, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
+  createTaskFromQuestionAction,
   deletePostAction,
   deleteQuestionAction,
   editPostAction,
@@ -44,6 +46,7 @@ export function StatusBadge({ status }: { status: QuestionDetail["status"] }) {
 
 export function QuestionThread({ detail, members, viewerId, onDeleted }: { detail: QuestionDetail; members: MentionableMember[]; viewerId: string; onDeleted?: () => void }) {
   const { pending, run } = useRunner();
+  const router = useRouter();
   const [resolving, setResolving] = useState(false);
   return (
     <div className="space-y-5">
@@ -109,6 +112,25 @@ export function QuestionThread({ detail, members, viewerId, onDeleted }: { detai
           ) : (
             <Button type="button" variant="outline" size="sm" disabled={pending} onClick={() => run(() => reopenQuestionAction(detail.id))}>
               <RotateCcw /> Wieder öffnen
+            </Button>
+          )}
+          {detail.canCreateTask && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={pending}
+              onClick={() =>
+                run(
+                  () => createTaskFromQuestionAction(detail.id),
+                  (task) =>
+                    toast.success(`Aufgabe ${task.reference} angelegt`, {
+                      action: { label: "Öffnen", onClick: () => router.push(`/tasks/${task.id}`) },
+                    }),
+                )
+              }
+            >
+              <ListPlus /> Aufgabe erstellen
             </Button>
           )}
           {detail.canManage && (

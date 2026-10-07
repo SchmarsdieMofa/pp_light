@@ -1,12 +1,13 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import { parseMentionIds } from "@/lib/mentions";
+import { MENTION_PATTERN, parseMentionIds } from "@/lib/mentions";
 import type { QuestionStatus } from "@/lib/enums";
 import type { DB, Executor } from "@/server/db/client";
-import { projectAccess, questionPostMentions, questionPosts, questions, users } from "@/server/db/schema";
+import { projectAccess, projects, questionPostMentions, questionPosts, questions, tasks, users } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { assertCan, can, projectCtx, type Actor } from "@/server/permissions";
 import { requireProjectAccess } from "@/server/projects/service";
+import { createTask } from "@/server/tasks/service";
 import { notifyQuestion } from "./notify";
 
 export const questionTitleSchema = z.string().trim().min(1, "Titel fehlt").max(200, "Höchstens 200 Zeichen");
@@ -39,7 +40,14 @@ export type PostView = {
   /** The question text itself (the first post); it is edited with the question, never deleted alone. */
   isQuestion: boolean;
 };
-export type QuestionDetail = QuestionRow & { posts: PostView[]; /** The actor may rename or delete the question and remove others' posts. */ canManage: boolean; canWrite: boolean };
+export type QuestionDetail = QuestionRow & {
+  posts: PostView[];
+  /** The actor may rename or delete the question and remove others posts. */
+  canManage: boolean;
+  canWrite: boolean;
+  /** The actor may turn the question into a task. */
+  canCreateTask: boolean;
+};
 
 /** Everything in a project is readable by its people; writing needs a role that is not read-only (archived projects). */
 async function requireProject(db: DB, actor: Actor, projectId: string) {
@@ -242,5 +250,27 @@ export async function getQuestion(db: DB, actor: Actor, questionId: string): Pro
     })),
     canManage: canManageQuestion(actor, question, access.role),
     canWrite: can(actor, "question.ask", projectCtx(access.role)),
+    canCreateTask: can(actor, "task.create", projectCtx(access.role)),
   };
+}
+
+/**
+ * Turns a question into a task: titled like the question, described with what was settled (or, while it is open,
+ * the question itself). The thread stays as it is; mentions become plain names in the description.
+ */
+export async function createTaskFromQuestion(db: DB, actor: Actor, questionId: string): Promise<{ id: string; reference: string }> {
+  const { question, access } = await requireQuestion(db, actor, questionId);
+  assertCan(actor, "task.create", projectCtx(access.role));
+  const [first] = await db
+    .select({ body: questionPosts.body })
+    .from(questionPosts)
+    .where(eq(questionPosts.questionId, question.id))
+    .orderBy(asc(questionPosts.createdAt), asc(questionPosts.id))
+    .limit(1);
+  const source = question.status === "resolved" && question.summary ? question.summary : (first?.body ?? "");
+  const description = `Aus der Frage „${question.title}“:\n\n${source.replace(MENTION_PATTERN, "@$1")}`.slice(0, 20_000);
+  const task = await createTask(db, actor, { projectId: question.projectId, title: question.title.slice(0, 200) });
+  await db.update(tasks).set({ description }).where(eq(tasks.id, task.id));
+  const [project] = await db.select({ key: projects.key }).from(projects).where(eq(projects.id, question.projectId)).limit(1);
+  return { id: task.id, reference: `${project.key}-${task.path}` };
 }

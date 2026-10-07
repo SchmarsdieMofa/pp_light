@@ -1,11 +1,14 @@
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 import { mentionToken } from "@/lib/mentions";
+import { tasks } from "@/server/db/schema";
 import { archiveProject } from "@/server/projects/lifecycle";
 import { listNotifications } from "@/server/notifications/service";
 import {
   askQuestion,
   countOpenQuestions,
+  createTaskFromQuestion,
   deletePost,
   deleteQuestion,
   editPost,
@@ -137,6 +140,25 @@ describe("questions", () => {
     const { ada, fremd, project } = await setup();
     await askQuestion(testDb, ada, project.id, { title: "Geheim", body: `Hallo ${mentionToken("fremd", fremd.id)}` });
     expect(await listNotifications(testDb, fremd)).toEqual([]);
+  });
+
+  it("turns a question into a task with what was settled; guests cannot create tasks", async () => {
+    const { ada, mia, gus, project } = await setup();
+    const { id } = await askQuestion(testDb, gus, project.id, { title: "Wer macht das Impressum?", body: `Kann das ${mentionToken("mia", mia.id)} übernehmen?` });
+    const open = await createTaskFromQuestion(testDb, mia, id);
+    expect(open.reference).toBe("FRG-1");
+    const [first] = await testDb.select().from(tasks).where(eq(tasks.id, open.id));
+    expect(first).toMatchObject({ title: "Wer macht das Impressum?", projectId: project.id });
+    expect(first.description).toBe("Aus der Frage „Wer macht das Impressum?“:\n\nKann das @mia übernehmen?");
+
+    await resolveQuestion(testDb, ada, id, "Mia schreibt es bis Freitag.");
+    const settled = await createTaskFromQuestion(testDb, ada, id);
+    const [second] = await testDb.select().from(tasks).where(eq(tasks.id, settled.id));
+    expect(second.description).toBe("Aus der Frage „Wer macht das Impressum?“:\n\nMia schreibt es bis Freitag.");
+
+    await expect(createTaskFromQuestion(testDb, gus, id)).rejects.toMatchObject(forbidden);
+    expect((await getQuestion(testDb, gus, id))!.canCreateTask).toBe(false);
+    expect((await getQuestion(testDb, mia, id))!.canCreateTask).toBe(true);
   });
 
   it("is read-only in an archived project", async () => {

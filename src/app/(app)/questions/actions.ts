@@ -6,6 +6,7 @@ import { requireActor } from "@/server/auth/session";
 import { db } from "@/server/db/client";
 import {
   askQuestion,
+  createTaskFromQuestion,
   deletePost,
   deleteQuestion,
   editPost,
@@ -63,4 +64,13 @@ export async function resolveQuestionAction(questionId: string, summary: string)
 
 export async function reopenQuestionAction(questionId: string) {
   return mutate((actor) => reopenQuestion(db(), actor, questionId));
+}
+
+export async function createTaskFromQuestionAction(questionId: string): Promise<ActionResult<{ id: string; reference: string }>> {
+  const actor = await requireActor();
+  return runAction(async () => {
+    const task = await createTaskFromQuestion(db(), actor, questionId);
+    refresh();
+    return task;
+  });
 }

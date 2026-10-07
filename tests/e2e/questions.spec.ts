@@ -61,6 +61,10 @@ test("a question is asked, answered by a guest, closed with a summary and reopen
   await resolve.getByRole("button", { name: "Als geklärt markieren" }).click();
   await expect(overlay.getByRole("region", { name: "Zusammenfassung" })).toContainText("Das Logo wird blau.");
 
+  // The settled question becomes a task with one click.
+  await overlay.getByRole("button", { name: "Aufgabe erstellen" }).click();
+  await expect(page.getByText("Aufgabe FRQ-1 angelegt")).toBeVisible();
+
   // The list: nothing open any more; resolved shows the summary.
   await overlay.getByRole("link", { name: "Schließen" }).click();
   await expect(page.getByText("Keine offenen Fragen")).toBeVisible();
