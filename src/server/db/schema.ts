@@ -17,13 +17,14 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { CARD_DENSITIES, GLOBAL_ROLES, PROJECT_ROLES, TASK_PRIORITIES, THEMES } from "@/lib/enums";
+import { CARD_DENSITIES, GLOBAL_ROLES, PROJECT_ROLES, QUESTION_STATUSES, TASK_PRIORITIES, THEMES } from "@/lib/enums";
 
 export const globalRole = pgEnum("global_role", GLOBAL_ROLES);
 export const projectRole = pgEnum("project_role", PROJECT_ROLES);
 export const themePref = pgEnum("theme_pref", THEMES);
 export const cardDensity = pgEnum("card_density", CARD_DENSITIES);
 export const taskPriority = pgEnum("task_priority", TASK_PRIORITIES);
+export const questionStatus = pgEnum("question_status", QUESTION_STATUSES);
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 
@@ -273,6 +274,47 @@ export const commentMentions = pgTable(
   (t) => [primaryKey({ columns: [t.commentId, t.userId] }), index("comment_mentions_user_idx").on(t.userId)],
 );
 
+/** A question to the whole project: a thread that ends as "resolved" with a summary. The first post is the question itself. */
+export const questions = pgTable(
+  "questions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    authorId: uuid("author_id").notNull().references(() => users.id),
+    status: questionStatus("status").notNull().default("open"),
+    /** What was settled; required to resolve, kept when reopened until the next resolution. */
+    summary: text("summary").notNull().default(""),
+    resolvedBy: uuid("resolved_by").references(() => users.id, { onDelete: "set null" }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("questions_project_idx").on(t.projectId, t.lastActivityAt)],
+);
+
+export const questionPosts = pgTable(
+  "question_posts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    questionId: uuid("question_id").notNull().references(() => questions.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id").notNull().references(() => users.id),
+    body: text("body").notNull(),
+    createdAt: createdAt(),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+  },
+  (t) => [index("question_posts_question_idx").on(t.questionId, t.createdAt)],
+);
+
+export const questionPostMentions = pgTable(
+  "question_post_mentions",
+  {
+    postId: uuid("post_id").notNull().references(() => questionPosts.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.postId, t.userId] }), index("question_post_mentions_user_idx").on(t.userId)],
+);
+
 export const attachments = pgTable(
   "attachments",
   {
@@ -297,6 +339,7 @@ export const notifications = pgTable(
     actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
     projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
     taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    questionId: uuid("question_id").references((): AnyPgColumn => questions.id, { onDelete: "set null" }),
     type: text("type").notNull(),
     message: text("message").notNull(),
     eventKey: text("event_key").notNull().unique(),

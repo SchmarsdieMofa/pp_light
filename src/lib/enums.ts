@@ -14,3 +14,6 @@ export type CardDensity = (typeof CARD_DENSITIES)[number];
 
 export const TASK_PRIORITIES = ["none", "low", "med", "high", "urgent"] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+
+export const QUESTION_STATUSES = ["open", "resolved"] as const;
+export type QuestionStatus = (typeof QUESTION_STATUSES)[number];

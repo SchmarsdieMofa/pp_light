@@ -10,6 +10,7 @@ import { NOTIFICATION_TYPES, type NotificationType } from "@/lib/notification-ty
 const labels: Record<NotificationType, string> = {
   assigned: "Zuweisung", mentioned: "Erwähnung", comment: "Kommentar", status: "Statuswechsel",
   schedule: "Terminänderung", dueSoon: "Bald fällig", overdue: "Überfällig",
+  question: "Antwort auf eine Frage", questionResolved: "Frage geklärt",
 };
 
 export function InboxControls({ notificationId, disabled }: { notificationId?: string; disabled?: NotificationType[] }) {

@@ -58,7 +58,8 @@ export async function notifyActivity(ex: Executor, event: Event): Promise<void> 
   const verb: Record<NotificationType, string> = {
     assigned: "hat dir die Aufgabe zugewiesen", mentioned: "hat dich erwähnt", comment: "hat kommentiert",
     status: "hat den Status geändert", schedule: "hat den Termin verschoben",
-    dueSoon: "ist morgen fällig", overdue: "ist überfällig",
+    dueSoon: "ist morgen fällig", overdue: "ist überfällig", question: "hat in einer Frage geantwortet",
+    questionResolved: "hat eine Frage geklärt",
   };
   if (allowed.length === 0) return;
   await ex.insert(notifications).values(allowed.map(({ id }) => {

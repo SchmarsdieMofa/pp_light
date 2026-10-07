@@ -11,6 +11,8 @@ const PROJECT_MATRIX = {
   "task.update": ["owner", "member"],
   "comment.create": ["owner", "member", "guest"],
   "comment.editOwn": ["owner", "member", "guest"],
+  /** Ask, answer, resolve and reopen questions: everyone with access to the project. */
+  "question.ask": ["owner", "member", "guest"],
   "attachment.upload": ["owner", "member"],
 } as const satisfies Record<string, readonly ProjectRole[]>;
 
