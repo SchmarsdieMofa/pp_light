@@ -33,6 +33,13 @@ describe("moveTask", () => {
     expect((await listActivity(testDb, c.id)).map((e) => e.action)).toEqual(["task.created"]);
   });
 
+  it("puts a task created with placement top before the others", async () => {
+    const { ada, project } = await setup();
+    await createTask(testDb, ada, { projectId: project.id, title: "Neu oben", placement: "top" });
+    await createTask(testDb, ada, { projectId: project.id, title: "Neu unten" });
+    expect(await board(project.id)).toEqual(["Neu oben:Offen", "A:Offen", "B:Offen", "C:Offen", "Neu unten:Offen"]);
+  });
+
   it("moves to another column, updates status, completedAt, updatedAt and logs it", async () => {
     const { ada, project, a, done } = await setup();
     const moved = await moveTask(testDb, ada, a.id, { statusId: done.id, afterId: null, beforeId: null });

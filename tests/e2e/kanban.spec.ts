@@ -31,6 +31,8 @@ test("drags cards between and within columns and keeps the order after reload", 
   await addInColumn(page, "Offen", "Karte A");
   await addInColumn(page, "Offen", "Karte B");
   await addInColumn(page, "Offen", "Karte C");
+  // New cards enter at the top of the column, so adding never needs scrolling.
+  await expect(page.getByRole("region", { name: "Offen" }).getByRole("link")).toHaveText([/Karte C/, /Karte B/, /Karte A/]);
 
   // Both moves are shown optimistically; wait for both server actions before reloading.
   const bothSaved = serverActions(page, 2);
@@ -38,11 +40,11 @@ test("drags cards between and within columns and keeps the order after reload", 
   await expect(card(page, "In Arbeit", "Karte A")).toBeVisible();
 
   await dragTo(page, card(page, "Offen", "Karte C"), card(page, "Offen", "Karte B"));
-  await expect(page.getByRole("region", { name: "Offen" }).getByRole("link")).toHaveText([/Karte C/, /Karte B/]);
+  await expect(page.getByRole("region", { name: "Offen" }).getByRole("link")).toHaveText([/Karte B/, /Karte C/]);
   await bothSaved;
   await page.reload();
   await expect(card(page, "In Arbeit", "Karte A")).toBeVisible();
-  await expect(page.getByRole("region", { name: "Offen" }).getByRole("link")).toHaveText([/Karte C/, /Karte B/]);
+  await expect(page.getByRole("region", { name: "Offen" }).getByRole("link")).toHaveText([/Karte B/, /Karte C/]);
 
   await card(page, "In Arbeit", "Karte A").click();
   await expect(page.getByRole("dialog", { name: "Aufgabe" }).getByLabel("Status")).toHaveText(/.+/);

@@ -50,6 +50,16 @@ async function nextPosition(ex: Executor, statusId: string): Promise<string> {
   return generateKeyBetween(last?.position ?? null, null);
 }
 
+async function firstPosition(ex: Executor, statusId: string): Promise<string> {
+  const [first] = await ex
+    .select({ position: tasks.position })
+    .from(tasks)
+    .where(eq(tasks.statusId, statusId))
+    .orderBy(byPosition(tasks.position))
+    .limit(1);
+  return generateKeyBetween(null, first?.position ?? null);
+}
+
 export async function createTask(db: DB, actor: Actor, raw: CreateTaskInput): Promise<Task> {
   const input = createTaskSchema.parse(raw);
   const access = await requireProjectAccess(db, actor, input.projectId);
@@ -91,7 +101,7 @@ export async function createTask(db: DB, actor: Actor, raw: CreateTaskInput): Pr
         path,
         title: input.title,
         statusId: status.id,
-        position: await nextPosition(tx, status.id),
+        position: input.placement === "top" ? await firstPosition(tx, status.id) : await nextPosition(tx, status.id),
         createdBy: actor.id,
         completedAt: status.isDone ? new Date() : null,
       })

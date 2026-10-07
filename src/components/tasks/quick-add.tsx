@@ -10,6 +10,7 @@ export function QuickAdd(props: {
   projectId: string;
   parentId?: string;
   statusId?: string;
+  placement?: "top" | "bottom";
   label: string;
   placeholder: string;
 }) {
@@ -25,6 +26,7 @@ export function QuickAdd(props: {
         projectId: props.projectId,
         parentId: props.parentId,
         statusId: props.statusId,
+        placement: props.placement,
         title: value,
       });
       if (!res.ok) {

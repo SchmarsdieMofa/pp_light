@@ -11,6 +11,8 @@ export const createTaskSchema = z.object({
   title,
   parentId: z.uuid().optional(),
   statusId: z.uuid().optional(),
+  /** Board columns add at the top, so the new card is visible without scrolling. Default: bottom. */
+  placement: z.enum(["top", "bottom"]).optional(),
 });
 export type CreateTaskInput = z.input<typeof createTaskSchema>;
 

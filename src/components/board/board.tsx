@@ -126,6 +126,17 @@ function Column(props: {
         {props.column.name}
         <span className="text-xs text-muted-foreground">{props.cards.length}</span>
       </h2>
+      {props.canEdit && (
+        <div className="mb-2">
+          <QuickAdd
+            projectId={props.projectId}
+            statusId={props.column.id}
+            placement="top"
+            label={`Neue Aufgabe in ${props.column.name}`}
+            placeholder="Aufgabe hinzufügen…"
+          />
+        </div>
+      )}
       <SortableContext items={props.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
         <ul className="min-h-8 space-y-2">
           {props.cards.map((card) => (
@@ -141,16 +152,6 @@ function Column(props: {
         </ul>
       </SortableContext>
       {props.cards.length === 0 && <p className="text-xs text-muted-foreground">Keine Aufgaben</p>}
-      {props.canEdit && (
-        <div className="mt-2">
-          <QuickAdd
-            projectId={props.projectId}
-            statusId={props.column.id}
-            label={`Neue Aufgabe in ${props.column.name}`}
-            placeholder="Aufgabe hinzufügen…"
-          />
-        </div>
-      )}
     </section>
   );
 }
