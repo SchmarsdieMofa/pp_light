@@ -56,7 +56,7 @@ test("creates tasks, edits them in the panel and shows them on the board", async
   await expect(overlay.getByRole("navigation", { name: "Pfad" })).toContainText("Aufgaben-Test");
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await overlay.getByRole("button", { name: "Link kopieren" }).click();
-  await expect(overlay.getByRole("status")).toHaveText("Kopiert");
+  await expect(overlay.getByRole("button", { name: "Link kopieren" }).getByRole("status")).toHaveText("Kopiert");
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`${new URL(board).origin}/tasks/${new URL(page.url()).searchParams.get("task")}`);
   await overlay.getByRole("link", { name: "Als Seite öffnen" }).click();
   await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]{36}$/);

@@ -1,10 +1,10 @@
 import { desc, eq } from "drizzle-orm";
-import { generateKeyBetween } from "fractional-indexing";
+import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
 import { z } from "zod";
 import { checklistTextSchema } from "@/lib/schemas/task";
 import type { DB } from "@/server/db/client";
 import { byPosition } from "@/server/db/order";
-import { checklistItems } from "@/server/db/schema";
+import { checklistItems, tasks } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { assertCan, projectCtx, type Actor } from "@/server/permissions";
 import { loadTaskAccess } from "@/server/tasks/access";
@@ -45,6 +45,32 @@ export async function addChecklistItem(db: DB, actor: Actor, taskId: string, raw
 export async function setChecklistItemDone(db: DB, actor: Actor, itemId: string, done: boolean): Promise<void> {
   const item = await requireEditableItem(db, actor, itemId);
   await db.update(checklistItems).set({ done }).where(eq(checklistItems.id, item.id));
+}
+
+export async function setChecklistItemText(db: DB, actor: Actor, itemId: string, rawText: string): Promise<void> {
+  const text = checklistTextSchema.parse(rawText);
+  const item = await requireEditableItem(db, actor, itemId);
+  await db.update(checklistItems).set({ text }).where(eq(checklistItems.id, item.id));
+}
+
+/**
+ * Puts the items in the given order. The client sends the whole new order, so a drag needs no neighbour
+ * bookkeeping; if the list changed in between (someone added or removed an item), it is refused as stale.
+ */
+export async function reorderChecklist(db: DB, actor: Actor, taskId: string, orderedIds: string[]): Promise<void> {
+  const task = await requireEditableTask(db, actor, taskId);
+  await db.transaction(async (tx) => {
+    await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.id, task.id)).for("update");
+    const current = await tx.select({ id: checklistItems.id }).from(checklistItems).where(eq(checklistItems.taskId, task.id));
+    const known = new Set(current.map((item) => item.id));
+    if (orderedIds.length !== known.size || new Set(orderedIds).size !== known.size || orderedIds.some((id) => !known.has(id))) {
+      throw new DomainError("CONFLICT", "Die Checkliste wurde zwischenzeitlich geändert. Bitte neu laden.");
+    }
+    const keys = generateNKeysBetween(null, null, orderedIds.length);
+    for (const [i, id] of orderedIds.entries()) {
+      await tx.update(checklistItems).set({ position: keys[i] }).where(eq(checklistItems.id, id));
+    }
+  });
 }
 
 export async function deleteChecklistItem(db: DB, actor: Actor, itemId: string): Promise<void> {

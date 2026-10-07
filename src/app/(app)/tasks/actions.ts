@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { CreateTaskInput, MoveTaskInput, TaskPatch } from "@/lib/schemas/task";
 import { runAction, type ActionResult } from "@/server/action-result";
 import { requireActor } from "@/server/auth/session";
-import { addChecklistItem, deleteChecklistItem, setChecklistItemDone } from "@/server/checklists/service";
+import { addChecklistItem, deleteChecklistItem, reorderChecklist, setChecklistItemDone, setChecklistItemText } from "@/server/checklists/service";
 import { deleteAttachment } from "@/server/attachments/service";
 import { createComment, deleteComment, updateComment } from "@/server/comments/service";
 import { db } from "@/server/db/client";
@@ -73,6 +73,22 @@ export async function toggleChecklistItemAction(itemId: string, done: boolean): 
   const actor = await requireActor();
   return runAction(async () => {
     await setChecklistItemDone(db(), actor, itemId, done);
+    refresh();
+  });
+}
+
+export async function updateChecklistItemTextAction(itemId: string, text: string): Promise<ActionResult<void>> {
+  const actor = await requireActor();
+  return runAction(async () => {
+    await setChecklistItemText(db(), actor, itemId, text);
+    refresh();
+  });
+}
+
+export async function reorderChecklistAction(taskId: string, orderedIds: string[]): Promise<ActionResult<void>> {
+  const actor = await requireActor();
+  return runAction(async () => {
+    await reorderChecklist(db(), actor, taskId, orderedIds);
     refresh();
   });
 }
