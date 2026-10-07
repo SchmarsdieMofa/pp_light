@@ -134,7 +134,13 @@ function SidebarProjects({ projects, folders, pathname }: { projects: SidebarPro
         </>
       )}
       {folders.map((folder) => (
-        <FolderSection key={folder.id} folder={folder} projects={unpinned.filter((p) => p.folderId === folder.id)} isActive={isActive} />
+        <FolderSection
+          key={folder.id}
+          folder={folder}
+          projects={unpinned.filter((p) => p.folderId === folder.id)}
+          pinnedCount={pinned.filter((p) => p.folderId === folder.id).length}
+          isActive={isActive}
+        />
       ))}
       {others.length > 0 && <ProjectsSection title="Projekte" storageKey={PROJECTS_KEY} listId="sidebar-projects" projects={others} isActive={isActive} />}
     </>
@@ -173,7 +179,7 @@ function ProjectsSection(props: { title: string; storageKey: string; listId: str
   );
 }
 
-function FolderSection({ folder, projects, isActive }: { folder: SidebarFolder; projects: SidebarProject[]; isActive: (p: SidebarProject) => boolean }) {
+function FolderSection({ folder, projects, pinnedCount, isActive }: { folder: SidebarFolder; projects: SidebarProject[]; /** Projects of this folder that sit under "Angepinnt". */ pinnedCount: number; isActive: (p: SidebarProject) => boolean }) {
   const [collapsed, setCollapsed] = useCollapsed(`pp-sidebar-folder-collapsed-${folder.id}`);
   const [managing, setManaging] = useState(false);
   const shown = collapsed ? projects.filter(isActive) : projects;
@@ -204,7 +210,9 @@ function FolderSection({ folder, projects, isActive }: { folder: SidebarFolder; 
         {shown.map((p) => (
           <ProjectRow key={p.id} project={p} active={isActive(p)} />
         ))}
-        {projects.length === 0 && !collapsed && <li className="px-2 py-1 text-xs text-muted-foreground">Noch keine Projekte</li>}
+        {projects.length === 0 && !collapsed && (
+          <li className="px-2 py-1 text-xs text-muted-foreground">{pinnedCount > 0 ? `${pinnedCount === 1 ? "Das Projekt ist" : "Alle Projekte sind"} oben angepinnt` : "Noch keine Projekte"}</li>
+        )}
       </ul>
       {managing && <FolderDialog folderId={folder.id} open onOpenChange={(next) => { if (!next) setManaging(false); }} />}
     </div>
