@@ -11,13 +11,17 @@ type Props = Primitive.Root.Props & {
   viewportClassName?: string;
 };
 
-/** Native scrolling with the subtle scrollbar and edge fade from the design template. */
+/**
+ * Native scrolling with the subtle scrollbar and edge fade from the design template.
+ * Flex column + `flex-1` viewport: `size-full` alone resolves to auto height inside a flex item whose
+ * container only has a max-height, and the viewport then grows to its content instead of scrolling.
+ */
 export function ScrollArea({ children, className, contentClassName, orientation = "vertical", scrollFade = false, viewportClassName, ...props }: Props) {
   return (
-    <Primitive.Root className={cn("relative min-h-0 min-w-0", className)} {...props}>
+    <Primitive.Root className={cn("relative flex min-h-0 min-w-0 flex-col", className)} {...props}>
       <Primitive.Viewport
         className={cn(
-          "size-full min-h-0 overscroll-contain rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+          "size-full min-h-0 flex-1 overscroll-contain rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
           scrollFade &&
             "mask-t-from-[calc(100%-min(1.5rem,var(--scroll-area-overflow-y-start)))] mask-b-from-[calc(100%-min(1.5rem,var(--scroll-area-overflow-y-end)))]",
           viewportClassName,
