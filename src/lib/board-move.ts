@@ -9,28 +9,43 @@ function move<T>(list: T[], from: number, to: number): T[] {
 }
 
 /**
- * Turns a drop (active card over a card or a column) into the target column and the new neighbours.
- * Same column: dnd-kit semantics (take the slot of the card dropped on). Other column: insert before that card.
+ * Live preview while dragging: the active card jumps into the column it hovers (before the card it is over,
+ * or at the end of an empty area), so that column makes room and the drop lands where the card already is.
+ * Within its own column dnd-kit's sortable strategy shifts the neighbours, nothing to do here.
  */
-export function planMove(cards: BoardCardRef[], activeId: string, over: { id: string; isColumn: boolean }): MovePlan | null {
+export function previewMove<T extends BoardCardRef>(cards: T[], activeId: string, over: { id: string; isColumn: boolean }): T[] {
   const active = cards.find((c) => c.id === activeId);
-  if (!active) return null;
+  if (!active || over.id === activeId) return cards;
   const statusId = over.isColumn ? over.id : cards.find((c) => c.id === over.id)?.statusId;
-  if (!statusId) return null;
+  if (!statusId || statusId === active.statusId) return cards;
+  return applyMove(cards, { taskId: activeId, statusId, afterId: null, beforeId: over.isColumn ? null : over.id });
+}
 
-  const column = cards.filter((c) => c.statusId === statusId).map((c) => c.id);
-  let order: string[];
-  if (active.statusId === statusId) {
-    const from = column.indexOf(activeId);
-    const to = over.isColumn ? column.length - 1 : column.indexOf(over.id);
-    if (from === to) return null;
-    order = move(column, from, to);
-  } else {
-    const index = over.isColumn ? column.length : column.indexOf(over.id);
-    order = [...column.slice(0, index), activeId, ...column.slice(index)];
+/**
+ * Turns a drop into the target column and the new neighbours. `live` is the board as previewed while
+ * dragging (the card may already sit in its new column); `original` is the board before the drag.
+ * Same column: dnd-kit semantics (take the slot of the card dropped on). Returns null when nothing changed.
+ */
+export function planDrop(
+  original: BoardCardRef[],
+  live: BoardCardRef[],
+  activeId: string,
+  over: { id: string; isColumn: boolean },
+): MovePlan | null {
+  const before = original.find((c) => c.id === activeId);
+  const active = live.find((c) => c.id === activeId);
+  if (!before || !active) return null;
+  let column = live.filter((c) => c.statusId === active.statusId).map((c) => c.id);
+  if (!over.isColumn && over.id !== activeId && column.includes(over.id)) {
+    column = move(column, column.indexOf(activeId), column.indexOf(over.id));
+  } else if (over.isColumn && before.statusId === active.statusId) {
+    // Dropped on the empty part of its own column: to the end.
+    column = move(column, column.indexOf(activeId), column.length - 1);
   }
-  const i = order.indexOf(activeId);
-  return { taskId: activeId, statusId, afterId: order[i - 1] ?? null, beforeId: order[i + 1] ?? null };
+  const i = column.indexOf(activeId);
+  const unchanged = before.statusId === active.statusId && original.filter((c) => c.statusId === before.statusId).findIndex((c) => c.id === activeId) === i;
+  if (unchanged) return null;
+  return { taskId: activeId, statusId: active.statusId, afterId: column[i - 1] ?? null, beforeId: column[i + 1] ?? null };
 }
 
 export function applyMove<T extends BoardCardRef>(cards: T[], plan: MovePlan): T[] {

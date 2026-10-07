@@ -51,6 +51,41 @@ test("drags cards between and within columns and keeps the order after reload", 
   await expect(page.getByRole("dialog", { name: "Aufgabe" }).getByLabel("Titel")).toHaveValue("Karte A");
 });
 
+test("a card dragged through many columns makes room live and lands where it was dropped", async ({ page }) => {
+  await login(page);
+  await createProjectViaUi(page, "Hin-und-her", "hin");
+  await addInColumn(page, "Offen", "Karte A");
+  await addInColumn(page, "Offen", "Karte B");
+  await addInColumn(page, "In Arbeit", "Karte X");
+
+  const columns = ["In Arbeit", "Review", "Fertig", "Offen", "In Arbeit", "Offen"];
+  const allSaved = serverActions(page, columns.length);
+  for (const column of columns) {
+    const karteB = page.getByRole("link", { name: /Karte B/ });
+    // Measure only once the previous move is saved and the card stands still.
+    await expect(async () => {
+      const first = await karteB.boundingBox();
+      await page.waitForTimeout(250);
+      expect(await karteB.boundingBox()).toEqual(first);
+    }).toPass();
+    const from = (await karteB.boundingBox())!;
+    const to = (await page.getByRole("region", { name: column }).boundingBox())!;
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 20, from.y + 20, { steps: 4 });
+    await page.mouse.move(to.x + to.width / 2, to.y + 150, { steps: 15 });
+    // Mid-drag the target column already holds the card (as a placeholder) – it makes room instead of waiting for the drop.
+    await expect(card(page, column, "Karte B")).toHaveCount(1);
+    await page.mouse.up();
+    await expect(card(page, column, "Karte B")).toBeVisible();
+    await expect(card(page, column, "Karte B")).toHaveCSS("opacity", "1");
+  }
+  await allSaved;
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Offen" }).getByRole("link")).toHaveText([/Karte (B|A)/, /Karte (A|B)/]);
+  await expect(card(page, "In Arbeit", "Karte X")).toBeVisible();
+});
+
 test("opens a card as overlay and closes it with Esc or a click beside it", async ({ page }) => {
   await login(page);
   await createProjectViaUi(page, "Overlay-Test", "ovl");

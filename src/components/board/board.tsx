@@ -10,6 +10,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -19,7 +20,7 @@ import { toast } from "sonner";
 import { moveTaskAction } from "@/app/(app)/tasks/actions";
 import { QuickAdd } from "@/components/tasks/quick-add";
 import { useTaskHref } from "@/components/tasks/use-task-href";
-import { applyMove, planMove, type MovePlan } from "@/lib/board-move";
+import { applyMove, planDrop, previewMove, type MovePlan } from "@/lib/board-move";
 import type { CardDensity } from "@/lib/enums";
 import type { TaskListRow } from "@/server/tasks/queries";
 import { BoardCard } from "./board-card";
@@ -42,25 +43,37 @@ export function Board(props: {
   const serverCards: Card[] = props.cards.map((c) => ({ ...c, statusId: c.status.id }));
   const [cards, applyOptimistic] = useOptimistic(serverCards, (current: Card[], plan: MovePlan) => applyMove(current, plan));
   const [activeId, setActiveId] = useState<string | null>(null);
+  // While dragging, the card already sits in the column it hovers (so that column makes room); null otherwise.
+  const [live, setLive] = useState<Card[] | null>(null);
   const [, startTransition] = useTransition();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  const overTarget = (over: NonNullable<DragEndEvent["over"]>) => {
+    const overId = String(over.id);
+    const isColumn = overId.startsWith(COLUMN_PREFIX);
+    return { id: isColumn ? overId.slice(COLUMN_PREFIX.length) : overId, isColumn };
+  };
+
   function onDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id));
+    setLive(cards);
+  }
+
+  function onDragOver(event: DragOverEvent) {
+    if (!event.over) return;
+    const target = overTarget(event.over);
+    setLive((current) => previewMove(current ?? cards, String(event.active.id), target));
   }
 
   function onDragEnd(event: DragEndEvent) {
+    const liveCards = live ?? cards;
     setActiveId(null);
+    setLive(null);
     if (!event.over) return;
-    const overId = String(event.over.id);
-    const isColumn = overId.startsWith(COLUMN_PREFIX);
-    const plan = planMove(cards, String(event.active.id), {
-      id: isColumn ? overId.slice(COLUMN_PREFIX.length) : overId,
-      isColumn,
-    });
+    const plan = planDrop(cards, liveCards, String(event.active.id), overTarget(event.over));
     if (!plan) return;
     startTransition(async () => {
       applyOptimistic(plan);
@@ -73,7 +86,8 @@ export function Board(props: {
     });
   }
 
-  const activeCard = activeId ? cards.find((c) => c.id === activeId) : undefined;
+  const shown = live ?? cards;
+  const activeCard = activeId ? shown.find((c) => c.id === activeId) : undefined;
 
   return (
     <DndContext
@@ -81,15 +95,19 @@ export function Board(props: {
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={onDragStart}
+      onDragOver={onDragOver}
       onDragEnd={onDragEnd}
-      onDragCancel={() => setActiveId(null)}
+      onDragCancel={() => {
+        setActiveId(null);
+        setLive(null);
+      }}
     >
       <div className="flex flex-1 gap-4 overflow-x-auto pb-2">
         {props.columns.map((column) => (
           <Column
             key={column.id}
             column={column}
-            cards={cards.filter((c) => c.statusId === column.id)}
+            cards={shown.filter((c) => c.statusId === column.id)}
             density={props.density}
             canEdit={props.canEdit}
             projectId={props.projectId}
