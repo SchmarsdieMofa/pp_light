@@ -80,6 +80,15 @@ test("shows grouped tasks and saves a dragged date with dependency cascade", asy
   await page.getByRole("button", { name: "Rückgängig" }).click();
   await expect(ganttRow(page, /GAN-2 Nachfolger/)).toContainText("06.10.2026");
 
+  // After the undo the timeline scrolls back to today; the fixed dates may lie off screen then. Put the bar at the left
+  // end of the timeline: a drag that ends beyond the right edge would make the timeline scroll on by itself and
+  // overshoot. Measure only once the scrolling has come to rest.
+  await ausgang.evaluate((el) => el.scrollIntoView({ inline: "start", block: "nearest" }));
+  await expect(async () => {
+    const before = await ausgang.boundingBox();
+    await page.waitForTimeout(300);
+    expect(await ausgang.boundingBox()).toEqual(before);
+  }).toPass();
   const resized = await ausgang.boundingBox();
   if (!resized) throw new Error("Gantt-Balken nach Undo nicht sichtbar");
   await page.mouse.move(resized.x + resized.width - 3, resized.y + resized.height / 2);
