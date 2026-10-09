@@ -5,6 +5,7 @@ import { notifyActivity } from "@/server/notifications/service";
 
 export type ActivityAction =
   | "task.created"
+  | "task.deleted"
   | "subtask.created"
   | "task.updated"
   | "task.assigneesChanged"

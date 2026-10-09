@@ -18,6 +18,7 @@ import { TaskAttachments } from "./task-attachments";
 import { TaskChecklist } from "./task-checklist";
 import { TaskComments } from "./task-comments";
 import { TaskDescription } from "./task-description";
+import { DeleteTask } from "./task-delete";
 import { TaskDependencies } from "./task-dependencies";
 import { TaskSubtasks } from "./task-subtasks";
 import { useTaskHref } from "./use-task-href";
@@ -166,6 +167,12 @@ export function TaskEditor({ detail }: { detail: TaskDetail }) {
           <TaskAttachments detail={detail} />
         </div>
       </div>
+
+      {detail.canEdit && (
+        <div className="flex justify-end border-t pt-3">
+          <DeleteTask detail={detail} />
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import { MAX_TASK_DEPTH, taskDepth } from "@/lib/task-path";
 import { randomUUID } from "node:crypto";
-import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
+import { rm } from "node:fs/promises";
+import { resolve } from "node:path";
+import { and, asc, desc, eq, inArray, isNull, like, ne, or, sql } from "drizzle-orm";
 import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
 import {
   createTaskSchema,
@@ -14,7 +16,7 @@ import { recordActivity } from "@/server/activity/service";
 import { propagateDates } from "@/server/dependencies/scheduling";
 import type { DB, Executor } from "@/server/db/client";
 import { byPosition } from "@/server/db/order";
-import { phases, projects, statuses, tasks } from "@/server/db/schema";
+import { attachments, phases, projects, statuses, tasks } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { assertCan, projectCtx, type Actor } from "@/server/permissions";
 import { requireProjectAccess } from "@/server/projects/service";
@@ -272,4 +274,39 @@ export async function moveTask(db: DB, actor: Actor, taskId: string, raw: MoveTa
     }
     return updated;
   });
+}
+
+/**
+ * Deletes the task with everything under it: subtasks, comments, checklist, links and attachments (rows and files).
+ * Gone for good – the project keeps a line in its activity log. Returns how many tasks went (the task and its subtasks).
+ */
+export async function deleteTask(db: DB, actor: Actor, taskId: string, uploadDir: string): Promise<{ deleted: number }> {
+  const { deleted, storageKeys } = await db.transaction(async (tx) => {
+    const { task, role } = await loadTaskAccess(tx, actor, taskId);
+    assertCan(actor, "task.delete", projectCtx(role));
+    // Same lock as every other write to the project's tasks: a move or edit in flight finishes first.
+    await tx.select({ id: projects.id }).from(projects).where(eq(projects.id, task.projectId)).for("update");
+
+    // Subtask paths extend the parent's ("3" → "3.1" → "3.1.2") and never change.
+    const family = await tx
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(and(eq(tasks.projectId, task.projectId), or(eq(tasks.id, task.id), like(tasks.path, `${task.path}.%`))));
+    const ids = family.map((row) => row.id);
+    const files = await tx.select({ storageKey: attachments.storageKey }).from(attachments).where(inArray(attachments.taskId, ids));
+
+    // Foreign keys cascade to subtasks, comments, checklist, assignees, labels, links, attachments and the task's activity.
+    await tx.delete(tasks).where(eq(tasks.id, task.id));
+    await recordActivity(tx, {
+      projectId: task.projectId,
+      taskId: null,
+      actorId: actor.id,
+      action: "task.deleted",
+      diff: { path: task.path, title: task.title, subtasks: ids.length - 1 },
+    });
+    return { deleted: ids.length, storageKeys: files.map((file) => file.storageKey) };
+  });
+  // Rows are gone; the files follow. Storage keys are server-generated UUIDs inside uploadDir.
+  await Promise.all(storageKeys.map((key) => rm(resolve(uploadDir, key), { force: true })));
+  return { deleted };
 }

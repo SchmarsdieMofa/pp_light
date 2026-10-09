@@ -271,3 +271,33 @@ test.describe("German locale", () => {
     await expect(page.getByText("Bitte ein Jahr zwischen 1900 und 2999 angeben.")).toHaveCount(0);
   });
 });
+
+test("deletes a task after a confirmation", async ({ page }) => {
+  await login(page);
+  const board = await createProjectViaUi(page, "Lösch-Test", "del");
+  await openList(page, board);
+  await quickAdd(page, "Bleibt");
+  await quickAdd(page, "Fliegt raus");
+  const table = page.getByRole("table", { name: "Aufgaben" });
+
+  await table.getByRole("link", { name: "Fliegt raus" }).click();
+  const panel = page.getByRole("dialog", { name: /Aufgabe DEL-2/ });
+  await panel.getByRole("button", { name: "Aufgabe löschen" }).click();
+  const confirm = page.getByRole("dialog", { name: "Aufgabe DEL-2 löschen?" });
+  // Backing out keeps everything.
+  await confirm.getByRole("button", { name: "Abbrechen" }).click();
+  await expect(confirm).toHaveCount(0);
+  await expect(panel.getByLabel("Titel")).toHaveValue("Fliegt raus");
+
+  await panel.getByRole("button", { name: "Aufgabe löschen" }).click();
+  await confirm.getByRole("button", { name: "Endgültig löschen" }).click();
+  await expect(page.getByText("Aufgabe DEL-2 gelöscht")).toBeVisible();
+  await expect(panel).toHaveCount(0);
+  await expect(page).not.toHaveURL(/task=/);
+  await expect(table.getByRole("link", { name: "Fliegt raus" })).toHaveCount(0);
+  await expect(table.getByRole("link", { name: "Bleibt" })).toBeVisible();
+
+  // Its link is dead now.
+  await page.reload();
+  await expect(table.getByRole("link", { name: "Fliegt raus" })).toHaveCount(0);
+});

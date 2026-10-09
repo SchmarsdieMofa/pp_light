@@ -9,6 +9,7 @@ const PROJECT_MATRIX = {
   "project.manageMembers": ["owner"],
   "task.create": ["owner", "member"],
   "task.update": ["owner", "member"],
+  "task.delete": ["owner", "member"],
   "comment.create": ["owner", "member", "guest"],
   "comment.editOwn": ["owner", "member", "guest"],
   /** Ask, answer, resolve and reopen questions: everyone with access to the project. */

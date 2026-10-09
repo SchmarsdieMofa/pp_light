@@ -12,7 +12,7 @@ import { getEnv } from "@/lib/env";
 import { addDependency, previewDependency, removeDependency, updateDependencyLag, type DependencyPreviewMove } from "@/server/dependencies/service";
 import { undoScheduleGroup } from "@/server/dependencies/undo";
 import { setTaskAssignees, setTaskLabels } from "@/server/tasks/relations";
-import { createTask, moveTask, updateTask } from "@/server/tasks/service";
+import { createTask, deleteTask, moveTask, updateTask } from "@/server/tasks/service";
 
 /** Every task mutation re-renders board, list, panel and task page in the same round trip. */
 function refresh() {
@@ -42,6 +42,15 @@ export async function updateTaskAction(
       movedCount: task.schedule?.movedCount ?? 0,
       groupId: task.schedule?.groupId ?? null,
     };
+  });
+}
+
+export async function deleteTaskAction(taskId: string): Promise<ActionResult<{ deleted: number }>> {
+  const actor = await requireActor();
+  return runAction(async () => {
+    const result = await deleteTask(db(), actor, taskId, getEnv().UPLOAD_DIR);
+    refresh();
+    return result;
   });
 }
 
