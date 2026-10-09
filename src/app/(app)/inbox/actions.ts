@@ -26,6 +26,7 @@ export async function saveNotificationPreferencesAction(disabled: string[]) {
   const actor = await requireActor();
   return runAction(async () => {
     await setNotificationPreferences(db(), actor.id, disabled);
-    revalidatePath("/inbox");
+    // The settings tab lives in the app layout, which every page renders.
+    revalidatePath("/", "layout");
   });
 }

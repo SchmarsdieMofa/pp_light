@@ -212,6 +212,7 @@ export type TaskDetail = {
   phaseId: string | null;
   updatedAt: string;
   canEdit: boolean;
+  canDelete: boolean;
   parent: { id: string; path: string; title: string } | null;
   statuses: { id: string; name: string; color: string; isDone: boolean }[];
   members: { id: string; name: string }[];
@@ -298,6 +299,7 @@ export async function getTaskDetail(db: DB, actor: Actor, taskId: string): Promi
     phaseId: task.phaseId,
     updatedAt: task.updatedAt.toISOString(),
     canEdit: can(actor, "task.update", projectCtx(role)),
+    canDelete: can(actor, "task.delete", projectCtx(role)),
     parent: parentRows[0] ?? null,
     statuses: statusList.map(({ id, name, color, isDone }) => ({ id, name, color, isDone })),
     members: members.map(({ id, name }) => ({ id, name })),

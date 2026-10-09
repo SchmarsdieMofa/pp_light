@@ -18,6 +18,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { CARD_DENSITIES, GLOBAL_ROLES, PROJECT_ROLES, QUESTION_STATUSES, TASK_PRIORITIES, THEMES } from "@/lib/enums";
+import { DEFAULT_DISABLED_EMAIL_TYPES } from "@/lib/notification-types";
 
 export const globalRole = pgEnum("global_role", GLOBAL_ROLES);
 export const projectRole = pgEnum("project_role", PROJECT_ROLES);
@@ -156,6 +157,8 @@ export const tasks = pgTable(
     number: integer("number").notNull(),
     /** Display number: "3" for a top-level task, "3.1" / "3.1.2" for its subtasks. Never changes. */
     path: text("path").notNull(),
+    /** Last number handed out to a subtask of this task. Counts only up, so a deleted subtask's number is never reused. */
+    subtaskCounter: integer("subtask_counter").notNull().default(0),
     title: text("title").notNull(),
     description: text("description").notNull().default(""),
     statusId: uuid("status_id").notNull().references(() => statuses.id),
@@ -352,7 +355,7 @@ export const notifications = pgTable(
 
 export const notificationPreferences = pgTable("notification_preferences", {
   userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
-  disabledEmailTypes: jsonb("disabled_email_types").$type<string[]>().notNull().default(["assigned", "status"]),
+  disabledEmailTypes: jsonb("disabled_email_types").$type<string[]>().notNull().default([...DEFAULT_DISABLED_EMAIL_TYPES]),
   lastDigestAt: timestamp("last_digest_at", { withTimezone: true }),
 });
 

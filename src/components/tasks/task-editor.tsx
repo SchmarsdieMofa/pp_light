@@ -168,7 +168,7 @@ export function TaskEditor({ detail }: { detail: TaskDetail }) {
         </div>
       </div>
 
-      {detail.canEdit && (
+      {detail.canDelete && (
         <div className="flex justify-end border-t pt-3">
           <DeleteTask detail={detail} />
         </div>

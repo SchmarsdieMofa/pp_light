@@ -15,12 +15,14 @@ export function DeleteTask({ detail }: { detail: Pick<TaskDetail, "id" | "key" |
   const searchParams = useSearchParams();
   const { pending, run } = useRunner();
   const reference = `${detail.key}-${detail.path}`;
-  const subtasks = detail.subtasks.length;
+  // `subtasks` only lists direct children, so no count: deeper levels would make it wrong.
+  const hasSubtasks = detail.subtasks.length > 0;
 
   function leave() {
     // The task page itself is gone with the task; the overlay only drops `?task=` and stays on its view.
-    if (pathname.startsWith("/tasks/")) return router.push(`/projects/${detail.projectId}/board`);
-    router.push(buildHref(pathname, normalizeSearchParams(Object.fromEntries(searchParams.entries())), { task: null }), { scroll: false });
+    // replace: Back must not land on the dead task.
+    if (pathname.startsWith("/tasks/")) return router.replace(`/projects/${detail.projectId}/board`);
+    router.replace(buildHref(pathname, normalizeSearchParams(Object.fromEntries(searchParams.entries())), { task: null }), { scroll: false });
   }
 
   return (
@@ -35,7 +37,7 @@ export function DeleteTask({ detail }: { detail: Pick<TaskDetail, "id" | "key" |
       title={`Aufgabe ${reference} löschen?`}
       description={
         <>
-          „{detail.title}“ wird mit {subtasks > 0 ? `${subtasks === 1 ? "ihrer Unteraufgabe" : `ihren ${subtasks} Unteraufgaben`}, ` : ""}
+          „{detail.title}“ wird mit {hasSubtasks ? "ihren Unteraufgaben, " : ""}
           allen Kommentaren, der Checkliste und den Anhängen endgültig gelöscht. Das lässt sich nicht rückgängig machen.
         </>
       }

@@ -7,6 +7,7 @@ import { saveAttachment } from "@/server/attachments/service";
 import { createComment } from "@/server/comments/service";
 import { activityLog, attachments, comments, tasks } from "@/server/db/schema";
 import { addDependency } from "@/server/dependencies/service";
+import { archiveProject } from "@/server/projects/lifecycle";
 import { createTask, deleteTask } from "@/server/tasks/service";
 import { resetDb, testDb } from "../helpers/db";
 import { addMember, makeActor, makeProject } from "../helpers/fixtures";
@@ -65,6 +66,42 @@ describe("deleteTask", () => {
     for (let i = 0; i < 11; i++) made.push(await createTask(testDb, ada, { projectId: project.id, title: `T${i + 1}` }));
     await deleteTask(testDb, ada, made[0].id, uploadDir);
     expect(await testDb.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, project.id))).toHaveLength(10);
+  });
+
+  it("refuses to delete in an archived project and leaves the task alone", async () => {
+    const { ada, project, other } = await setup();
+    await archiveProject(testDb, ada, project.id);
+    await expect(deleteTask(testDb, ada, other.id, uploadDir)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await testDb.select({ id: tasks.id }).from(tasks).where(eq(tasks.id, other.id))).toHaveLength(1);
+  });
+
+  it("only takes the subtree of its own project when another project uses the same paths", async () => {
+    const ada = await makeActor("ada@example.com");
+    const { project: first } = await makeProject(ada, "ONE");
+    const { project: second } = await makeProject(ada, "TWO");
+    const a = await createTask(testDb, ada, { projectId: first.id, title: "A" });
+    await createTask(testDb, ada, { projectId: first.id, title: "A.1", parentId: a.id });
+    const b = await createTask(testDb, ada, { projectId: second.id, title: "B" });
+    await createTask(testDb, ada, { projectId: second.id, title: "B.1", parentId: b.id });
+    expect([a.path, b.path]).toEqual(["1", "1"]);
+
+    expect(await deleteTask(testDb, ada, a.id, uploadDir)).toEqual({ deleted: 2 });
+
+    expect(await testDb.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, first.id))).toHaveLength(0);
+    const kept = await testDb.select({ path: tasks.path }).from(tasks).where(eq(tasks.projectId, second.id));
+    expect(kept.map((t) => t.path).sort()).toEqual(["1", "1.1"]);
+  });
+
+  it("never hands out a deleted subtask's number again", async () => {
+    const ada = await makeActor("ada@example.com");
+    const { project } = await makeProject(ada, "SUB");
+    const parent = await createTask(testDb, ada, { projectId: project.id, title: "Eltern" });
+    await createTask(testDb, ada, { projectId: project.id, title: "Eins", parentId: parent.id });
+    const second = await createTask(testDb, ada, { projectId: project.id, title: "Zwei", parentId: parent.id });
+    expect(second.path).toBe("1.2");
+    await deleteTask(testDb, ada, second.id, uploadDir);
+    const third = await createTask(testDb, ada, { projectId: project.id, title: "Drei", parentId: parent.id });
+    expect(third).toMatchObject({ path: "1.3", number: 3 });
   });
 
   it("is open to members, not to guests or outsiders", async () => {

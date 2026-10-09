@@ -37,7 +37,7 @@ export function isInlineImage(mime: string): boolean {
 }
 
 /** Resolves a storage key inside the upload directory and refuses anything that would escape it. */
-function storagePath(uploadDir: string, storageKey: string): string {
+export function storagePath(uploadDir: string, storageKey: string): string {
   const root = resolve(uploadDir);
   const path = resolve(root, storageKey);
   if (!path.startsWith(root + sep)) throw new DomainError("NOT_FOUND", "Anhang nicht gefunden.");

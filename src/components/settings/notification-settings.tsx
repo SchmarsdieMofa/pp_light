@@ -15,7 +15,12 @@ export function NotificationSettings({ disabled }: { disabled: NotificationType[
     const before = off;
     const next = send ? before.filter((t) => t !== type) : [...before, type];
     setOff(next);
-    run(() => saveNotificationPreferencesAction(next), undefined, () => setOff(before));
+    // Undo only this switch: other toggles made while the request was in flight stay as they are.
+    run(
+      () => saveNotificationPreferencesAction(next),
+      undefined,
+      () => setOff((current) => (send ? [...current, type] : current.filter((t) => t !== type))),
+    );
   }
 
   return (

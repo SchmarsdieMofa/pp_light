@@ -1,7 +1,6 @@
 import { MAX_TASK_DEPTH, taskDepth } from "@/lib/task-path";
 import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
-import { resolve } from "node:path";
 import { and, asc, desc, eq, inArray, isNull, like, ne, or, sql } from "drizzle-orm";
 import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
 import {
@@ -13,6 +12,7 @@ import {
   type TaskPatch,
 } from "@/lib/schemas/task";
 import { recordActivity } from "@/server/activity/service";
+import { storagePath } from "@/server/attachments/service";
 import { propagateDates } from "@/server/dependencies/scheduling";
 import type { DB, Executor } from "@/server/db/client";
 import { byPosition } from "@/server/db/order";
@@ -80,8 +80,13 @@ export async function createTask(db: DB, actor: Actor, raw: CreateTaskInput): Pr
       if (taskDepth(parent.path) >= MAX_TASK_DEPTH) {
         throw new DomainError("VALIDATION", `Unteraufgaben lassen sich höchstens ${MAX_TASK_DEPTH - 1} Ebenen tief verschachteln.`);
       }
-      const [last] = await tx.select({ max: sql<number>`coalesce(max(${tasks.number}), 0)::int` }).from(tasks).where(eq(tasks.parentId, parent.id));
-      number = last.max + 1;
+      // A counter instead of max(number)+1: after a delete the highest number would be handed out again.
+      const [{ subtaskCounter }] = await tx
+        .update(tasks)
+        .set({ subtaskCounter: sql`${tasks.subtaskCounter} + 1` })
+        .where(eq(tasks.id, parent.id))
+        .returning({ subtaskCounter: tasks.subtaskCounter });
+      number = subtaskCounter;
       path = `${parent.path}.${number}`;
     } else {
       const [{ taskCounter }] = await tx
@@ -278,7 +283,8 @@ export async function moveTask(db: DB, actor: Actor, taskId: string, raw: MoveTa
 
 /**
  * Deletes the task with everything under it: subtasks, comments, checklist, links and attachments (rows and files).
- * Gone for good – the project keeps a line in its activity log. Returns how many tasks went (the task and its subtasks).
+ * Gone for good. A "task.deleted" line (without a task reference) is written for the audit trail; nothing shows it yet.
+ * Returns how many tasks went (the task and its subtasks).
  */
 export async function deleteTask(db: DB, actor: Actor, taskId: string, uploadDir: string): Promise<{ deleted: number }> {
   const { deleted, storageKeys } = await db.transaction(async (tx) => {
@@ -291,8 +297,11 @@ export async function deleteTask(db: DB, actor: Actor, taskId: string, uploadDir
     const family = await tx
       .select({ id: tasks.id })
       .from(tasks)
-      .where(and(eq(tasks.projectId, task.projectId), or(eq(tasks.id, task.id), like(tasks.path, `${task.path}.%`))));
+      .where(and(eq(tasks.projectId, task.projectId), or(eq(tasks.id, task.id), like(tasks.path, `${task.path}.%`))))
+      .for("update");
     const ids = family.map((row) => row.id);
+    // A concurrent delete of the same task finished while this one waited for the project lock.
+    if (!ids.includes(task.id)) throw new DomainError("NOT_FOUND", "Aufgabe nicht gefunden.");
     const files = await tx.select({ storageKey: attachments.storageKey }).from(attachments).where(inArray(attachments.taskId, ids));
 
     // Foreign keys cascade to subtasks, comments, checklist, assignees, labels, links, attachments and the task's activity.
@@ -306,7 +315,10 @@ export async function deleteTask(db: DB, actor: Actor, taskId: string, uploadDir
     });
     return { deleted: ids.length, storageKeys: files.map((file) => file.storageKey) };
   });
-  // Rows are gone; the files follow. Storage keys are server-generated UUIDs inside uploadDir.
-  await Promise.all(storageKeys.map((key) => rm(resolve(uploadDir, key), { force: true })));
+  // Rows are gone; the files follow. A file that cannot be removed is logged, not thrown: the delete has happened.
+  const results = await Promise.allSettled(storageKeys.map(async (key) => rm(storagePath(uploadDir, key), { force: true })));
+  for (const result of results) {
+    if (result.status === "rejected") console.error("Anhang-Datei konnte nicht gelöscht werden", result.reason);
+  }
   return { deleted };
 }

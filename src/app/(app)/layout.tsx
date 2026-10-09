@@ -47,7 +47,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     isAdmin ? serverSettings() : null,
   ]);
   const pinned = new Set(pinnedIds);
-  // Folders are only named for people who are in them; others see their projects there without a folder.
+  // Folders are only named for people who are in them; others see their projects there without a folder
+  // (and cannot drag them: a drop would silently pull the project out of the folder they cannot see).
   const folderIds = new Set(folders.map((f) => f.id));
   return (
     <>
@@ -56,7 +57,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         sidebar={
           <Sidebar
             user={{ name: actor.name, email: actor.email }}
-            projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key, pinned: pinned.has(p.id), folderId: p.folderId && folderIds.has(p.folderId) ? p.folderId : null, canMove: p.role === "owner" }))}
+            projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key, pinned: pinned.has(p.id), folderId: p.folderId && folderIds.has(p.folderId) ? p.folderId : null, canMove: p.role === "owner" && !(p.folderId && !folderIds.has(p.folderId)) }))}
             folders={folders}
             initialUnread={initialUnread}
           />

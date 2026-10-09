@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  closestCorners,
   DndContext,
   DragOverlay,
   KeyboardSensor,
@@ -9,8 +8,6 @@ import {
   useDroppable,
   useSensor,
   useSensors,
-  pointerWithin,
-  type CollisionDetection,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
@@ -22,6 +19,7 @@ import { toast } from "sonner";
 import { moveTaskAction } from "@/app/(app)/tasks/actions";
 import { QuickAdd } from "@/components/tasks/quick-add";
 import { useTaskHref } from "@/components/tasks/use-task-href";
+import { COLUMN_PREFIX, collisionUnderPointer } from "@/lib/board-collision";
 import { applyMove, planDrop, previewMove, type MovePlan } from "@/lib/board-move";
 import type { CardDensity } from "@/lib/enums";
 import type { TaskListRow } from "@/server/tasks/queries";
@@ -29,42 +27,6 @@ import { BoardCard } from "./board-card";
 
 export type BoardColumn = { id: string; name: string; color: string };
 type Card = TaskListRow & { statusId: string };
-
-const COLUMN_PREFIX = "column:";
-
-/**
- * Which column or card the drop lands on: the one under the pointer. dnd-kit's rectangle-based detectors compare
- * the dragged card's corners with their targets – with columns as wide as on a 34" monitor the grabbed card then
- * hangs far out of the column the pointer is in, and a neighbour's corners are closer. Keyboard drags have no pointer
- * and keep the corner comparison.
- */
-const collisionUnderPointer: CollisionDetection = (args) => {
-  const { pointerCoordinates, droppableRects, droppableContainers } = args;
-  if (!pointerCoordinates) return closestCorners(args);
-  const hits = pointerWithin(args);
-  if (hits.length === 0) return closestCorners(args);
-  const isColumn = (id: string | number) => String(id).startsWith(COLUMN_PREFIX);
-  // A card under the pointer wins over the column that holds it.
-  const card = hits.find((hit) => !isColumn(hit.id));
-  if (card) return [card];
-  const column = hits[0];
-  const columnRect = droppableRects.get(column.id);
-  if (!columnRect) return [column];
-  // Pointer in the column but between cards (or above/below them): the card nearest to it, so the drop lands in
-  // that slot; below the last card the column itself stands for "to the end".
-  const cardsInColumn = droppableContainers.flatMap((container) => {
-    const rect = droppableRects.get(container.id);
-    const inside = rect && rect.left >= columnRect.left && rect.right <= columnRect.right && rect.top >= columnRect.top && rect.bottom <= columnRect.bottom;
-    return !isColumn(container.id) && inside ? [{ container, rect }] : [];
-  });
-  if (cardsInColumn.length === 0) return [column];
-  const lastBottom = Math.max(...cardsInColumn.map(({ rect }) => rect.bottom));
-  if (pointerCoordinates.y > lastBottom) return [column];
-  const nearest = cardsInColumn
-    .map(({ container, rect }) => ({ container, distance: Math.abs(rect.top + rect.height / 2 - pointerCoordinates.y) }))
-    .sort((a, b) => a.distance - b.distance)[0];
-  return [{ id: nearest.container.id, data: { droppableContainer: nearest.container, value: nearest.distance } }];
-};
 
 export function Board(props: {
   projectId: string;
@@ -191,7 +153,7 @@ function Column(props: {
           />
         </div>
       )}
-      <SortableContext items={props.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+      <SortableContext id={props.column.id} items={props.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
         <ul className="min-h-8 space-y-2">
           {props.cards.map((card) => (
             <SortableCard
