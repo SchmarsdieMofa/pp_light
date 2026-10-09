@@ -61,7 +61,8 @@ export function Board(props: {
   }
 
   function onDragOver(event: DragOverEvent) {
-    if (!event.over) return;
+    // Pointer left the board: the drop would be cancelled, so the preview goes back to where the card was.
+    if (!event.over) return setLive(cards);
     const target = overTarget(event.over);
     setLive((current) => previewMove(current ?? cards, String(event.active.id), target));
   }

@@ -19,7 +19,7 @@ export function NotificationSettings({ disabled }: { disabled: NotificationType[
     run(
       () => saveNotificationPreferencesAction(next),
       undefined,
-      () => setOff((current) => (send ? [...current, type] : current.filter((t) => t !== type))),
+      () => setOff((current) => (send ? (current.includes(type) ? current : [...current, type]) : current.filter((t) => t !== type))),
     );
   }
 

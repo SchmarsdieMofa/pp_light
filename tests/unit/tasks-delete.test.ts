@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { saveAttachment } from "@/server/attachments/service";
 import { createComment } from "@/server/comments/service";
 import { activityLog, attachments, comments, tasks } from "@/server/db/schema";
@@ -102,6 +102,27 @@ describe("deleteTask", () => {
     await deleteTask(testDb, ada, second.id, uploadDir);
     const third = await createTask(testDb, ada, { projectId: project.id, title: "Drei", parentId: parent.id });
     expect(third).toMatchObject({ path: "1.3", number: 3 });
+  });
+
+  it("lets only one of two simultaneous deletes through", async () => {
+    const { ada, parent } = await setup();
+    const results = await Promise.allSettled([deleteTask(testDb, ada, parent.id, uploadDir), deleteTask(testDb, ada, parent.id, uploadDir)]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const failed = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(failed.reason).toMatchObject({ code: "NOT_FOUND" });
+    // Exactly one "deleted" line, not a second one for a task that was already gone.
+    const log = await testDb.select().from(activityLog).where(eq(activityLog.action, "task.deleted"));
+    expect(log).toHaveLength(1);
+  });
+
+  it("still deletes when a stored file cannot be removed", async () => {
+    const { ada, other } = await setup();
+    // A key that escapes the upload directory is refused by the storage guard – the delete must not fail because of it.
+    await testDb.insert(attachments).values({ taskId: other.id, filename: "x", mime: "text/plain", size: 1, storageKey: "../x", uploadedBy: ada.id });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await deleteTask(testDb, ada, other.id, uploadDir)).toEqual({ deleted: 1 });
+    log.mockRestore();
+    expect(await testDb.select({ id: tasks.id }).from(tasks).where(eq(tasks.id, other.id))).toHaveLength(0);
   });
 
   it("is open to members, not to guests or outsiders", async () => {

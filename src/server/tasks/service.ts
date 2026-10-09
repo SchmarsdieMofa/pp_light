@@ -73,6 +73,9 @@ export async function createTask(db: DB, actor: Actor, raw: CreateTaskInput): Pr
     let number: number;
     let path: string;
     if (input.parentId) {
+      // Same lock order as update, move and delete (project first, then task rows): the inserts below take a
+      // KEY SHARE on the project row, which would otherwise deadlock against a delete holding the project lock.
+      await tx.select({ id: projects.id }).from(projects).where(eq(projects.id, input.projectId)).for("update");
       const [parent] = await tx.select().from(tasks).where(eq(tasks.id, input.parentId)).limit(1).for("update");
       if (!parent || parent.projectId !== input.projectId) {
         throw new DomainError("VALIDATION", "Übergeordnete Aufgabe nicht gefunden.");
