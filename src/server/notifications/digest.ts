@@ -1,4 +1,5 @@
 import { and, asc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
+import { DEFAULT_DISABLED_EMAIL_TYPES } from "@/lib/notification-types";
 import type { DB } from "@/server/db/client";
 import { mailOutbox, notificationPreferences, notifications, projectAccess, users } from "@/server/db/schema";
 import { sendMail } from "@/server/mail/service";
@@ -49,10 +50,12 @@ export async function sendPendingDigests(db: DB, now = new Date()): Promise<numb
           .orderBy(asc(notifications.createdAt))
           .limit(100);
         if (pending.length === 0) return;
+        // No row yet: nobody has chosen, the defaults apply.
+        const disabledTypes: readonly string[] = prefs ? prefs.disabledEmailTypes : DEFAULT_DISABLED_EMAIL_TYPES;
         const enabled = pending.filter(
           (notice) =>
             (!notice.projectId || notice.memberId) &&
-            !prefs?.disabledEmailTypes.includes(notice.type),
+            !disabledTypes.includes(notice.type),
         );
         if (enabled.length > 0) {
           await sendMail(

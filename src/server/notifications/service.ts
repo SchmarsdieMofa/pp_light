@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNull, lte, not, sql } from "drizzle-orm";
 import type { Executor, DB } from "@/server/db/client";
 import { z } from "zod";
-import { NOTIFICATION_TYPES, type NotificationType } from "@/lib/notification-types";
+import { DEFAULT_DISABLED_EMAIL_TYPES, NOTIFICATION_TYPES, type NotificationType } from "@/lib/notification-types";
 import {
   commentMentions, notificationPreferences, notifications, projectAccess, projects, statuses,
   taskAssignees, tasks, users,
@@ -103,7 +103,8 @@ export async function markAllNotificationsRead(db: DB, actor: Actor): Promise<vo
 
 export async function getNotificationPreferences(db: DB, userId: string): Promise<NotificationType[]> {
   const [row] = await db.select().from(notificationPreferences).where(eq(notificationPreferences.userId, userId));
-  return (row?.disabledEmailTypes ?? []).filter((type): type is NotificationType => NOTIFICATION_TYPES.includes(type as NotificationType));
+  // Nobody has chosen yet: the defaults apply.
+  return (row ? row.disabledEmailTypes : [...DEFAULT_DISABLED_EMAIL_TYPES]).filter((type): type is NotificationType => NOTIFICATION_TYPES.includes(type as NotificationType));
 }
 
 export async function setNotificationPreferences(db: DB, userId: string, disabled: string[]): Promise<void> {

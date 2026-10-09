@@ -67,4 +67,11 @@ describe("notifications", () => {
     expect(await getNotificationPreferences(testDb, mia.id)).toEqual(["comment", "mentioned"]);
     await expect(setNotificationPreferences(testDb, mia.id, ["other"])).rejects.toMatchObject({ code: "VALIDATION" });
   });
+
+  it("turns assignment and status e-mails off until a person chooses otherwise", async () => {
+    const { mia } = await setup();
+    expect(await getNotificationPreferences(testDb, mia.id)).toEqual(["assigned", "status"]);
+    await setNotificationPreferences(testDb, mia.id, []);
+    expect(await getNotificationPreferences(testDb, mia.id)).toEqual([]);
+  });
 });

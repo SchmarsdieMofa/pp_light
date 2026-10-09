@@ -352,7 +352,7 @@ export const notifications = pgTable(
 
 export const notificationPreferences = pgTable("notification_preferences", {
   userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
-  disabledEmailTypes: jsonb("disabled_email_types").$type<string[]>().notNull().default([]),
+  disabledEmailTypes: jsonb("disabled_email_types").$type<string[]>().notNull().default(["assigned", "status"]),
   lastDigestAt: timestamp("last_digest_at", { withTimezone: true }),
 });
 

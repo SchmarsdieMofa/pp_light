@@ -17,7 +17,7 @@ describe("mail delivery", () => {
     const ada = await makeActor("ada@example.com");
     const { project } = await makeProject(ada, "DIG");
     await testDb.insert(notifications).values({ userId: ada.id, projectId: project.id,
-      type: "assigned", message: "First", eventKey: "first" });
+      type: "comment", message: "First", eventKey: "first" });
     const start = new Date("2026-10-01T10:00:00Z");
     expect(await sendPendingDigests(testDb, start)).toBe(1);
     expect(sendMail).toHaveBeenCalledTimes(1);
@@ -25,12 +25,32 @@ describe("mail delivery", () => {
       type: "mentioned", message: "Second", eventKey: "second" });
     expect(await sendPendingDigests(testDb, new Date(start.getTime() + 9 * 60_000))).toBe(0);
     expect(await sendPendingDigests(testDb, new Date(start.getTime() + 10 * 60_000))).toBe(1);
-    await setNotificationPreferences(testDb, ada.id, ["status"]);
+    await setNotificationPreferences(testDb, ada.id, ["comment"]);
     await testDb.insert(notifications).values({ userId: ada.id, projectId: project.id,
-      type: "status", message: "Hidden", eventKey: "third" });
+      type: "comment", message: "Hidden", eventKey: "third" });
     expect(await sendPendingDigests(testDb, new Date(start.getTime() + 20 * 60_000))).toBe(0);
     expect(sendMail).toHaveBeenCalledTimes(2);
     expect((await testDb.select().from(notifications).where(eq(notifications.eventKey, "third")))[0].emailedAt).not.toBeNull();
+  });
+
+  it("sends no mail for assignments and status changes until the person turns them on", async () => {
+    const ada = await makeActor("ada@example.com");
+    const { project } = await makeProject(ada, "DEF");
+    await testDb.insert(notifications).values([
+      { userId: ada.id, projectId: project.id, type: "assigned", message: "Assigned", eventKey: "a" },
+      { userId: ada.id, projectId: project.id, type: "status", message: "Status", eventKey: "s" },
+    ]);
+    const start = new Date("2026-10-01T10:00:00Z");
+    expect(await sendPendingDigests(testDb, start)).toBe(0);
+    expect(sendMail).not.toHaveBeenCalled();
+    // The digest stores its timestamp in a preferences row; that row must not switch the defaults off.
+    await testDb.insert(notifications).values({ userId: ada.id, projectId: project.id, type: "comment", message: "Comment", eventKey: "c" });
+    expect(await sendPendingDigests(testDb, new Date(start.getTime() + 20 * 60_000))).toBe(1);
+    await testDb.insert(notifications).values({ userId: ada.id, projectId: project.id, type: "status", message: "Status 2", eventKey: "s2" });
+    expect(await sendPendingDigests(testDb, new Date(start.getTime() + 40 * 60_000))).toBe(0);
+    await setNotificationPreferences(testDb, ada.id, []);
+    await testDb.insert(notifications).values({ userId: ada.id, projectId: project.id, type: "status", message: "Status 3", eventKey: "s3" });
+    expect(await sendPendingDigests(testDb, new Date(start.getTime() + 60 * 60_000))).toBe(1);
   });
 
   it("keeps failed outbox mail pending for retry", async () => {
