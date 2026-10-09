@@ -9,6 +9,8 @@ import {
   useDroppable,
   useSensor,
   useSensors,
+  pointerWithin,
+  type CollisionDetection,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
@@ -29,6 +31,40 @@ export type BoardColumn = { id: string; name: string; color: string };
 type Card = TaskListRow & { statusId: string };
 
 const COLUMN_PREFIX = "column:";
+
+/**
+ * Which column or card the drop lands on: the one under the pointer. dnd-kit's rectangle-based detectors compare
+ * the dragged card's corners with their targets – with columns as wide as on a 34" monitor the grabbed card then
+ * hangs far out of the column the pointer is in, and a neighbour's corners are closer. Keyboard drags have no pointer
+ * and keep the corner comparison.
+ */
+const collisionUnderPointer: CollisionDetection = (args) => {
+  const { pointerCoordinates, droppableRects, droppableContainers } = args;
+  if (!pointerCoordinates) return closestCorners(args);
+  const hits = pointerWithin(args);
+  if (hits.length === 0) return closestCorners(args);
+  const isColumn = (id: string | number) => String(id).startsWith(COLUMN_PREFIX);
+  // A card under the pointer wins over the column that holds it.
+  const card = hits.find((hit) => !isColumn(hit.id));
+  if (card) return [card];
+  const column = hits[0];
+  const columnRect = droppableRects.get(column.id);
+  if (!columnRect) return [column];
+  // Pointer in the column but between cards (or above/below them): the card nearest to it, so the drop lands in
+  // that slot; below the last card the column itself stands for "to the end".
+  const cardsInColumn = droppableContainers.flatMap((container) => {
+    const rect = droppableRects.get(container.id);
+    const inside = rect && rect.left >= columnRect.left && rect.right <= columnRect.right && rect.top >= columnRect.top && rect.bottom <= columnRect.bottom;
+    return !isColumn(container.id) && inside ? [{ container, rect }] : [];
+  });
+  if (cardsInColumn.length === 0) return [column];
+  const lastBottom = Math.max(...cardsInColumn.map(({ rect }) => rect.bottom));
+  if (pointerCoordinates.y > lastBottom) return [column];
+  const nearest = cardsInColumn
+    .map(({ container, rect }) => ({ container, distance: Math.abs(rect.top + rect.height / 2 - pointerCoordinates.y) }))
+    .sort((a, b) => a.distance - b.distance)[0];
+  return [{ id: nearest.container.id, data: { droppableContainer: nearest.container, value: nearest.distance } }];
+};
 
 export function Board(props: {
   projectId: string;
@@ -93,7 +129,7 @@ export function Board(props: {
     <DndContext
       id={dndId}
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collisionUnderPointer}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}

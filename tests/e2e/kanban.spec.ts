@@ -187,3 +187,68 @@ test("adds members, assigns them and protects the last owner", async ({ page }) 
   await panel.getByRole("link", { name: "Schließen" }).click();
   await expect(card(page, "Offen", "Team-Aufgabe")).toContainText("MM");
 });
+
+test.describe("on an ultrawide screen", () => {
+  // 34" monitors: columns are ~780px wide, so a grabbed card hangs far out of the column the pointer is in.
+  test.use({ viewport: { width: 3440, height: 1300 } });
+
+  /** Grab a card at `grab` (0..1 of its width), drop with the pointer at `at` (0..1 of the column's width and height). */
+  async function dropCard(page: Page, title: string, column: string, grab: number, at: { x: number; y: number }) {
+    const source = card(page, "Offen", title);
+    await expect(async () => {
+      const first = await source.boundingBox();
+      await page.waitForTimeout(150);
+      expect(await source.boundingBox()).toEqual(first);
+    }).toPass();
+    const from = (await source.boundingBox())!;
+    const to = (await page.getByRole("region", { name: column }).boundingBox())!;
+    const startX = from.x + from.width * grab;
+    const startY = from.y + from.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX + 8, startY + 8, { steps: 4 });
+    await page.mouse.move(to.x + to.width * at.x, to.y + to.height * at.y, { steps: 20 });
+    await page.mouse.up();
+    await expect(card(page, column, title)).toBeVisible();
+  }
+
+  test("a card dropped into an empty column lands in the column under the pointer, wherever it was grabbed", async ({ page }) => {
+    await login(page);
+    await createProjectViaUi(page, "Ultrawide", "ult");
+    await addInColumn(page, "Offen", "Karte A");
+    await addInColumn(page, "Offen", "Karte B");
+    await addInColumn(page, "Offen", "Karte C");
+    const saved = serverActions(page, 3);
+
+    // Grabbed at the far end of the card, dropped near the column's near edge: the card itself reaches into the neighbour.
+    await dropCard(page, "Karte A", "Review", 0.9, { x: 0.1, y: 0.05 });
+    await dropCard(page, "Karte B", "Fertig", 0.9, { x: 0.1, y: 0.5 });
+    await dropCard(page, "Karte C", "Fertig", 0.5, { x: 0.1, y: 0.05 });
+    await saved;
+    await page.reload();
+    await expect(card(page, "Review", "Karte A")).toBeVisible();
+    await expect(card(page, "Fertig", "Karte B")).toBeVisible();
+    await expect(card(page, "Fertig", "Karte C")).toBeVisible();
+  });
+
+  test("a card dropped in the gap between two cards of its column takes that slot", async ({ page }) => {
+    await login(page);
+    await createProjectViaUi(page, "Ultrawide Reihenfolge", "ulr");
+    await addInColumn(page, "Offen", "Karte A");
+    await addInColumn(page, "Offen", "Karte B");
+    await addInColumn(page, "Offen", "Karte C");
+    await expect(page.getByRole("region", { name: "Offen" }).getByRole("link")).toHaveText([/Karte C/, /Karte B/, /Karte A/]);
+    const saved = serverActions(page, 1);
+
+    const a = (await card(page, "Offen", "Karte A").boundingBox())!;
+    const b = (await card(page, "Offen", "Karte B").boundingBox())!;
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(a.x + a.width / 2 + 8, a.y + a.height / 2 - 8, { steps: 4 });
+    // Between B's top edge and C's bottom edge, a hair towards B.
+    await page.mouse.move(b.x + b.width / 2, b.y - 3, { steps: 15 });
+    await page.mouse.up();
+    await expect(page.getByRole("region", { name: "Offen" }).getByRole("link")).toHaveText([/Karte C/, /Karte A/, /Karte B/]);
+    await saved;
+  });
+});
