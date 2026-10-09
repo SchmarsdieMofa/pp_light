@@ -75,3 +75,44 @@ test("admins queue a backup from the settings", async ({ page }) => {
   await expect(dialog.getByRole("button", { name: "Backup läuft…" })).toBeDisabled();
   await expect(dialog.getByRole("list", { name: "Letzte Backups" })).toContainText("Wartet");
 });
+
+test("email notifications live in their own settings tab; assignments and status changes are off by default", async ({ page }) => {
+  const email = `mail-${crypto.randomUUID().slice(0, 8)}@example.com`;
+  const db = createDb(E2E_DATABASE_URL);
+  try {
+    await createUser(db, { email, name: "Mara Mail", password: "MailPasswort123!" });
+  } finally {
+    await db.$client.end();
+  }
+  await login(page, email, "MailPasswort123!");
+
+  await page.goto("/?settings=benachrichtigungen");
+  const dialog = page.getByRole("dialog", { name: "Einstellungen" });
+  await expect(dialog.getByRole("link", { name: "Benachrichtigungen" })).toHaveAttribute("aria-current", "page");
+  const box = (name: string) => dialog.getByRole("checkbox", { name });
+  await expect(box("Zuweisung")).not.toBeChecked();
+  await expect(box("Statuswechsel")).not.toBeChecked();
+  await expect(box("Kommentar")).toBeChecked();
+
+  // A switch saves on its own and survives a reload (Next runs the two actions one after another: wait for both).
+  const saved = (async () => {
+    for (let seen = 0; seen < 2; seen++) {
+      await page.waitForResponse((r) => r.request().method() === "POST" && "next-action" in r.request().headers());
+    }
+  })();
+  await box("Zuweisung").click();
+  await box("Kommentar").click();
+  await expect(box("Zuweisung")).toBeChecked();
+  await saved;
+  await page.reload();
+  await expect(box("Zuweisung")).toBeChecked();
+  await expect(box("Kommentar")).not.toBeChecked();
+  await expect(box("Statuswechsel")).not.toBeChecked();
+
+  // The inbox no longer carries the form; it points here.
+  await page.keyboard.press("Escape");
+  await page.goto("/inbox");
+  await page.getByRole("link", { name: "E-Mail-Einstellungen" }).click();
+  await expect(page).toHaveURL(/settings=benachrichtigungen/);
+  await expect(dialog.getByRole("link", { name: "Benachrichtigungen" })).toHaveAttribute("aria-current", "page");
+});

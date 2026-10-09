@@ -13,7 +13,7 @@ import { getPreferences } from "@/server/preferences/service";
 import { listFolders } from "@/server/folders/service";
 import { listPinnedProjectIds } from "@/server/projects/pins";
 import { listProjectsForUser } from "@/server/projects/service";
-import { unreadCount } from "@/server/notifications/service";
+import { getNotificationPreferences, unreadCount } from "@/server/notifications/service";
 import { hasPassword } from "@/server/users/account";
 import { listUsers } from "@/server/users/invitations";
 import { listGroups } from "@/server/groups/service";
@@ -33,12 +33,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Admins run the system (backups, server, roles); managers only the people (users, groups).
   const isAdmin = can(actor, "system.manage");
   const managesPeople = can(actor, "users.manage");
-  const [projects, pinnedIds, folders, prefs, initialUnread, withPassword, users, groups, backups, server] = await Promise.all([
+  const [projects, pinnedIds, folders, prefs, initialUnread, emailDisabled, withPassword, users, groups, backups, server] = await Promise.all([
     listProjectsForUser(db(), actor),
     listPinnedProjectIds(db(), actor.id),
     listFolders(db(), actor),
     getPreferences(db(), actor.id),
     unreadCount(db(), actor),
+    getNotificationPreferences(db(), actor.id),
     hasPassword(db(), actor),
     managesPeople ? listUsers(db(), actor) : null,
     can(actor, "groups.manage") ? listGroups(db(), actor) : null,
@@ -65,7 +66,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </AppShell>
       <Suspense>
         <SettingsOverlay
-          data={{ name: actor.name, email: actor.email, ownId: actor.id, ownRole: actor.role, hasPassword: withPassword, cardDensity: prefs.cardDensity, users, groups, backups, server }}
+          data={{ name: actor.name, email: actor.email, ownId: actor.id, ownRole: actor.role, hasPassword: withPassword, cardDensity: prefs.cardDensity, emailDisabled, users, groups, backups, server }}
         />
       </Suspense>
       <CommandCenter projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key }))} />

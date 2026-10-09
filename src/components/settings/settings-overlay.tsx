@@ -11,12 +11,14 @@ import { ThemeToggle } from "@/components/shell/user-menu";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { CardDensity, GlobalRole } from "@/lib/enums";
+import type { NotificationType } from "@/lib/notification-types";
 import { isTypingTarget } from "@/lib/shortcuts";
 import { buildHref, normalizeSearchParams } from "@/lib/urls";
 import { cn } from "@/lib/utils";
 import type { BackupRun } from "@/server/backups/service";
 import type { GroupRow } from "@/server/groups/service";
 import { PasswordForm, ProfileForm } from "./account-settings";
+import { NotificationSettings } from "./notification-settings";
 import { BackupPanel } from "./backup-panel";
 import { ServerPanel, type ServerSettings } from "./server-panel";
 import { SETTINGS_PARAM, useSettingsHref } from "./use-settings-href";
@@ -28,6 +30,8 @@ export type SettingsData = {
   ownRole: GlobalRole;
   hasPassword: boolean;
   cardDensity: CardDensity;
+  /** Notification types that send no e-mail. */
+  emailDisabled: NotificationType[];
   /** Only for admins. */
   users: UserRow[] | null;
   /** Only for admins. */
@@ -61,13 +65,19 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
   const hrefFor = useSettingsHref();
   const requested = searchParams.get(SETTINGS_PARAM);
   const tab =
-    requested === "nutzer" && data.users ? "nutzer" : requested === "gruppen" && data.users && data.groups ? "gruppen" : requested === "backups" && data.backups
-        ? "backups"
-        : requested === "server" && data.server
-          ? "server"
-          : requested
-            ? "konto"
-            : null;
+    requested === "benachrichtigungen"
+      ? "benachrichtigungen"
+      : requested === "nutzer" && data.users
+        ? "nutzer"
+        : requested === "gruppen" && data.users && data.groups
+          ? "gruppen"
+          : requested === "backups" && data.backups
+            ? "backups"
+            : requested === "server" && data.server
+              ? "server"
+              : requested
+                ? "konto"
+                : null;
   if (!tab) return null;
   // Lists and tables use the full width; forms stay readable at a narrower one.
   const wide = tab === "nutzer" || tab === "gruppen";
@@ -80,6 +90,7 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
 
   const tabs = [
     { value: "konto" as const, label: "Mein Konto" },
+    { value: "benachrichtigungen" as const, label: "Benachrichtigungen" },
     ...(data.users ? [{ value: "nutzer" as const, label: "Nutzerverwaltung" }] : []),
     ...(data.users && data.groups ? [{ value: "gruppen" as const, label: "Gruppen" }] : []),
     ...(data.backups ? [{ value: "backups" as const, label: "Backups" }] : []),
@@ -173,6 +184,10 @@ export function SettingsOverlay({ data }: { data: SettingsData }) {
                   )}
                 </Block>
               </>
+            ) : tab === "benachrichtigungen" ? (
+              <Block title="E-Mail-Benachrichtigungen" description="Wofür du zusätzlich zur Mitteilung im Postfach eine E-Mail bekommst. Mails werden gebündelt verschickt.">
+                <NotificationSettings disabled={data.emailDisabled} />
+              </Block>
             ) : tab === "nutzer" ? (
               <Block title="Nutzerverwaltung" description={data.ownRole === "admin" ? "Personen einladen, Rollen vergeben und Konten deaktivieren." : "Personen einladen und Konten von Mitgliedern deaktivieren."}>
                 <AdminUsers users={data.users!} ownId={data.ownId} ownRole={data.ownRole} />

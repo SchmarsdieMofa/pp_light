@@ -2,19 +2,17 @@ import Link from "next/link";
 import { InboxControls } from "@/components/notifications/inbox-controls";
 import { requireActor } from "@/server/auth/session";
 import { db } from "@/server/db/client";
-import { getNotificationPreferences, listNotifications } from "@/server/notifications/service";
+import { listNotifications } from "@/server/notifications/service";
 
 export default async function InboxPage() {
   const actor = await requireActor();
-  const [items, disabled] = await Promise.all([
-    listNotifications(db(), actor), getNotificationPreferences(db(), actor.id),
-  ]);
+  const items = await listNotifications(db(), actor);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6">
       <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <h1 className="text-xl font-semibold">Benachrichtigungen</h1>
-        <InboxControls disabled={disabled} />
+        <InboxControls />
       </div>
       {items.length === 0 ? <p className="text-sm text-muted-foreground">Noch keine Benachrichtigungen.</p> : (
         <ul className="divide-y rounded-md border" aria-label="Benachrichtigungen">
