@@ -104,7 +104,8 @@ test("plain members get no people or system administration", async ({ browser })
     await page.goto(`/?settings=${tab}`);
     const dialog = page.getByRole("dialog", { name: "Einstellungen" });
     await expect(dialog.getByRole("form", { name: "Passwort ändern" })).toBeVisible();
-    await expect(dialog.getByRole("navigation", { name: "Einstellungsbereiche" })).toHaveCount(0);
+    // Own account and notifications only – none of the people or system tabs.
+    await expect(dialog.getByRole("navigation", { name: "Einstellungsbereiche" }).getByRole("link")).toHaveText(["Mein Konto", "Benachrichtigungen"]);
   }
   await page.close();
 });

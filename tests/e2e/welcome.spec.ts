@@ -39,8 +39,13 @@ test("a new user gets the welcome tour once and can open it again", async ({ pag
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
   // Again from the shortcut help; closing drops ?welcome=1 from the address.
-  await page.keyboard.press("?");
-  await page.getByRole("dialog", { name: "Tastenkürzel" }).getByRole("button", { name: "Einführung ansehen" }).click();
+  // Right after a reload the shortcut listener may not be attached yet: press again until the help is there.
+  const help = page.getByRole("dialog", { name: "Tastenkürzel" });
+  await expect(async () => {
+    await page.keyboard.press("?");
+    await expect(help).toBeVisible({ timeout: 1000 });
+  }).toPass();
+  await help.getByRole("button", { name: "Einführung ansehen" }).click();
   await expect(page).toHaveURL(/\?welcome=1$/);
   await expect(tour.getByRole("heading", { name: "Willkommen, Nele!" })).toBeVisible();
   await tour.getByRole("button", { name: "Schließen" }).click();
