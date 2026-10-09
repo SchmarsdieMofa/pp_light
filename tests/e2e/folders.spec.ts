@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { choose, createProjectViaUi, E2E_MEMBER, login } from "./fixtures";
 
 test("people in a folder get every project in it; leaving the folder takes it away", async ({ page, browser }) => {
@@ -90,4 +90,42 @@ test("a project moves into a folder and out again from its settings", async ({ p
   await page.getByRole("dialog", { name: `Ordner „${folderName}“ löschen?` }).getByRole("button", { name: "Löschen" }).click();
   await expect(page.getByRole("button", { name: `Ordner ${folderName} verwalten` })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Projektliste" }).getByRole("link", { name: `Wandernd ${suffix}`, exact: true })).toBeVisible();
+});
+
+test("a project is dragged into a folder and out of it again", async ({ page }) => {
+  const suffix = crypto.randomUUID().slice(0, 4);
+  const folderName = `Zieh ${suffix}`;
+  const projectName = `Zieh-Projekt ${suffix}`;
+  await login(page);
+  const sidebar = page.getByRole("navigation", { name: "Hauptnavigation" });
+
+  await sidebar.getByRole("button", { name: "Neuer Ordner" }).click();
+  await page.getByLabel("Name", { exact: true }).fill(folderName);
+  await page.getByRole("button", { name: "Anlegen" }).click();
+  await expect(page.getByRole("dialog", { name: `Ordner ${folderName}` })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await createProjectViaUi(page, projectName, `Z${suffix}`.toUpperCase());
+
+  const section = sidebar.getByRole("group", { name: `Ordner ${folderName}` });
+  const project = new RegExp(projectName);
+  const drag = async (from: Locator, to: () => Locator) => {
+    const source = (await from.boundingBox())!;
+    await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(source.x + source.width / 2 + 10, source.y + source.height / 2 + 10, { steps: 3 });
+    // The drop targets are measured once the drag is on (a hint appears in the unfoldered list).
+    await expect(to()).toBeVisible();
+    const target = (await to().boundingBox())!;
+    await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 8 });
+    await page.mouse.up();
+  };
+
+  await drag(sidebar.getByRole("link", { name: project }), () => section);
+  await expect(page.getByText(`${projectName} liegt jetzt im Ordner ${folderName}`)).toBeVisible();
+  await expect(section.getByRole("link", { name: project })).toBeVisible();
+
+  await drag(section.getByRole("link", { name: project }), () => sidebar.locator("#sidebar-projects"));
+  await expect(page.getByText(`${projectName} liegt in keinem Ordner mehr`)).toBeVisible();
+  await expect(section.getByRole("link", { name: project })).toHaveCount(0);
+  await expect(sidebar.locator("#sidebar-projects").getByRole("link", { name: project })).toBeVisible();
 });

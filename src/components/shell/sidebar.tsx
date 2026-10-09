@@ -3,7 +3,9 @@
 import { Archive, CalendarDays, ChevronRight, Folder as FolderIcon, FolderKanban, Home, Pin, Search, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useState, useSyncExternalStore } from "react";
+import { createContext, useCallback, useContext, useState, useSyncExternalStore } from "react";
+import { toast } from "sonner";
+import { moveProjectToFolderAction } from "@/app/(app)/folders/actions";
 import { OPEN_PALETTE_EVENT } from "@/components/shell/command-center";
 import { FolderDialog } from "@/components/folders/folder-dialog";
 import { NewFolderButton } from "@/components/folders/new-folder-button";
@@ -22,6 +24,8 @@ export type SidebarProject = {
   pinned: boolean;
   /** Only set for folders the person is in themselves. */
   folderId: string | null;
+  /** Moving a project between folders is up to its owners. */
+  canMove: boolean;
 };
 export type SidebarFolder = { id: string; name: string; role: ProjectRole };
 
@@ -118,8 +122,24 @@ function SidebarProjects({ projects, folders, pathname }: { projects: SidebarPro
   const unpinned = projects.filter((p) => !p.pinned);
   const others = unpinned.filter((p) => !p.folderId || !folders.some((f) => f.id === p.folderId));
   const isActive = (p: SidebarProject) => pathname.startsWith(`/projects/${p.id}`);
+  const [dragging, setDragging] = useState<SidebarProject | null>(null);
+  const drag: ProjectDrag = {
+    dragging,
+    start: setDragging,
+    end: () => setDragging(null),
+    async move(projectId, folder) {
+      const project = projects.find((p) => p.id === projectId);
+      setDragging(null);
+      if (!project || project.folderId === (folder?.id ?? null)) return;
+      const res = await moveProjectToFolderAction(project.id, folder?.id ?? null);
+      if (res.ok) toast.success(folder ? `${project.name} liegt jetzt im Ordner ${folder.name}` : `${project.name} liegt in keinem Ordner mehr`);
+      else toast.error(res.error.message);
+    },
+  };
+  // Leaving a folder needs a place to drop: while a project of a folder is dragged, the unfoldered list is always there.
+  const showOthers = others.length > 0 || (dragging?.folderId != null && dragging.canMove);
   return (
-    <>
+    <ProjectDragContext.Provider value={drag}>
       {pinned.length > 0 && (
         <>
           <h2 className="mt-4 flex items-center gap-1 px-2 py-1 text-xs font-medium uppercase text-muted-foreground">
@@ -142,9 +162,49 @@ function SidebarProjects({ projects, folders, pathname }: { projects: SidebarPro
           isActive={isActive}
         />
       ))}
-      {others.length > 0 && <ProjectsSection title="Projekte" storageKey={PROJECTS_KEY} listId="sidebar-projects" projects={others} isActive={isActive} />}
-    </>
+      {showOthers && <ProjectsSection title="Projekte" storageKey={PROJECTS_KEY} listId="sidebar-projects" projects={others} isActive={isActive} />}
+    </ProjectDragContext.Provider>
   );
+}
+
+const PROJECT_DRAG = "application/x-pp-project";
+
+type ProjectDrag = {
+  /** The project being dragged by a person who may move it. */
+  dragging: SidebarProject | null;
+  start: (project: SidebarProject) => void;
+  end: () => void;
+  /** Drop on a folder, or on the unfoldered list (`null`). */
+  move: (projectId: string, folder: SidebarFolder | null) => Promise<void>;
+};
+
+const ProjectDragContext = createContext<ProjectDrag>({ dragging: null, start: () => {}, end: () => {}, move: async () => {} });
+
+/** Native drag and drop target for projects: highlighted while a project hovers it. */
+function useProjectDropTarget(enabled: boolean, folder: SidebarFolder | null) {
+  const drag = useContext(ProjectDragContext);
+  const [over, setOver] = useState(false);
+  const active = enabled && drag.dragging !== null;
+  const props = active
+    ? {
+        onDragOver(event: React.DragEvent) {
+          if (!event.dataTransfer.types.includes(PROJECT_DRAG)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          setOver(true);
+        },
+        onDragLeave(event: React.DragEvent) {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(false);
+        },
+        onDrop(event: React.DragEvent) {
+          event.preventDefault();
+          setOver(false);
+          const id = event.dataTransfer.getData(PROJECT_DRAG);
+          if (id) void drag.move(id, folder);
+        },
+      }
+    : {};
+  return { props, over: active && over, hint: active };
 }
 
 function SectionToggle(props: { title: string; collapsed: boolean; onToggle: () => void; controls: string; count: number; icon?: React.ReactNode; className?: string }) {
@@ -167,15 +227,19 @@ function SectionToggle(props: { title: string; collapsed: boolean; onToggle: () 
 function ProjectsSection(props: { title: string; storageKey: string; listId: string; projects: SidebarProject[]; isActive: (p: SidebarProject) => boolean }) {
   const [collapsed, setCollapsed] = useCollapsed(props.storageKey);
   const shown = collapsed ? props.projects.filter(props.isActive) : props.projects;
+  const { dragging } = useContext(ProjectDragContext);
+  // Only a project that sits in a folder can be dropped here (out of the folder).
+  const drop = useProjectDropTarget(dragging?.folderId != null, null);
   return (
-    <>
+    <div {...drop.props} className={cn("rounded-md", drop.over && "bg-accent/60 ring-2 ring-primary/40")}>
       <SectionToggle title={props.title} collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} controls={props.listId} count={props.projects.length} className="mt-4" />
       <ul id={props.listId} className="flex flex-col gap-1">
         {shown.map((p) => (
           <ProjectRow key={p.id} project={p} active={props.isActive(p)} />
         ))}
+        {drop.hint && <li className="px-2 py-1 text-xs text-muted-foreground">Hierher ziehen: kein Ordner</li>}
       </ul>
-    </>
+    </div>
   );
 }
 
@@ -184,8 +248,16 @@ function FolderSection({ folder, projects, pinnedCount, isActive }: { folder: Si
   const [managing, setManaging] = useState(false);
   const shown = collapsed ? projects.filter(isActive) : projects;
   const listId = `sidebar-folder-${folder.id}`;
+  const { dragging } = useContext(ProjectDragContext);
+  // Putting a project into a folder needs owner or member there (the server checks the project's owner).
+  const drop = useProjectDropTarget(folder.role !== "guest" && dragging?.folderId !== folder.id, folder);
   return (
-    <div role="group" aria-label={`Ordner ${folder.name}`} className="group/folder">
+    <div
+      role="group"
+      aria-label={`Ordner ${folder.name}`}
+      {...drop.props}
+      className={cn("group/folder rounded-md", drop.over && "bg-accent/60 ring-2 ring-primary/40")}
+    >
       <div className="mt-4 flex items-center gap-1">
         <SectionToggle
           title={folder.name}
@@ -221,8 +293,19 @@ function FolderSection({ folder, projects, pinnedCount, isActive }: { folder: Si
 
 /** A project in the sidebar; the pin shows on hover and keyboard focus (always on touch screens, where there is no hover). */
 function ProjectRow({ project, active }: { project: SidebarProject; active: boolean }) {
+  const drag = useContext(ProjectDragContext);
   return (
-    <li className="group/row relative">
+    <li
+      className={cn("group/row relative", drag.dragging?.id === project.id && "opacity-50")}
+      draggable={project.canMove}
+      onDragStart={(event) => {
+        if (!project.canMove) return;
+        event.dataTransfer.setData(PROJECT_DRAG, project.id);
+        event.dataTransfer.effectAllowed = "move";
+        drag.start(project);
+      }}
+      onDragEnd={drag.end}
+    >
       <Link href={`/projects/${project.id}/board`} className={cn(navItem, "pr-8", active && navActive)}>
         <span className="min-w-8 shrink-0 text-xs text-muted-foreground">{project.key}</span>
         <span className="truncate">{project.name}</span>

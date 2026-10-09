@@ -56,7 +56,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         sidebar={
           <Sidebar
             user={{ name: actor.name, email: actor.email }}
-            projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key, pinned: pinned.has(p.id), folderId: p.folderId && folderIds.has(p.folderId) ? p.folderId : null }))}
+            projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key, pinned: pinned.has(p.id), folderId: p.folderId && folderIds.has(p.folderId) ? p.folderId : null, canMove: p.role === "owner" }))}
             folders={folders}
             initialUnread={initialUnread}
           />

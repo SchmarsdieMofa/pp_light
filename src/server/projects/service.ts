@@ -50,14 +50,15 @@ export async function createProject(db: DB, actor: Actor, rawInput: CreateProjec
   }
 }
 
-export async function listProjectsForUser(db: DB, actor: Actor): Promise<Project[]> {
+/** The actor's visible projects, each with the actor's role in it. */
+export async function listProjectsForUser(db: DB, actor: Actor): Promise<(Project & { role: ProjectRole })[]> {
   const rows = await db
-    .select({ project: projects })
+    .select({ project: projects, role: projectAccess.role })
     .from(projects)
     .innerJoin(projectAccess, eq(projectAccess.projectId, projects.id))
     .where(and(eq(projectAccess.userId, actor.id), isNull(projects.archivedAt)))
     .orderBy(asc(projects.name));
-  return rows.map((r) => r.project);
+  return rows.map((r) => ({ ...r.project, role: r.role }));
 }
 
 export async function listProjectOverview(db: DB, actor: Actor, today: string) {
