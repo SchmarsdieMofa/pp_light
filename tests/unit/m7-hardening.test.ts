@@ -129,7 +129,7 @@ describe("mail delivery isolation", () => {
     const mia = await makeActor("mia@example.com");
     const { project } = await makeProject(ada, "DIG");
     for (const user of [ada, mia]) {
-      await testDb.insert(notifications).values({ userId: user.id, projectId: user.id === ada.id ? project.id : null, type: "assigned", message: "Hi", eventKey: `k-${user.id}` });
+      await testDb.insert(notifications).values({ userId: user.id, projectId: user.id === ada.id ? project.id : null, type: "comment", message: "Hi", eventKey: `k-${user.id}` });
     }
     vi.mocked(sendMail).mockImplementation(async (to) => {
       if (to === "ada@example.com") throw new Error("SMTP down for ada");
