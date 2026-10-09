@@ -43,6 +43,10 @@ describe("resolveShortcut", () => {
       href: "/projects/3f2504e0-4f89-41d3-9a0c-0305e82c3301/gantt",
     });
     expect(resolveShortcut(key("3"), false, project)).toMatchObject({ href: expect.stringMatching(/\/list$/) });
+    expect(resolveShortcut(key("4"), false, project)).toEqual({
+      kind: "view",
+      href: "/projects/3f2504e0-4f89-41d3-9a0c-0305e82c3301/questions",
+    });
   });
 
   it("has no view shortcuts outside a project", () => {

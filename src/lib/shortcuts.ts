@@ -23,12 +23,12 @@ export function isTypingTarget(target: TargetLike): boolean {
 export const SHORTCUT_HELP = [
   { keys: "Strg + K", text: "Suche und Befehle" },
   { keys: "C", text: "Neue Aufgabe" },
-  { keys: "1 / 2 / 3", text: "Board / Gantt / Liste" },
+  { keys: "1 / 2 / 3 / 4", text: "Board / Gantt / Liste / Fragen" },
   { keys: "Esc", text: "Aufgabe schließen" },
   { keys: "?", text: "Diese Hilfe" },
 ] as const;
 
-const VIEWS = { "1": "board", "2": "gantt", "3": "list" } as const;
+const VIEWS = { "1": "board", "2": "gantt", "3": "list", "4": "questions" } as const;
 
 export function resolveShortcut(event: KeyInput, typing: boolean, pathname: string): Shortcut | null {
   const withModifier = event.ctrlKey || event.metaKey;
