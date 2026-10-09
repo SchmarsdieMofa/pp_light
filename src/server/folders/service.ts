@@ -298,12 +298,26 @@ export async function removeFolderGroup(db: DB, actor: Actor, folderId: string, 
 
 /**
  * Moves a project into a folder or (folderId null) out of it. Needs the project's owner; into a folder
- * additionally owner or member of the folder. People who had access only through the old folder lose it.
+ * additionally owner or member of the folder, and out of its current folder (or into another one) an owner of
+ * that folder – leaving ends the folder's access to the project, which only the folder's owners decide.
+ * People who had access only through the old folder lose it.
  */
 export async function moveProjectToFolder(db: DB, actor: Actor, projectId: string, folderId: string | null): Promise<void> {
   const access = await requireProjectAccess(db, actor, projectId);
   assertCan(actor, "project.manageMembers", projectCtx(access.role));
   await db.transaction(async (tx) => {
+    // Read under the row lock: two moves at once must not both pass the check against the same source folder.
+    const [{ current }] = await tx.select({ current: projects.folderId }).from(projects).where(eq(projects.id, projectId)).for("update");
+    if (current && current !== folderId) {
+      const [membership] = await tx
+        .select({ role: folderAccess.role })
+        .from(folderAccess)
+        .where(and(eq(folderAccess.folderId, current), eq(folderAccess.userId, actor.id)))
+        .limit(1);
+      if (membership?.role !== "owner") {
+        throw new DomainError("FORBIDDEN", "Das Projekt liegt in einem Ordner – verschieben dürfen es nur Owner dieses Ordners.");
+      }
+    }
     if (folderId) await assertCanFillFolder(tx, actor, folderId);
     await tx.update(projects).set({ folderId }).where(eq(projects.id, projectId));
     await pruneAssignees(tx, [projectId]);

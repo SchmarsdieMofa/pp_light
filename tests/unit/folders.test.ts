@@ -177,4 +177,27 @@ describe("project folders", () => {
     await moveProjectToFolder(testDb, ada, project.id, folderId);
     expect((await getFolderDetail(testDb, ada, folderId)).projects.map((p) => p.key)).toEqual(["MOV"]);
   });
+
+  it("a project inside a folder is moved out of it, or to another folder, only by that folder's owners", async () => {
+    const { ada, mia, zed, folderId } = await setup();
+    await addFolderMemberByEmail(testDb, ada, folderId, mia.email, "member");
+    const { id: otherId } = await createFolder(testDb, ada, "Intern");
+    // Mia is a member of the folder and owns the project she created in it, but is no owner of the folder.
+    const project = await createProject(testDb, mia, { name: "Von Mia", key: "MIA", folderId });
+    await expect(moveProjectToFolder(testDb, mia, project.id, null)).rejects.toMatchObject(forbidden);
+    await expect(moveProjectToFolder(testDb, mia, project.id, otherId)).rejects.toMatchObject(forbidden);
+    // A direct project owner who is not in the folder at all gets the same answer.
+    await addMember(project.id, zed, "owner");
+    await expect(moveProjectToFolder(testDb, zed, project.id, null)).rejects.toMatchObject(forbidden);
+    expect((await getFolderDetail(testDb, ada, folderId)).projects.map((p) => p.key)).toEqual(["MIA"]);
+
+    // The folder's owner moves it: to another folder, then out. A same-folder "move" stays a no-op for anyone.
+    await moveProjectToFolder(testDb, mia, project.id, folderId);
+    await moveProjectToFolder(testDb, ada, project.id, otherId);
+    expect((await getFolderDetail(testDb, ada, otherId)).projects.map((p) => p.key)).toEqual(["MIA"]);
+    await moveProjectToFolder(testDb, ada, project.id, null);
+    // Without a folder the project's owners decide again (into a folder where they are member or owner).
+    await moveProjectToFolder(testDb, mia, project.id, folderId);
+    expect((await getFolderDetail(testDb, ada, folderId)).projects.map((p) => p.key)).toEqual(["MIA"]);
+  });
 });

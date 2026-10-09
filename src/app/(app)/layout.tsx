@@ -50,6 +50,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Folders are only named for people who are in them; others see their projects there without a folder
   // (and cannot drag them: a drop would silently pull the project out of the folder they cannot see).
   const folderIds = new Set(folders.map((f) => f.id));
+  // A project inside a folder is moved by that folder's owners (a folder the viewer is not in is not theirs to touch).
+  const ownedFolderIds = new Set(folders.filter((f) => f.role === "owner").map((f) => f.id));
   return (
     <>
       <ThemeSync theme={prefs.theme} />
@@ -57,7 +59,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         sidebar={
           <Sidebar
             user={{ name: actor.name, email: actor.email }}
-            projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key, pinned: pinned.has(p.id), folderId: p.folderId && folderIds.has(p.folderId) ? p.folderId : null, canMove: p.role === "owner" && !(p.folderId && !folderIds.has(p.folderId)) }))}
+            projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key, pinned: pinned.has(p.id), folderId: p.folderId && folderIds.has(p.folderId) ? p.folderId : null, canMove: p.role === "owner" && (!p.folderId || ownedFolderIds.has(p.folderId)) }))}
             folders={folders}
             initialUnread={initialUnread}
           />

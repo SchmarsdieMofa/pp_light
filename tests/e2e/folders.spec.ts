@@ -43,6 +43,9 @@ test("people in a folder get every project in it; leaving the folder takes it aw
   await login(mia, E2E_MEMBER.email, E2E_MEMBER.password);
   const miaSection = mia.getByRole("navigation", { name: "Hauptnavigation" }).getByRole("group", { name: `Ordner ${folderName}` });
   await expect(miaSection.getByRole("link", { name: new RegExp(projectName) })).toBeVisible();
+  // Moving is for the project's owners (in a folder: its owners); Mia is neither, the row is not draggable for her.
+  await expect(miaSection.getByRole("link", { name: new RegExp(projectName) }).locator("xpath=ancestor::li[1]")).toHaveAttribute("draggable", "false");
+  await expect(section.getByRole("link", { name: new RegExp(projectName) }).locator("xpath=ancestor::li[1]")).toHaveAttribute("draggable", "true");
   // As a folder member (not owner) she cannot manage it.
   await miaSection.getByRole("button", { name: `Ordner ${folderName} verwalten` }).click({ force: true });
   const miaDialog = mia.getByRole("dialog", { name: `Ordner ${folderName}` });

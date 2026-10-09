@@ -18,6 +18,8 @@ export function ProjectFolderField(props: {
   const current = props.folders.find((folder) => folder.id === props.folderId);
   // A folder the person is not in cannot be named; it stays selected as "Ein anderer Ordner".
   const foreign = props.folderId && !current;
+  // Leaving a folder is up to that folder's owners, whoever owns the project.
+  const locked = Boolean(props.folderId) && current?.role !== "owner";
   const options = [
     { value: "", label: "Kein Ordner" },
     ...props.folders.filter((folder) => folder.role !== "guest" || folder.id === props.folderId).map((folder) => ({ value: folder.id, label: folder.name })),
@@ -32,10 +34,11 @@ export function ProjectFolderField(props: {
           id="project-folder"
           className="w-full sm:w-72"
           value={props.folderId ?? ""}
-          disabled={!props.canManage || pending}
+          disabled={!props.canManage || locked || pending}
           options={options}
           onValueChange={(next) => run(() => moveProjectToFolderAction(props.projectId, next || null), () => router.refresh())}
         />
+        {props.canManage && locked && <p className="text-xs text-muted-foreground">Das Projekt liegt in einem Ordner – verschieben dürfen es nur dessen Owner.</p>}
         <p className="text-xs text-muted-foreground">
           Wer im Ordner ist, hat hier automatisch dieselbe Rolle wie dort. Beim Wechsel verlieren Personen, die nur über den bisherigen Ordner Zugriff hatten, ihn.
         </p>
