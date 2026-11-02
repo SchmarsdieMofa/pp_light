@@ -8,6 +8,8 @@ const TABS = [
   { slug: "board", label: "Board" },
   { slug: "gantt", label: "Gantt" },
   { slug: "list", label: "Liste" },
+  { slug: "completed", label: "Erledigte Aufgaben" },
+  { slug: "appointments", label: "Termine" },
   { slug: "questions", label: "Fragen" },
   { slug: "settings", label: "Einstellungen" },
 ] as const;

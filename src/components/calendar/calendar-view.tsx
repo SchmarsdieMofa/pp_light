@@ -56,7 +56,9 @@ export function CalendarView(props: {
     for (const task of visible) map.set(task.dueDate, [...(map.get(task.dueDate) ?? []), task]);
     return map;
   }, [visible]);
-  const overdueCount = visible.filter((t) => !t.isDone && t.dueDate < props.today).length;
+  const overdueCount = visible.filter((t) => !t.appointmentHref && !t.isDone && t.dueDate < props.today).length;
+  const taskCount = visible.filter((t) => !t.appointmentHref).length;
+  const appointmentCount = new Set(visible.flatMap((t) => t.appointmentHref ? [t.appointmentHref] : [])).size;
 
   function reschedule(taskId: string, day: string) {
     const task = tasks.find((t) => t.id === taskId);
@@ -119,8 +121,8 @@ export function CalendarView(props: {
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
-            aria-label="Aufgaben im Kalender suchen"
-            placeholder="Aufgaben suchen…"
+            aria-label="Aufgaben und Termine im Kalender suchen"
+            placeholder="Aufgaben und Termine suchen…"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className="h-8 w-full rounded-md border bg-background pr-2 pl-8 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -140,7 +142,8 @@ export function CalendarView(props: {
           </Link>
         )}
         <p className="ml-auto text-sm text-muted-foreground" aria-live="polite">
-          {visible.length} {visible.length === 1 ? "Aufgabe" : "Aufgaben"}
+          {taskCount} {taskCount === 1 ? "Aufgabe" : "Aufgaben"}
+          {appointmentCount > 0 && <span> · {appointmentCount} {appointmentCount === 1 ? "Termin" : "Termine"}</span>}
           {overdueCount > 0 && <span className="font-medium text-destructive"> · {overdueCount} überfällig</span>}
         </p>
       </div>
@@ -281,17 +284,17 @@ const TASK_MIME = "application/x-pp-task";
 function TaskChip({ task, colorOf, today, detailed }: { task: CalendarTask; detailed?: boolean } & Omit<ChipShared, "onDropTask">) {
   const taskHref = useTaskHref();
   const color = colorOf(task.projectId);
-  const overdue = !task.isDone && task.dueDate < today;
+  const overdue = !task.appointmentHref && !task.isDone && task.dueDate < today;
   return (
     <Link
-      href={taskHref(task.id)}
+      href={task.appointmentHref ?? taskHref(task.id)}
       scroll={false}
       draggable={task.canEdit}
       onDragStart={(event) => {
         event.dataTransfer.setData(TASK_MIME, task.id);
         event.dataTransfer.effectAllowed = "move";
       }}
-      title={`${task.key}-${task.path} ${task.title}\n${task.projectName} · ${task.statusName}${overdue ? " · überfällig" : ""}`}
+      title={`${task.appointmentHref ? "Termin" : `${task.key}-${task.path}`} ${task.title}\n${task.projectName} · ${task.statusName}${overdue ? " · überfällig" : ""}`}
       className={cn(
         "group block rounded-md border-l-[3px] px-1.5 py-0.5 text-xs transition-[background-color,box-shadow] hover:shadow-sm",
         task.canEdit && "cursor-grab active:cursor-grabbing",
@@ -305,7 +308,7 @@ function TaskChip({ task, colorOf, today, detailed }: { task: CalendarTask; deta
       </span>
       {detailed && (
         <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <span className="tabular-nums">{task.key}-{task.path}</span>
+          <span className="tabular-nums">{task.appointmentHref ? "Termin" : `${task.key}-${task.path}`}</span>
           <span className="truncate">{task.statusName}</span>
         </span>
       )}
@@ -363,7 +366,7 @@ function MonthCell(props: {
   return (
     <div
       role="gridcell"
-      aria-label={`${longDate(props.day)}: ${props.tasks.length} ${props.tasks.length === 1 ? "Aufgabe" : "Aufgaben"}`}
+      aria-label={`${longDate(props.day)}: ${props.tasks.length} Einträge`}
       className={cn(
         "flex min-h-16 min-w-0 flex-col gap-1 border-r border-b p-1 transition-colors sm:min-h-24 sm:p-1.5 [&:nth-child(7n)]:border-r-0",
         (props.outside || weekend) && "bg-muted/25",
@@ -444,7 +447,7 @@ function AgendaView(props: { from: string; to: string; tasks: CalendarTask[] } &
   const groups = new Map<string, CalendarTask[]>();
   for (const task of props.tasks) if (task.dueDate >= props.from) groups.set(task.dueDate, [...(groups.get(task.dueDate) ?? []), task]);
   if (props.tasks.length === 0) {
-    return <p className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">Keine Aufgaben in diesem Zeitraum.</p>;
+    return <p className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">Keine Aufgaben oder Termine in diesem Zeitraum.</p>;
   }
   return (
     <div className="min-h-0 flex-1 space-y-5 overflow-y-auto">
@@ -466,7 +469,7 @@ function AgendaGroup(props: { heading: string; tasks: CalendarTask[]; day?: stri
         {props.tasks.map((task) => (
           <li key={task.id}>
             <Link
-              href={taskHref(task.id)}
+              href={task.appointmentHref ?? taskHref(task.id)}
               scroll={false}
               draggable={task.canEdit}
               onDragStart={(event) => {
@@ -476,7 +479,7 @@ function AgendaGroup(props: { heading: string; tasks: CalendarTask[]; day?: stri
               className="flex items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-muted/50"
             >
               <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: props.colorOf(task.projectId) }} aria-hidden />
-              <span className="w-16 shrink-0 text-xs text-muted-foreground tabular-nums">{task.key}-{task.path}</span>
+              <span className="w-16 shrink-0 text-xs text-muted-foreground tabular-nums">{task.appointmentHref ? "Termin" : `${task.key}-${task.path}`}</span>
               <span className={cn("min-w-0 flex-1 truncate font-medium", task.isDone && "text-muted-foreground line-through")}>{task.title}</span>
               {props.tone === "danger" && <span className="shrink-0 text-xs font-medium text-destructive tabular-nums">{formatDate(task.dueDate)}</span>}
               <span className="hidden w-40 shrink-0 truncate text-xs text-muted-foreground sm:block">{task.projectName}</span>

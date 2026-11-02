@@ -74,13 +74,14 @@ test("completes and reopens tasks with one click and searches live", async ({ pa
 
   await table.getByRole("checkbox", { name: "HAK-1 Rechnung schreiben erledigen" }).check();
   await expect(page.getByText("HAK-1 erledigt")).toBeVisible();
-  // Done tasks sit in the collapsed "Fertig" group.
-  const doneGroup = table.getByRole("button", { name: /Fertig/ });
-  await expect(doneGroup).toHaveAttribute("aria-expanded", "false");
   await expect(table.getByRole("link", { name: "Rechnung schreiben" })).toHaveCount(0);
-  await doneGroup.click();
+  await page.getByRole("link", { name: "Erledigte Aufgaben", exact: true }).click();
+  await expect(page).toHaveURL(/\/completed$/, { timeout: 15_000 });
+  await expect(table.getByRole("link", { name: "Rechnung schreiben" })).toBeVisible();
   await table.getByRole("checkbox", { name: "HAK-1 Rechnung schreiben wieder öffnen" }).uncheck();
   await expect(page.getByText("HAK-1 wieder geöffnet")).toBeVisible();
+  await expect(table).toHaveCount(0);
+  await openList(page, board);
   await expect(table.getByRole("button", { name: /Offen/ })).toContainText("2");
 
   // Search filters as you type – no Enter needed.

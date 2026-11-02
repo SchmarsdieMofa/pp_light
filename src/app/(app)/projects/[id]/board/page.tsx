@@ -2,6 +2,7 @@ import { Board } from "@/components/board/board";
 import { DensityToggle } from "@/components/board/density-toggle";
 import { WithTaskPanel } from "@/components/tasks/task-panel";
 import { normalizeSearchParams } from "@/lib/urls";
+import { todayInZone } from "@/lib/dates";
 import { db } from "@/server/db/client";
 import { can, projectCtx } from "@/server/permissions";
 import { getPreferences } from "@/server/preferences/service";
@@ -18,7 +19,7 @@ export default async function BoardPage(props: {
   const { actor, project, role } = await loadProject(id);
   const [columns, cards, prefs] = await Promise.all([
     listStatuses(db(), project.id),
-    listProjectTasks(db(), project.id, {}, { field: "position", dir: "asc" }),
+    listProjectTasks(db(), project.id, { completion: "board" }, { field: "position", dir: "asc" }),
     getPreferences(db(), actor.id),
   ]);
 
@@ -30,6 +31,7 @@ export default async function BoardPage(props: {
         </div>
         <Board
           projectId={project.id}
+          today={todayInZone()}
           columns={columns.map(({ id, name, color }) => ({ id, name, color }))}
           cards={cards}
           density={prefs.cardDensity}

@@ -23,7 +23,7 @@ export default async function ListPage(props: {
   const { actor, project, role } = await loadProject(id);
   const { filters, sort } = parseTaskListParams(params);
   const [rows, statuses, members, labels, phases] = await Promise.all([
-    listProjectTasks(db(), project.id, filters, sort),
+    listProjectTasks(db(), project.id, { ...filters, completion: "open" }, sort),
     listStatuses(db(), project.id),
     listMembers(db(), project.id),
     listLabels(db(), project.id),
@@ -38,7 +38,7 @@ export default async function ListPage(props: {
         {can(actor, "task.create", projectCtx(role)) && (
           <QuickAdd projectId={project.id} label="Neue Aufgabe" placeholder="Neue Aufgabe… (Enter)" />
         )}
-        <TaskFilters statuses={statuses} members={members} labels={labels} phases={phases} filters={filters} grouped={grouped} count={rows.length} />
+        <TaskFilters statuses={statuses.filter((s) => !s.isDone)} members={members} labels={labels} phases={phases} filters={filters} grouped={grouped} count={rows.length} />
         {rows.length === 0 ? (
           <EmptyState
             title={hasFilters ? "Keine Treffer" : "Noch keine Aufgaben"}

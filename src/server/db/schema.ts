@@ -183,6 +183,22 @@ export const tasks = pgTable(
   ],
 );
 
+export const appointments = pgTable("appointments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  taskId: uuid("task_id").references(() => tasks.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+  location: text("location").notNull().default(""),
+  createdBy: uuid("created_by").notNull().references(() => users.id),
+  createdAt: createdAt(),
+}, (t) => [
+  index("appointments_project_start_idx").on(t.projectId, t.startsAt),
+  index("appointments_task_idx").on(t.taskId),
+  check("appointments_dates_ck", sql`${t.endsAt} > ${t.startsAt}`),
+]);
+
 export const taskDependencies = pgTable(
   "task_dependencies",
   {

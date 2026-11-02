@@ -14,7 +14,8 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useId, useOptimistic, useState, useTransition } from "react";
+import { useEffect, useId, useOptimistic, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { moveTaskAction } from "@/app/(app)/tasks/actions";
 import { QuickAdd } from "@/components/tasks/quick-add";
@@ -22,6 +23,7 @@ import { useTaskHref } from "@/components/tasks/use-task-href";
 import { COLUMN_PREFIX, collisionUnderPointer } from "@/lib/board-collision";
 import { applyMove, planDrop, previewMove, type MovePlan } from "@/lib/board-move";
 import type { CardDensity } from "@/lib/enums";
+import { todayInZone } from "@/lib/dates";
 import type { TaskListRow } from "@/server/tasks/queries";
 import { BoardCard } from "./board-card";
 
@@ -34,7 +36,16 @@ export function Board(props: {
   cards: TaskListRow[];
   density: CardDensity;
   canEdit: boolean;
+  today: string;
 }) {
+  const router = useRouter();
+  useEffect(() => {
+    // A board left open overnight must also drop yesterday's completed cards.
+    const refreshDay = () => { if (todayInZone() !== props.today) router.refresh(); };
+    const timer = window.setInterval(refreshDay, 30_000);
+    document.addEventListener("visibilitychange", refreshDay);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refreshDay); };
+  }, [props.today, router]);
   const href = useTaskHref();
   // Stable id: dnd-kit's own counter differs between server and client render (hydration mismatch).
   const dndId = useId();

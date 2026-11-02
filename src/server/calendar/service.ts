@@ -6,6 +6,7 @@ import { projectAccess, projects, statuses, taskAssignees, tasks } from "@/serve
 import type { Actor } from "@/server/permissions";
 
 export type CalendarTask = {
+  appointmentHref?: string;
   id: string;
   projectId: string;
   projectName: string;

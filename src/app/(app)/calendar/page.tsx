@@ -1,6 +1,8 @@
 import { CalendarView, type CalendarViewMode } from "@/components/calendar/calendar-view";
 import { WithTaskPanel } from "@/components/tasks/task-panel";
 import { monthGrid } from "@/lib/calendar";
+import { appointmentCalendarEntries } from "@/lib/appointment-calendar";
+import { listAppointments } from "@/server/appointments/service";
 import { addDays, parseDateInput, todayInZone, weekStart } from "@/lib/dates";
 import { normalizeSearchParams } from "@/lib/urls";
 import { requireActor } from "@/server/auth/session";
@@ -29,7 +31,7 @@ export default async function CalendarPage(props: { searchParams: Promise<Record
   const projects = await listProjectsForUser(db(), actor);
   const visibleIds = new Set(projects.map((p) => p.id));
   const projectIds = (params.projects ?? "").split(",").filter((id) => visibleIds.has(id));
-  const tasks = await listCalendarTasks(db(), actor, {
+  const [tasks, appointments] = await Promise.all([listCalendarTasks(db(), actor, {
     from,
     to,
     projectIds,
@@ -37,7 +39,7 @@ export default async function CalendarPage(props: { searchParams: Promise<Record
     includeDone: params.done === "1",
     // The agenda starting today also lists what is already late – the first thing to (re)plan.
     overdueBefore: view === "list" && anchor <= today ? today : undefined,
-  });
+  }), listAppointments(db(), actor, { from, to, projectIds, mine: params.mine === "1" })]);
 
   return (
     <WithTaskPanel taskId={params.task} className="h-full">
@@ -47,7 +49,7 @@ export default async function CalendarPage(props: { searchParams: Promise<Record
         today={today}
         from={from}
         to={to}
-        tasks={tasks}
+        tasks={[...tasks, ...appointmentCalendarEntries(appointments, from, to)].sort((a, b) => a.dueDate.localeCompare(b.dueDate))}
         projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key }))}
         selectedProjectIds={projectIds}
         mine={params.mine === "1"}

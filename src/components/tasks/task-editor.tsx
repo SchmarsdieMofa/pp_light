@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Appointments } from "@/components/appointments/appointments";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { setAssigneesAction, setLabelsAction, undoScheduleAction, updateTaskAction } from "@/app/(app)/tasks/actions";
@@ -158,6 +159,7 @@ export function TaskEditor({ detail }: { detail: TaskDetail }) {
           <TaskDescription initial={detail.description} canEdit={!disabled} save={(description) => save({ description })} />
           <TaskSubtasks detail={detail} />
           <TaskChecklist detail={detail} />
+          <Appointments projectId={detail.projectId} taskId={detail.id} appointments={detail.appointments} canEdit={detail.canEdit} />
           <TaskComments detail={detail} />
           <TaskActivity entries={detail.activity} />
         </div>

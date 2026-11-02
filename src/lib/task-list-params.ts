@@ -3,6 +3,7 @@ import { TASK_PRIORITIES, type TaskPriority } from "./enums";
 import type { SearchParams } from "./urls";
 
 export type TaskListFilters = {
+  completion?: "open" | "done" | "board";
   statusId?: string;
   phaseId?: string;
   assigneeId?: string;

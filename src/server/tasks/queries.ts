@@ -1,9 +1,11 @@
 import { alias } from "drizzle-orm/pg-core";
 import { and, asc, desc, eq, exists, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import type { TaskPriority } from "@/lib/enums";
+import { APP_TIME_ZONE, todayInZone } from "@/lib/dates";
 import { describeActivity, type ActivityLookup } from "@/lib/activity-text";
 import type { TaskListFilters, TaskSort } from "@/lib/task-list-params";
 import { listActivity } from "@/server/activity/service";
+import { listAppointments, type AppointmentRow } from "@/server/appointments/service";
 import { listAttachments } from "@/server/attachments/service";
 import { listChecklist } from "@/server/checklists/service";
 import { listComments } from "@/server/comments/service";
@@ -87,6 +89,11 @@ export async function listProjectTasks(
 ): Promise<TaskListRow[]> {
   const parent = alias(tasks, "parent_task");
   const conditions: (SQL | undefined)[] = [eq(tasks.projectId, projectId)];
+  if (filters.completion === "open") conditions.push(eq(statuses.isDone, false));
+  if (filters.completion === "done") conditions.push(eq(statuses.isDone, true));
+  if (filters.completion === "board") {
+    conditions.push(or(eq(statuses.isDone, false), sql`(${tasks.completedAt} at time zone ${APP_TIME_ZONE})::date = ${todayInZone()}::date`));
+  }
   if (filters.statusId) conditions.push(eq(tasks.statusId, filters.statusId));
   if (filters.phaseId) conditions.push(eq(tasks.phaseId, filters.phaseId));
   if (filters.priority) conditions.push(eq(tasks.priority, filters.priority));
@@ -197,6 +204,7 @@ export async function listProjectTasks(
 }
 
 export type TaskDetail = {
+  appointments: AppointmentRow[];
   id: string;
   viewerId: string;
   projectId: string;
@@ -284,6 +292,7 @@ export async function getTaskDetail(db: DB, actor: Actor, taskId: string): Promi
     tasks: new Map(taskOptions.map((option) => [option.id, `${project.key}-${option.path} ${option.title}`])),
   };
   return {
+    appointments: await listAppointments(db, actor, { projectId: task.projectId, taskId: task.id }),
     id: task.id,
     viewerId: actor.id,
     projectId: task.projectId,
