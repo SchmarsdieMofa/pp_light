@@ -14,6 +14,7 @@ import { appointmentInstant, appointmentLocalTime } from "@/lib/schemas/appointm
 import type { AppointmentRow } from "@/server/appointments/service";
 
 export type PlannableTask = { id: string; title: string; projectId: string; key: string; path: string };
+const PRESET_DURATIONS = [15, 30, 45, 60, 90, 120, 180];
 
 export function TimeBlockDialog(props: {
   open: boolean; onOpenChange: (open: boolean) => void; tasks: PlannableTask[];
@@ -23,16 +24,18 @@ export function TimeBlockDialog(props: {
   const router = useRouter();
   const initial = props.appointment;
   const initialStart = initial ? appointmentLocalTime(initial.startsAt) : `${props.date}T${props.time ?? "09:00"}`;
+  const initialDuration = initial ? Math.round((Date.parse(initial.endsAt) - Date.parse(initial.startsAt)) / 60_000) : 60;
   const [taskId, setTaskId] = useState(initial?.taskId ?? props.initialTaskId ?? props.tasks[0]?.id ?? "");
   const [date, setDate] = useState<string | null>(initialStart.slice(0, 10));
-  const [duration, setDuration] = useState(initial ? String(Math.round((Date.parse(initial.endsAt) - Date.parse(initial.startsAt)) / 60_000)) : "60");
+  const [startTime, setStartTime] = useState(initialStart.slice(11));
+  const [duration, setDuration] = useState(PRESET_DURATIONS.includes(initialDuration) ? String(initialDuration) : "custom");
+  const [customEnd, setCustomEnd] = useState(initial ? appointmentLocalTime(initial.endsAt) : "");
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [pending, startTransition] = useTransition();
   const selected = props.tasks.find((t) => t.id === taskId);
   const options = props.tasks.map((task) => ({ value: task.id, label: `${task.key}-${task.path} ${task.title}` }));
   if (initial?.taskId && !options.some((o) => o.value === initial.taskId)) options.push({ value: initial.taskId, label: `${initial.key}-${initial.taskPath} ${initial.taskTitle ?? initial.title}` });
-  const durations = [...new Set([15, 30, 45, 60, 90, 120, 180, Number(duration)])].filter((n) => n > 0).sort((a, b) => a - b);
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -47,7 +50,8 @@ export function TimeBlockDialog(props: {
           const startsAt = `${date}T${String(data.get("time") ?? "")}`;
           const instant = appointmentInstant(startsAt);
           if (!Number.isFinite(instant.getTime())) { setError("Bitte eine gültige Uhrzeit eingeben."); return; }
-          const endsAt = appointmentLocalTime(new Date(instant.getTime() + Number(duration) * 60_000));
+          const endsAt = duration === "custom" ? String(data.get("endsAt") ?? "")
+            : appointmentLocalTime(new Date(instant.getTime() + Number(duration) * 60_000));
           setError(null);
           startTransition(async () => {
             const result = await saveAppointmentAction({ projectId: initial?.projectId ?? selected!.projectId, taskId, personal: true,
@@ -65,9 +69,19 @@ export function TimeBlockDialog(props: {
             <div className="space-y-1"><label htmlFor={`${id}-date`}>Tag</label>
               <DatePicker id={`${id}-date`} label="Tag" value={date} onChange={setDate} disabled={pending} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><label htmlFor={`${id}-time`}>Beginn</label><Input id={`${id}-time`} type="time" name="time" required defaultValue={initialStart.slice(11)} /></div>
-              <div className="space-y-1"><label htmlFor={`${id}-duration`}>Dauer</label><Select id={`${id}-duration`} value={duration} onValueChange={setDuration} disabled={pending} options={durations.map((n) => ({ value: String(n), label: `${n} Minuten` }))} /></div>
+              <div className="space-y-1"><label htmlFor={`${id}-time`}>Beginn</label><Input id={`${id}-time`} type="time" name="time" required value={startTime} onChange={(event) => setStartTime(event.target.value)} /></div>
+              <div className="space-y-1"><label htmlFor={`${id}-duration`}>Dauer</label><Select id={`${id}-duration`} value={duration} onValueChange={(value) => {
+                if (value === "custom" && duration !== "custom" && date) {
+                  const start = appointmentInstant(`${date}T${startTime}`);
+                  if (Number.isFinite(start.getTime())) setCustomEnd(appointmentLocalTime(new Date(start.getTime() + Number(duration) * 60_000)));
+                }
+                setDuration(value);
+              }} disabled={pending} options={[...PRESET_DURATIONS.map((n) => ({ value: String(n), label: `${n} Minuten` })), { value: "custom", label: "Benutzerdefiniert" }]} /></div>
             </div>
+            {duration === "custom" && <div className="space-y-1"><label htmlFor={`${id}-end`}>Ende</label>
+              <Input id={`${id}-end`} name="endsAt" type="datetime-local" required value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} />
+              <p className="text-xs text-muted-foreground">Enddatum und Uhrzeit frei wählen, auch über Mitternacht hinaus.</p>
+            </div>}
             <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><LockKeyhole className="size-3.5" />Nur für dich sichtbar · Uhrzeiten in Europe/Berlin</p>
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             <div className="flex flex-wrap justify-end gap-2">
