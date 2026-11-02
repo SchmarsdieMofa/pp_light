@@ -9,15 +9,17 @@ import { requireActor } from "@/server/auth/session";
 import { listCalendarTasks } from "@/server/calendar/service";
 import { db } from "@/server/db/client";
 import { listProjectsForUser } from "@/server/projects/service";
+import { listMyWork } from "@/server/my-work/service";
 
-const VIEWS: CalendarViewMode[] = ["month", "week", "list"];
+const VIEWS: CalendarViewMode[] = ["month", "week", "list", "day"];
 /** Days the agenda shows from its anchor on. */
 const AGENDA_DAYS = 28;
 
 export default async function CalendarPage(props: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const actor = await requireActor();
   const params = normalizeSearchParams(await props.searchParams);
-  const today = todayInZone();
+  const now = new Date();
+  const today = todayInZone(now);
   const view = VIEWS.find((v) => v === params.view) ?? "month";
   const anchor = (params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) && parseDateInput(params.date)) || today;
 
@@ -26,12 +28,12 @@ export default async function CalendarPage(props: { searchParams: Promise<Record
       ? (() => { const grid = monthGrid(anchor.slice(0, 7)); return [grid[0], grid[41]]; })()
       : view === "week"
         ? [weekStart(anchor), addDays(weekStart(anchor), 6)]
-        : [anchor, addDays(anchor, AGENDA_DAYS - 1)];
+        : view === "day" ? [anchor, anchor] : [anchor, addDays(anchor, AGENDA_DAYS - 1)];
 
   const projects = await listProjectsForUser(db(), actor);
   const visibleIds = new Set(projects.map((p) => p.id));
   const projectIds = (params.projects ?? "").split(",").filter((id) => visibleIds.has(id));
-  const [tasks, appointments] = await Promise.all([listCalendarTasks(db(), actor, {
+  const [tasks, appointments, ownTasks] = await Promise.all([listCalendarTasks(db(), actor, {
     from,
     to,
     projectIds,
@@ -39,7 +41,7 @@ export default async function CalendarPage(props: { searchParams: Promise<Record
     includeDone: params.done === "1",
     // The agenda starting today also lists what is already late – the first thing to (re)plan.
     overdueBefore: view === "list" && anchor <= today ? today : undefined,
-  }), listAppointments(db(), actor, { from, to, projectIds, mine: params.mine === "1" })]);
+  }), listAppointments(db(), actor, { from, to, projectIds, mine: params.mine === "1" }), listMyWork(db(), actor)]);
 
   return (
     <WithTaskPanel taskId={params.task} className="h-full">
@@ -50,6 +52,9 @@ export default async function CalendarPage(props: { searchParams: Promise<Record
         from={from}
         to={to}
         tasks={[...tasks, ...appointmentCalendarEntries(appointments, from, to)].sort((a, b) => a.dueDate.localeCompare(b.dueDate))}
+        appointments={appointments}
+        ownTasks={ownTasks}
+        initialNow={now.getTime()}
         projects={projects.map((p) => ({ id: p.id, name: p.name, key: p.key }))}
         selectedProjectIds={projectIds}
         mine={params.mine === "1"}

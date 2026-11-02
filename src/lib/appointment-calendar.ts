@@ -13,6 +13,7 @@ export function appointmentCalendarEntries(rows: AppointmentRow[], from: string,
     for (let day = start.slice(0, 10) < from ? from : start.slice(0, 10); day <= last && day <= to; day = addDays(day, 1)) {
       days.push({
         id: `${entry.id}:${day}`, appointmentHref: `/projects/${entry.projectId}/appointments#${entry.id}`,
+        appointmentPersonal: entry.isPersonal,
         projectId: entry.projectId, projectName: entry.projectName, key: entry.key, path: entry.taskPath ?? "",
         title: `${day === start.slice(0, 10) ? start.slice(11) : "↳"} ${entry.title}`, dueDate: day,
         statusName: `${start.slice(11)} – ${end.slice(11)}`, isDone: false, priority: "none", updatedAt: entry.startsAt,

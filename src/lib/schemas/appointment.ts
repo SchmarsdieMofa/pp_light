@@ -23,11 +23,13 @@ const localTime = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Bitte Dat
 export const appointmentSchema = z.object({
   projectId: z.uuid(),
   taskId: z.uuid().nullable().default(null),
+  personal: z.boolean().default(false),
   title: z.string().trim().min(1, "Bitte einen Titel eingeben.").max(200),
   startsAt: localTime,
   endsAt: localTime,
   location: z.string().trim().max(500).default(""),
-}).refine((input) => appointmentInstant(input.endsAt) > appointmentInstant(input.startsAt), {
+}).refine((input) => !input.personal || !!input.taskId, { message: "Bitte eine eigene Aufgabe auswählen.", path: ["taskId"] })
+  .refine((input) => appointmentInstant(input.endsAt) > appointmentInstant(input.startsAt), {
   message: "Das Ende muss nach dem Beginn liegen.", path: ["endsAt"],
 });
 

@@ -1,8 +1,10 @@
-import { and, asc, desc, eq, exists, isNull, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { z } from "zod";
+import { mergeTaskOrder, orderMyWork } from "@/lib/my-work";
 import type { TaskPriority } from "@/lib/enums";
 import type { DB } from "@/server/db/client";
 import { byPosition, byPath } from "@/server/db/order";
-import { projectAccess, projects, statuses, taskAssignees, tasks } from "@/server/db/schema";
+import { labels, projectAccess, projects, statuses, taskAssignees, taskLabels, tasks, userPreferences } from "@/server/db/schema";
 import { DomainError } from "@/server/errors";
 import { assertCan, projectCtx, type Actor } from "@/server/permissions";
 import { loadTaskAccess } from "@/server/tasks/access";
@@ -19,6 +21,7 @@ export type MyWorkTask = {
   dueDate: string | null;
   priority: TaskPriority;
   statusName: string;
+  labels: { id: string; name: string; color: string }[];
   /** For optimistic-lock saves (reschedule from the list). */
   updatedAt: string;
 };
@@ -50,7 +53,29 @@ export async function listMyWork(db: DB, actor: Actor): Promise<MyWorkTask[]> {
     .innerJoin(projects, eq(projects.id, tasks.projectId))
     .where(and(eq(statuses.isDone, false), isNull(projects.archivedAt), or(visible)))
     .orderBy(asc(projects.key), asc(byPath(tasks.path)));
-  return rows.map((row) => ({ ...row, updatedAt: row.updatedAt.toISOString() }));
+  if (!rows.length) return [];
+  const [labelRows, preferences] = await Promise.all([
+    db.select({ taskId: taskLabels.taskId, id: labels.id, name: labels.name, color: labels.color })
+      .from(taskLabels).innerJoin(labels, eq(labels.id, taskLabels.labelId))
+      .where(inArray(taskLabels.taskId, rows.map((row) => row.id))).orderBy(asc(labels.name)),
+    db.select({ taskOrder: userPreferences.taskOrder }).from(userPreferences).where(eq(userPreferences.userId, actor.id)),
+  ]);
+  return orderMyWork(rows.map((row) => ({ ...row, updatedAt: row.updatedAt.toISOString(),
+    labels: labelRows.filter((l) => l.taskId === row.id).map(({ id, name, color }) => ({ id, name, color })),
+  })), preferences[0]?.taskOrder ?? []);
+}
+
+/** Reorders only the selected, visible subset; hidden tasks keep their places. */
+export async function setMyTaskOrder(db: DB, actor: Actor, rawIds: string[]): Promise<void> {
+  const ids = z.array(z.uuid()).min(1).max(5000).parse(rawIds);
+  const current = await listMyWork(db, actor);
+  const allowed = new Set(current.map((t) => t.id));
+  if (new Set(ids).size !== ids.length || ids.some((id) => !allowed.has(id))) {
+    throw new DomainError("VALIDATION", "Bitte nur deine aktuellen offenen Aufgaben sortieren.");
+  }
+  const taskOrder = mergeTaskOrder(current.map((t) => t.id), ids);
+  await db.insert(userPreferences).values({ userId: actor.id, taskOrder })
+    .onConflictDoUpdate({ target: userPreferences.userId, set: { taskOrder } });
 }
 
 /** Quick capture from the home page: a task assigned to the actor, optionally with a due date. */

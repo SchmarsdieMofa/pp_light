@@ -1,4 +1,6 @@
 import { addDays, formatDate, weekEnd } from "./dates";
+import { TASK_PRIORITIES } from "./enums";
+import type { MyWorkTask } from "@/server/my-work/service";
 
 export type MyWorkGroups<T> = { overdue: T[]; today: T[]; week: T[]; later: T[]; none: T[] };
 
@@ -9,6 +11,40 @@ export const MY_WORK_GROUPS = [
   { key: "later", label: "Später" },
   { key: "none", label: "Ohne Termin" },
 ] as const;
+
+export function mergeTaskOrder(current: string[], ordered: string[]): string[] {
+  const selected = new Set(ordered);
+  let index = 0;
+  return current.map((id) => selected.has(id) ? ordered[index++] : id);
+}
+
+export function orderMyWork<T extends { id: string }>(tasks: T[], order: string[]): T[] {
+  const rank = new Map(order.map((id, index) => [id, index]));
+  return [...tasks].sort((a, b) => (rank.get(a.id) ?? order.length) - (rank.get(b.id) ?? order.length));
+}
+
+export function myWorkView(params: Record<string, string | undefined>) {
+  return {
+    q: params.workQ?.trim().slice(0, 100) ?? "",
+    projectId: params.workProject ?? "",
+    labelId: params.workLabel ?? "",
+    priority: TASK_PRIORITIES.find((p) => p === params.workPriority) ?? "",
+    due: MY_WORK_GROUPS.find((g) => g.key === params.workDue)?.key ?? "",
+    sort: params.workSort === "manual" || params.workSort === "priority" ? params.workSort : "due",
+  } as const;
+}
+
+export function filterMyWork(tasks: MyWorkTask[], view: ReturnType<typeof myWorkView>, today: string): MyWorkTask[] {
+  const dueIds = view.due ? new Set(groupMyWork(tasks, today)[view.due].map((t) => t.id)) : null;
+  const needle = view.q.toLocaleLowerCase("de");
+  return tasks.filter((task) =>
+    (!view.projectId || task.projectId === view.projectId) &&
+    (!view.labelId || task.labels.some((l) => l.id === view.labelId)) &&
+    (!view.priority || task.priority === view.priority) &&
+    (!dueIds || dueIds.has(task.id)) &&
+    (!needle || `${task.title} ${task.key}-${task.path} ${task.projectName}`.toLocaleLowerCase("de").includes(needle)),
+  );
+}
 
 /** Buckets open tasks by due date relative to `today` (all YYYY-MM-DD); dated groups sorted by due date. */
 export function groupMyWork<T extends { dueDate: string | null }>(tasks: T[], today: string): MyWorkGroups<T> {

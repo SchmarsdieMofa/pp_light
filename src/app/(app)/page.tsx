@@ -13,17 +13,20 @@ import { db } from "@/server/db/client";
 import { listCapturableProjects, listMyWork } from "@/server/my-work/service";
 import { listNotifications } from "@/server/notifications/service";
 import { listProjectsForUser } from "@/server/projects/service";
+import { listAppointments } from "@/server/appointments/service";
+import { appointmentLocalTime } from "@/lib/schemas/appointment";
 
 export default async function HomePage(props: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const actor = await requireActor();
   const params = normalizeSearchParams(await props.searchParams);
-  const [tasks, notifications, projects, capturable] = await Promise.all([
+  const today = todayInZone();
+  const [tasks, notifications, projects, capturable, appointments] = await Promise.all([
     listMyWork(db(), actor),
     listNotifications(db(), actor, 20),
     listProjectsForUser(db(), actor),
     listCapturableProjects(db(), actor),
+    listAppointments(db(), actor, { from: today, to: today, mine: true }),
   ]);
-  const today = todayInZone();
   const groups = groupMyWork(tasks, today);
   const colorOf = projectColors(projects);
   const unread = notifications.filter((n) => !n.readAt).slice(0, 5);
@@ -61,13 +64,25 @@ export default async function HomePage(props: { searchParams: Promise<Record<str
           </header>
           <QuickCapture projects={capturable} today={today} />
           <MyWorkList
-            groups={groups}
+            tasks={tasks}
             today={today}
             colorOf={Object.fromEntries(projects.map((p) => [p.id, colorOf(p.id)]))}
           />
         </div>
 
         <aside className="space-y-4 lg:pt-14">
+          <section aria-label="Mein Tagesplan" className="rounded-xl border bg-card">
+            <div className="flex items-center justify-between border-b px-4 py-2.5">
+              <h2 className="flex items-center gap-2 text-sm font-medium"><CalendarDays className="size-4 text-muted-foreground" />Mein Tagesplan</h2>
+              <Link href={`/calendar?view=day&date=${today}&mine=1`} className="text-xs text-muted-foreground hover:text-foreground">Öffnen</Link>
+            </div>
+            {appointments.length === 0 ? <p className="px-4 py-3 text-sm text-muted-foreground">Noch keine Zeitblöcke oder Termine für heute. Plane Arbeitszeit direkt bei deinen Todos.</p> : <ul className="divide-y text-sm">
+              {appointments.map((entry) => <li key={entry.id}><Link href={`/calendar?view=day&date=${today}&mine=1`} className="block space-y-1 px-4 py-2.5 hover:bg-muted/50">
+                <span className="block text-xs text-muted-foreground tabular-nums">{appointmentLocalTime(entry.startsAt).slice(11)} – {appointmentLocalTime(entry.endsAt).slice(11)}{entry.isPersonal ? " · privat" : ""}</span>
+                <span className="block break-words font-medium">{entry.title}</span>
+              </Link></li>)}
+            </ul>}
+          </section>
           <section aria-label="Neue Benachrichtigungen" className="rounded-xl border bg-card">
             <div className="flex items-center justify-between border-b px-4 py-2.5">
               <h2 className="flex items-center gap-2 text-sm font-medium"><Bell className="size-4 text-muted-foreground" aria-hidden /> Neu für dich</h2>
@@ -85,11 +100,11 @@ export default async function HomePage(props: { searchParams: Promise<Record<str
               </ul>
             )}
           </section>
-          <Link href="/calendar" className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 text-sm transition-colors hover:bg-muted/50">
+          <Link href={`/calendar?view=day&date=${today}&mine=1`} className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 text-sm transition-colors hover:bg-muted/50">
             <CalendarDays className="size-4 text-muted-foreground" aria-hidden />
             <span className="flex-1">
               <span className="block font-medium">Kalender</span>
-              <span className="block text-xs text-muted-foreground">Termine aller Projekte planen</span>
+              <span className="block text-xs text-muted-foreground">Deinen Tag und deine Zeitblöcke ansehen</span>
             </span>
           </Link>
         </aside>

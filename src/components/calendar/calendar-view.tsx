@@ -1,7 +1,11 @@
 "use client";
 
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarDays, ChevronLeft, ChevronRight, Filter, List, Rows3, Search, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Filter, List, LockKeyhole, Rows3, Search, X } from "lucide-react";
+import { DayView } from "@/components/calendar/day-view";
+import { DatePicker } from "@/components/ui/date-picker";
+import type { AppointmentRow } from "@/server/appointments/service";
+import type { MyWorkTask } from "@/server/my-work/service";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
@@ -16,7 +20,7 @@ import { buildHref, normalizeSearchParams } from "@/lib/urls";
 import { cn } from "@/lib/utils";
 import type { CalendarTask } from "@/server/calendar/service";
 
-export type CalendarViewMode = "month" | "week" | "list";
+export type CalendarViewMode = "month" | "week" | "list" | "day";
 type Project = { id: string; name: string; key: string };
 
 const MONTH_CHIPS = 3;
@@ -28,6 +32,9 @@ export function CalendarView(props: {
   from: string;
   to: string;
   tasks: CalendarTask[];
+  appointments: AppointmentRow[];
+  ownTasks: MyWorkTask[];
+  initialNow: number;
   projects: Project[];
   selectedProjectIds: string[];
   mine: boolean;
@@ -76,7 +83,7 @@ export function CalendarView(props: {
     });
   }
 
-  const step = props.view === "month" ? null : props.view === "week" ? 7 : 28;
+  const step = props.view === "month" ? null : props.view === "week" ? 7 : props.view === "day" ? 1 : 28;
   const prevDate = step ? addDays(props.anchor, -step) : `${shiftMonth(monthOf(props.anchor), -1)}-01`;
   const nextDate = step ? addDays(props.anchor, step) : `${shiftMonth(monthOf(props.anchor), 1)}-01`;
   const title =
@@ -84,12 +91,12 @@ export function CalendarView(props: {
       ? `${MONTH_NAMES[Number(props.anchor.slice(5, 7)) - 1]} ${props.anchor.slice(0, 4)}`
       : props.view === "week"
         ? `KW ${isoWeek(props.from)} · ${shortRange(props.from, props.to)}`
-        : `Agenda · ${shortRange(props.from, props.to)}`;
+        : props.view === "day" ? longDate(props.anchor) : `Agenda · ${shortRange(props.from, props.to)}`;
 
   const chipProps = { colorOf, today: props.today, onDropTask: reschedule };
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 p-4 sm:p-6">
+    <div className={cn("flex min-h-0 flex-col gap-4 p-4 sm:p-6", props.view === "day" ? "h-[calc(100dvh-3.5rem)] md:h-dvh" : "h-full")}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <nav aria-label="Zeitraum" className="flex items-center gap-1">
@@ -100,7 +107,7 @@ export function CalendarView(props: {
           <h1 className="text-xl font-semibold tabular-nums">{title}</h1>
         </div>
         <nav aria-label="Ansicht" className="flex items-center gap-1 rounded-lg border bg-background p-1">
-          {([["month", "Monat", CalendarDays], ["week", "Woche", Rows3], ["list", "Liste", List]] as const).map(([mode, label, Icon]) => (
+          {([["day", "Tag", Clock3], ["month", "Monat", CalendarDays], ["week", "Woche", Rows3], ["list", "Liste", List]] as const).map(([mode, label, Icon]) => (
             <Link
               key={mode}
               href={href({ view: mode === "month" ? null : mode })}
@@ -117,6 +124,7 @@ export function CalendarView(props: {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {props.view === "day" && <div><label htmlFor="calendar-day" className="sr-only">Kalendertag wählen</label><DatePicker id="calendar-day" label="Kalendertag wählen" value={props.anchor} onChange={(date) => { if (date) router.push(href({ date })); }} /></div>}
         <div className="relative w-full sm:w-64">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -153,6 +161,13 @@ export function CalendarView(props: {
       )}
       {props.view === "week" && <WeekView from={props.from} byDay={byDay} {...chipProps} />}
       {props.view === "list" && <AgendaView from={props.from} to={props.to} tasks={visible} {...chipProps} />}
+      {props.view === "day" && <DayView date={props.anchor} initialNow={props.initialNow}
+        appointments={props.appointments.filter((entry) => visible.some((t) => t.appointmentHref?.endsWith(`#${entry.id}`)))}
+        tasks={props.ownTasks.filter((task) => !props.selectedProjectIds.length || props.selectedProjectIds.includes(task.projectId))}
+        colorOf={colorOf} untimed={visible.some((t) => !t.appointmentHref) ? <div className="max-h-36 space-y-1 overflow-y-auto border-b px-3 py-2">
+          <h2 className="mb-1 text-xs font-medium text-muted-foreground">Aufgaben ohne Uhrzeit</h2>
+          {visible.filter((t) => !t.appointmentHref).map((task) => <TaskChip key={task.id} task={task} colorOf={colorOf} today={props.today} />)}
+        </div> : null} />}
     </div>
   );
 }
@@ -294,7 +309,7 @@ function TaskChip({ task, colorOf, today, detailed }: { task: CalendarTask; deta
         event.dataTransfer.setData(TASK_MIME, task.id);
         event.dataTransfer.effectAllowed = "move";
       }}
-      title={`${task.appointmentHref ? "Termin" : `${task.key}-${task.path}`} ${task.title}\n${task.projectName} · ${task.statusName}${overdue ? " · überfällig" : ""}`}
+      title={`${task.appointmentPersonal ? "Privater Zeitblock" : task.appointmentHref ? "Termin" : `${task.key}-${task.path}`} ${task.title}\n${task.projectName} · ${task.statusName}${overdue ? " · überfällig" : ""}`}
       className={cn(
         "group block rounded-md border-l-[3px] px-1.5 py-0.5 text-xs transition-[background-color,box-shadow] hover:shadow-sm",
         task.canEdit && "cursor-grab active:cursor-grabbing",
@@ -303,6 +318,7 @@ function TaskChip({ task, colorOf, today, detailed }: { task: CalendarTask; deta
       style={{ borderLeftColor: color, backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)` }}
     >
       <span className={cn("flex items-center gap-1", task.isDone && "line-through")}>
+        {task.appointmentPersonal && <LockKeyhole className="size-3 shrink-0" aria-label="Privater Zeitblock" />}
         {overdue && <span className="size-1.5 shrink-0 rounded-full bg-destructive" aria-label="überfällig" />}
         <span className="truncate font-medium">{task.title}</span>
       </span>
@@ -479,7 +495,7 @@ function AgendaGroup(props: { heading: string; tasks: CalendarTask[]; day?: stri
               className="flex items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-muted/50"
             >
               <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: props.colorOf(task.projectId) }} aria-hidden />
-              <span className="w-16 shrink-0 text-xs text-muted-foreground tabular-nums">{task.appointmentHref ? "Termin" : `${task.key}-${task.path}`}</span>
+              <span className="w-16 shrink-0 text-xs text-muted-foreground tabular-nums">{task.appointmentPersonal ? "Privat" : task.appointmentHref ? "Termin" : `${task.key}-${task.path}`}</span>
               <span className={cn("min-w-0 flex-1 truncate font-medium", task.isDone && "text-muted-foreground line-through")}>{task.title}</span>
               {props.tone === "danger" && <span className="shrink-0 text-xs font-medium text-destructive tabular-nums">{formatDate(task.dueDate)}</span>}
               <span className="hidden w-40 shrink-0 truncate text-xs text-muted-foreground sm:block">{task.projectName}</span>

@@ -7,6 +7,7 @@ import type { Actor } from "@/server/permissions";
 
 export type CalendarTask = {
   appointmentHref?: string;
+  appointmentPersonal?: boolean;
   id: string;
   projectId: string;
   projectName: string;

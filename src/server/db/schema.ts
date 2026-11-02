@@ -142,6 +142,8 @@ export const userPreferences = pgTable("user_preferences", {
   userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
   theme: themePref("theme").notNull().default("system"),
   cardDensity: cardDensity("card_density").notNull().default("medium"),
+  /** Personal work order, independent of every project's board order. */
+  taskOrder: jsonb("task_order").$type<string[]>().notNull().default([]),
   /** When the welcome tour was finished or skipped; null shows it after the next login. */
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
 });
@@ -187,6 +189,8 @@ export const appointments = pgTable("appointments", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   taskId: uuid("task_id").references(() => tasks.id, { onDelete: "cascade" }),
+  /** null: shared project appointment; otherwise visible only to this person. */
+  ownerId: uuid("owner_id").references(() => users.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
   endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
@@ -196,6 +200,8 @@ export const appointments = pgTable("appointments", {
 }, (t) => [
   index("appointments_project_start_idx").on(t.projectId, t.startsAt),
   index("appointments_task_idx").on(t.taskId),
+  index("appointments_owner_start_idx").on(t.ownerId, t.startsAt),
+  check("appointments_private_task_ck", sql`${t.ownerId} is null or ${t.taskId} is not null`),
   check("appointments_dates_ck", sql`${t.endsAt} > ${t.startsAt}`),
 ]);
 

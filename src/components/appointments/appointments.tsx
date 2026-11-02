@@ -39,6 +39,7 @@ export function Appointments(props: Props) {
           return (
             <li key={entry.id} id={entry.id} className="scroll-mt-6 space-y-2 rounded-lg border p-3 text-sm target:ring-2 target:ring-ring">
               <p className="font-medium">{entry.title}</p>
+              {entry.isPersonal && <p className="text-xs text-muted-foreground">Privater Zeitblock · nur für dich</p>}
               <p className="text-muted-foreground">
                 <time dateTime={entry.startsAt}>{formatDate(start.slice(0, 10))}, {start.slice(11)}</time>
                 {" – "}<time dateTime={entry.endsAt}>{start.slice(0, 10) !== end.slice(0, 10) ? `${formatDate(end.slice(0, 10))}, ` : ""}{end.slice(11)}</time>
@@ -80,7 +81,7 @@ function AppointmentForm(props: { projectId: string; taskId?: string; tasks: Tas
         const data = new FormData(event.currentTarget);
         setError(null);
         startTransition(async () => {
-          const result = await saveAppointmentAction({ projectId: props.projectId, taskId: taskId || null,
+          const result = await saveAppointmentAction({ projectId: props.projectId, taskId: taskId || null, personal: initial?.isPersonal ?? false,
             title: String(data.get("title") ?? ""), startsAt: String(data.get("startsAt") ?? ""),
             endsAt: String(data.get("endsAt") ?? ""), location: String(data.get("location") ?? "") }, initial?.id);
           if (result.ok) { toast.success(initial ? "Termin gespeichert" : "Termin angelegt"); props.onClose(); }
